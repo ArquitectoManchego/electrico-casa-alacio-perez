@@ -1,0 +1,216 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #0a0f1d;
+  color: #f1f5f9;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0f1d;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Glassmorphism styling */
+.glass-panel {
+  background: rgba(19, 28, 49, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-panel-hover:hover {
+  background: rgba(19, 28, 49, 0.7);
+  border-color: rgba(20, 184, 166, 0.3);
+  box-shadow: 0 10px 30px -10px rgba(20, 184, 166, 0.15);
+}
+
+.glass-input {
+  background: rgba(10, 15, 29, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+  transition: all 0.2s ease-in-out;
+}
+.glass-input:focus {
+  outline: none;
+  border-color: rgba(20, 184, 166, 0.5);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2);
+  background: rgba(10, 15, 29, 0.7);
+}
+
+/* Micro-animations */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(0.98); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
+
+.glow-teal {
+  box-shadow: 0 0 25px -5px rgba(20, 184, 166, 0.4);
+}
+
+.glow-amber {
+  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.4);
+}
+
+.glow-red {
+  box-shadow: 0 0 25px -5px rgba(239, 68, 68, 0.4);
+}
+
+/* Optimización de impresión para reportes corporativos UVIE */
+/* Named page layout to print wide tables in landscape orientation while keeping other pages in portrait */
+@page landscape-sheet {
+  size: landscape;
+  margin: 1cm;
+}
+
+/* Optimización de impresión para reportes corporativos UVIE */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 10pt !important;
+  }
+
+  /* Ocultar elementos interactivos, formularios e insignias */
+  .no-print,
+  header,
+  footer,
+  button,
+  form,
+  .lg\:col-span-4,
+  input[type="checkbox"],
+  .border-rose-500\/20,
+  label {
+    display: none !important;
+  }
+
+  /* Mostrar inputs y selects como texto plano en impresión */
+  input, select, textarea {
+    display: inline-block !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    background: transparent !important;
+    border: none !important;
+    font-weight: bold !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    text-align: inherit !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  /* Forzar visualización de Cuadro de Cargas y Simulaciones en ancho completo */
+  .lg\:col-span-8,
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Estilo para rotar secciones específicas a horizontal (Landscape) */
+  .print-landscape-page {
+    page: landscape-sheet !important;
+    page-break-before: always !important;
+    page-break-after: always !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    background-color: #ffffff !important;
+  }
+
+  /* Formatear paneles a blanco y negro con bordes visibles */
+  .glass-panel {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+    border-radius: 8px !important;
+  }
+
+  table {
+    border: 1.5px solid #000000 !important;
+    border-collapse: collapse !important;
+    color: #000000 !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    padding: 4px 6px !important;
+    font-size: 8.5px !important;
+  }
+
+  th {
+    background-color: #eaeaea !important;
+    background: #eaeaea !important;
+    font-weight: bold !important;
+  }
+
+  /* Forzar colores de texto a negro */
+  .text-white, 
+  .text-slate-100, 
+  .text-slate-200, 
+  .text-slate-300, 
+  .text-slate-400, 
+  .text-slate-500,
+  h1, h2, h3, h4, span, p, div {
+    color: #000000 !important;
+  }
+
+  .text-cyan-400, 
+  .text-amber-400, 
+  .text-emerald-400, 
+  .text-red-400, 
+  .text-rose-400 {
+    color: #000000 !important;
+    font-weight: bold !important;
+  }
+
+  /* Evitar saltos de página a mitad de tablas o gráficos */
+  .page-break-avoid {
+    page-break-inside: avoid;
+  }
+}
+
