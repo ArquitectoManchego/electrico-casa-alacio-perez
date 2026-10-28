@@ -3,6 +3,7 @@ import {
   getFirestore, 
   collection, 
   getDocs, 
+  getDoc,
   addDoc, 
   updateDoc, 
   deleteDoc, 
@@ -54,6 +55,10 @@ export const DEFAULT_PROJECTS_LIST = [
 export const DEFAULT_PROJECT = DEFAULT_PROJECTS_LIST[0];
 const STORAGE_PROJECTS_KEY = 'electrico_casa_proyectos_lista';
 
+export const DEFAULT_MEDIDORES = [
+  { id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }
+];
+
 // Generador de semillas de inventario para cada negocio
 function generarSeedAparatos(proyectoId) {
   const formatearAp = (item) => {
@@ -81,6 +86,7 @@ function generarSeedAparatos(proyectoId) {
       kaic: '10 kA',
       factorTemperatura: 1.0,
       factorAgrupamiento: 1.0,
+      medidorId: item.medidorId || 'med_1',
       variantes: [baseVariant],
       activaVariantId: 'default',
       ...item
@@ -162,15 +168,15 @@ function generarSeedAparatos(proyectoId) {
 
   // Proyecto Maestro: Consorcio General (Inmueble Completo)
   const consolidado = [
-    ...imperiaList.map(x => ({ ...x, tipo: '[Imperia] ' + x.tipo })),
-    ...papeleriaList.map(x => ({ ...x, tipo: '[Papelería] ' + x.tipo })),
-    ...hawaiianList.map(x => ({ ...x, tipo: '[Hawaiian] ' + x.tipo })),
-    ...bordadosList.map(x => ({ ...x, tipo: '[Bordados] ' + x.tipo })),
-    ...costuraList.map(x => ({ ...x, tipo: '[Costura] ' + x.tipo })),
-    ...publiList.map(x => ({ ...x, tipo: '[Publi-Imperia] ' + x.tipo })),
-    ...oficinasList.map(x => ({ ...x, tipo: '[Consorcio] ' + x.tipo })),
-    { id: 'gen_1', tipo: '[Servicios] Bomba Presurizadora / Hidroneumático (1 HP)', modelo: 'Bomba 1 HP 127V', watts: 850, fp: 0.82, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 600, vidaUtil: 7 },
-    { id: 'gen_2', tipo: '[Servicios] Contactos GFCI Sanitarios y Pasillos', modelo: 'Receptáculos GFCI 20A', watts: 1800, fp: 1.0, tipoCarga: 'monofasica', fase: 'C', horasAlta: 2, precio: 3200, mantenimiento: 300, vidaUtil: 15 }
+    ...imperiaList.map(x => ({ ...x, tipo: '[Imperia] ' + x.tipo, medidorId: 'med_1' })),
+    ...papeleriaList.map(x => ({ ...x, tipo: '[Papelería] ' + x.tipo, medidorId: 'med_1' })),
+    ...hawaiianList.map(x => ({ ...x, tipo: '[Hawaiian] ' + x.tipo, medidorId: 'med_1' })),
+    ...bordadosList.map(x => ({ ...x, tipo: '[Bordados] ' + x.tipo, medidorId: 'med_2' })),
+    ...costuraList.map(x => ({ ...x, tipo: '[Costura] ' + x.tipo, medidorId: 'med_2' })),
+    ...publiList.map(x => ({ ...x, tipo: '[Publi-Imperia] ' + x.tipo, medidorId: 'med_3' })),
+    ...oficinasList.map(x => ({ ...x, tipo: '[Consorcio] ' + x.tipo, medidorId: 'med_3' })),
+    { id: 'gen_1', tipo: '[Servicios] Bomba Presurizadora / Hidroneumático (1 HP)', modelo: 'Bomba 1 HP 127V', watts: 850, fp: 0.82, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 600, vidaUtil: 7, medidorId: 'med_3' },
+    { id: 'gen_2', tipo: '[Servicios] Contactos GFCI Sanitarios y Pasillos', modelo: 'Receptáculos GFCI 20A', watts: 1800, fp: 1.0, tipoCarga: 'monofasica', fase: 'C', horasAlta: 2, precio: 3200, mantenimiento: 300, vidaUtil: 15, medidorId: 'med_3' }
   ];
 
   return consolidado.map(formatearAp);
@@ -229,6 +235,9 @@ const localStore = {
           ap.variantes = [baseVariant];
           ap.activaVariantId = 'default';
         }
+        if (!ap.medidorId) {
+          ap.medidorId = 'med_1';
+        }
         return ap;
       });
     } catch (e) {
@@ -238,6 +247,30 @@ const localStore = {
   saveAparatos: (proyectoId, data) => {
     try {
       localStorage.setItem('electrico_casa_aparatos_' + proyectoId, JSON.stringify(data));
+    } catch (e) {}
+  },
+  getMedidores: (proyectoId) => {
+    try {
+      const data = localStorage.getItem('electrico_casa_medidores_' + proyectoId);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      if (proyectoId === 'consorcio_general') {
+        return [
+          { id: 'med_1', numero: 1, nombre: 'Medidor 1 (Showroom y Alimentos)', forzarTrifasico: false },
+          { id: 'med_2', numero: 2, nombre: 'Medidor 2 (Talleres Textiles)', forzarTrifasico: false },
+          { id: 'med_3', numero: 3, nombre: 'Medidor 3 (Gráficos y Oficinas)', forzarTrifasico: false }
+        ];
+      }
+      return [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+    } catch (e) {
+      return [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+    }
+  },
+  saveMedidores: (proyectoId, medidores) => {
+    try {
+      localStorage.setItem('electrico_casa_medidores_' + proyectoId, JSON.stringify(medidores));
     } catch (e) {}
   }
 };
@@ -326,6 +359,10 @@ export const dbService = {
     });
 
     await this.guardarTodosLosAparatos(nuevoProj.id, aparatosClonados);
+
+    const medidoresExistentes = await this.getMedidores(proyectoId);
+    await this.saveMedidores(nuevoProj.id, medidoresExistentes);
+
     return nuevoProj;
   },
 
@@ -346,7 +383,40 @@ export const dbService = {
     const filtrados = lista.filter(p => p.id !== proyectoId);
     localStore.saveProyectos(filtrados);
     localStorage.removeItem('electrico_casa_aparatos_' + proyectoId);
+    localStorage.removeItem('electrico_casa_medidores_' + proyectoId);
     return true;
+  },
+
+  // --- GESTIÓN DE MEDIDORES POR PROYECTO ---
+
+  async getMedidores(proyectoId) {
+    if (db) {
+      try {
+        const docSnap = await getDoc(doc(db, 'proyectos_residenciales', proyectoId));
+        if (docSnap.exists() && docSnap.data().medidores) {
+          const m = docSnap.data().medidores;
+          if (Array.isArray(m) && m.length > 0) {
+            localStore.saveMedidores(proyectoId, m);
+            return m;
+          }
+        }
+      } catch (error) {
+        console.warn('Error leyendo medidores de Firestore, usando localStore:', error);
+      }
+    }
+    return localStore.getMedidores(proyectoId);
+  },
+
+  async saveMedidores(proyectoId, medidores) {
+    localStore.saveMedidores(proyectoId, medidores);
+    if (db) {
+      try {
+        await updateDoc(doc(db, 'proyectos_residenciales', proyectoId), { medidores });
+      } catch (error) {
+        console.warn('Error guardando medidores en Firestore:', error);
+      }
+    }
+    return medidores;
   },
 
   // --- GESTIÓN DE APARATOS POR PROYECTO ---
@@ -378,6 +448,9 @@ export const dbService = {
             };
             ap.variantes = [baseVariant];
             ap.activaVariantId = 'default';
+          }
+          if (!ap.medidorId) {
+            ap.medidorId = 'med_1';
           }
           aparatos.push(ap);
         });

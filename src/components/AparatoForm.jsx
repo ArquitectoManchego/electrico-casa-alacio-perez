@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, RefreshCw, Layers, Clock, AlertTriangle, ShieldCheck, HeartPulse, HelpCircle } from 'lucide-react';
+import { PlusCircle, RefreshCw, Layers, Clock, AlertTriangle, ShieldCheck, HeartPulse, HelpCircle, Gauge } from 'lucide-react';
 import { determinarAcometida, obtenerFaseGreedy } from '../utils/electricalCalculations';
 import { CATALOGO_RESIDENCIAL } from '../utils/catalogoAparatos';
 
@@ -43,14 +43,25 @@ export default function AparatoForm({
   aparatos, 
   onAddAparato,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  medidores = [],
+  currentMedidorId = null
 }) {
   const [presetIndex, setPresetIndex] = useState(0);
-  const [formData, setFormData] = useState({ ...PRESETS[0] });
+  const [formData, setFormData] = useState({ 
+    ...PRESETS[0],
+    medidorId: currentMedidorId || medidores[0]?.id || 'med_1'
+  });
   const [selectedFase, setSelectedFase] = useState('A');
   const [faseSugerida, setFaseSugerida] = useState('A');
   const [projectedAcometida, setProjectedAcometida] = useState(determinarAcometida(0));
   const [timeWarning, setTimeWarning] = useState('');
+
+  useEffect(() => {
+    if (currentMedidorId) {
+      setFormData(prev => ({ ...prev, medidorId: currentMedidorId }));
+    }
+  }, [currentMedidorId]);
 
   // Identificar si es refrigerador o congeladora
   const esEquipoCritico = (tipo) => {
@@ -240,8 +251,11 @@ export default function AparatoForm({
       criteriosMantenimiento: formData.criteriosMantenimiento || ''
     };
 
+    const targetMedidorId = formData.medidorId || currentMedidorId || medidores[0]?.id || 'med_1';
+
     onAddAparato({
       ...formData,
+      medidorId: targetMedidorId,
       horasAlta: finalHorasAlta,
       horasReposo: finalHorasReposo,
       fase: selectedFase,
@@ -250,7 +264,10 @@ export default function AparatoForm({
     });
 
     // Resetear formulario con el preset actual
-    setFormData({ ...PRESETS[presetIndex] });
+    setFormData({ 
+      ...PRESETS[presetIndex === 'custom' ? 0 : presetIndex],
+      medidorId: targetMedidorId
+    });
   };
 
   const renderFaseOptions = () => {
@@ -357,6 +374,28 @@ export default function AparatoForm({
             </option>
           </select>
         </div>
+
+        {/* Medidor CFE Asignado */}
+        {medidores && medidores.length > 1 && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase flex items-center gap-1.5">
+              <Gauge size={13} className="text-teal-400" />
+              Medidor CFE Asignado
+            </label>
+            <select
+              name="medidorId"
+              value={formData.medidorId || currentMedidorId || medidores[0]?.id || 'med_1'}
+              onChange={handleChange}
+              className="w-full px-3 py-2 rounded-lg glass-input text-xs font-bold text-teal-300 border-slate-800 bg-slate-900"
+            >
+              {medidores.map(m => (
+                <option key={m.id} value={m.id} className="bg-slate-900 text-white font-bold">
+                  Medidor {m.numero}: {m.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Inputs Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

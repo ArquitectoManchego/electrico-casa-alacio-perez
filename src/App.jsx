@@ -26,8 +26,13 @@ import {
   calcularCorrienteCorregida, 
   seleccionarProteccion, 
   seleccionarConductor, 
-  calcularDesbalanceUVIE 
+  calcularDesbalanceUVIE,
+  calcularAlimentadorGeneral,
+  calcularCaidaTension
 } from './utils/ecuacionesUVIE';
+import { agruparCircuitos, aplicarDistribucion, actualizarAparatoEnCircuito } from './utils/circuitDistribution.js';
+import { buildPlanoDocumentModel } from './utils/planoDocumentModel';
+import { generarDxfProyecto, descargarArchivoDxf } from './utils/dxfGenerator';
 import { 
   calcularKwhDiarioAparato, 
   calcularCobroMarginal,
@@ -46,6 +51,7 @@ import TableroVisual from './components/TableroVisual';
 import DiagramaUnifilarCAD from './components/DiagramaUnifilarCAD';
 import BalanceadorTablero from './components/BalanceadorTablero';
 import PoliticasEficiencia from './components/PoliticasEficiencia';
+import ModuloPieDePlano from './components/ModuloPieDePlano';
 
 function AddVariantForm({ onSave, onCancel }) {
   const [vData, setVData] = useState({
@@ -352,6 +358,52 @@ export default function App() {
   const [cajetinPropietario, setCajetinPropietario] = useState("Consorcio Gallegos González / Familia Alacio Pérez");
   const [cajetinElectricista, setCajetinElectricista] = useState("Ing. Electricista UVIE");
   const [cajetinEscala, setCajetinEscala] = useState("S/E");
+
+  // Multi-medidor state
+  const [medidores, setMedidores] = useState([
+    { id: 'med_1', numero: 1, nombre: 'Medidor 1: Imperia Uniformes & Cafetería', forzarTrifasico: false },
+    { id: 'med_2', numero: 2, nombre: 'Medidor 2: Bordados & Taller de Costura', forzarTrifasico: false },
+    { id: 'med_3', numero: 3, nombre: 'Medidor 3: Papelería, Consorcio & Promocionales', forzarTrifasico: false }
+  ]);
+  const [activeMedidorId, setActiveMedidorId] = useState('med_1');
+
+  // Metadatos de lámina de plano CAD 90x60
+  const [planoMetadata, setPlanoMetadata] = useState({
+    proyecto: "CASA ALACIO PÉREZ",
+    nombreComercial: "Casa Alacio Pérez (Multi-Negocios)",
+    cliente: "CONSORCIO GALLEGOS GONZÁLEZ / FAMILIA ALACIO PÉREZ",
+    plaza: "ZONA CENTRO",
+    local: "INMUEBLE MIXTO",
+    ubicacion: "Av. Salvador Díaz Mirón #1240, Col. Centro, Veracruz, Ver.",
+    ciudad: "Veracruz",
+    estado: "Veracruz",
+    fecha: new Date().toLocaleDateString('es-MX'),
+    etapa: "PROYECTO EJECUTIVO",
+    escala: "S/E",
+    cotas: "METROS",
+    tipoPlano: "INST. ELÉCTRICA",
+    dibujo: "DEPTO. DE INGENIERÍA",
+    reviso: "ING. PROYECTISTA",
+    responsable: "____________________",
+    cedula: "____________________",
+    norteAngulo: 0,
+    numeroPlano: "IE-01",
+    numeroPlanoCuadro: "IE-02",
+    revision: "REV. 0",
+    observaciones: "Instalación mixta calculada bajo NOM-001-SEDE-2012. Tensión 220/127V. Multi-medidor con centros de carga independientes. Circuitos derivados en tubería EMT de 16 mm (1/2\") y 21 mm (3/4\").",
+    factorDemanda: 1.0
+  });
+
+  const handleUpdatePlanoMetadata = (partial) => {
+    setPlanoMetadata(prev => {
+      const updated = { ...prev, ...partial };
+      if (currentProyectoId) {
+        localStorage.setItem(`plano_metadata_${currentProyectoId}`, JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
   const [checklist, setChecklist] = useState({
     // Criterios de la Fase 2
     licuadoraVa1500: false,
@@ -519,6 +571,15 @@ export default function App() {
         if (cambioDetectado) {
           await dbService.guardarTodosLosAparatos(currentProyectoId, migratedData);
         }
+
+        // Cargar medidores para este proyecto
+        const mList = await dbService.getMedidores(currentProyectoId);
+        if (Array.isArray(mList) && mList.length > 0) {
+          setMedidores(mList);
+          if (!mList.some(m => m.id === activeMedidorId)) {
+            setActiveMedidorId(mList[0].id);
+          }
+        }
       } catch (error) {
         console.error('Error cargando aparatos:', error);
       } finally {
@@ -527,11 +588,12 @@ export default function App() {
     }
     loadData();
   }, [currentProyectoId]);
-  // 1. Calcular la potencia activa total (Watts) para determinar la acometida CFE
+  // 1. Potencia activa total (Watts) y aparente total (VA) de todo el proyecto
   const totalWatts = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
+  const totalVAProyecto = aparatos.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
   const currentAcometida = determinarAcometida(totalWatts, forzarTrifasico);
 
-  // 2. Sumar Watts y VA por Fase (repartiendo de forma equitativa cargas bifásicas/trifásicas)
+  // 2. Sumar Watts y VA por Fase globales
   const fasesLoad = { A: 0, B: 0, C: 0 };
   const fasesVA = { A: 0, B: 0, C: 0 };
 
@@ -579,12 +641,283 @@ export default function App() {
     currentAcometida.id
   );
 
-  // 4. Calcular el Consumo de Energía Bimestral Bruto (kWh)
+  // 4. Mapa de cálculos independientes por medidor CFE
+  const medidoresData = useMemo(() => {
+    const map = {};
+    const lista = Array.isArray(medidores) && medidores.length > 0
+      ? medidores
+      : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+
+    lista.forEach(med => {
+      const apsMed = aparatos.filter(ap => (ap.medidorId || lista[0].id) === med.id);
+      const wTotal = apsMed.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
+      const vaTotal = apsMed.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
+      const acometidaMed = determinarAcometida(wTotal, med.forzarTrifasico);
+
+      const fLoad = { A: 0, B: 0, C: 0 };
+      const fVA = { A: 0, B: 0, C: 0 };
+
+      apsMed.forEach(ap => {
+        const w = parseFloat(ap.watts) || 0;
+        const fp = parseFloat(ap.fp) || 1.0;
+        const va = uvieCalcularVA(w, fp, ap.usarVaDirecto);
+
+        if (acometidaMed.id === 'monofasico') {
+          fLoad.A += w;
+          fVA.A += va;
+        } else if (ap.tipoCarga === 'trifasica' && acometidaMed.id === 'trifasico') {
+          fLoad.A += w / 3;
+          fLoad.B += w / 3;
+          fLoad.C += w / 3;
+          fVA.A += va / 3;
+          fVA.B += va / 3;
+          fVA.C += va / 3;
+        } else if (ap.tipoCarga === 'bifasica' && (acometidaMed.id === 'bifasico' || acometidaMed.id === 'trifasico')) {
+          const combo = ap.fase || 'A-B';
+          const parts = combo.split('-');
+          parts.forEach(p => {
+            if (fLoad[p] !== undefined) {
+              fLoad[p] += w / parts.length;
+              fVA[p] += va / parts.length;
+            }
+          });
+        } else {
+          let f = ap.fase;
+          if (!acometidaMed.fasesDisponibles.includes(f)) f = 'A';
+          fLoad[f] += w;
+          fVA[f] += va;
+        }
+      });
+
+      const desbal = calcularDesbalanceUVIE(fVA.A, fVA.B, fVA.C, acometidaMed.id);
+
+      map[med.id] = {
+        medidor: med,
+        aparatos: apsMed,
+        totalWatts: wTotal,
+        totalVA: vaTotal,
+        acometida: acometidaMed,
+        fasesLoad: fLoad,
+        fasesVA: fVA,
+        desbalanceUVIE: desbal,
+        forzarTrifasico: med.forzarTrifasico
+      };
+    });
+    return map;
+  }, [medidores, aparatos]);
+
+  // Operaciones de gestión multi-medidor
+  const handleSetCantidadMedidores = async (nuevaCantidad) => {
+    const qty = Math.max(1, Math.min(6, parseInt(nuevaCantidad) || 1));
+    let updated = [...medidores];
+    if (qty > updated.length) {
+      for (let i = updated.length + 1; i <= qty; i++) {
+        updated.push({
+          id: `med_${i}`,
+          numero: i,
+          nombre: `Medidor ${i}`,
+          forzarTrifasico: false
+        });
+      }
+    } else if (qty < updated.length) {
+      const maxId = updated[qty - 1]?.id || 'med_1';
+      const validIds = new Set(updated.slice(0, qty).map(m => m.id));
+      const reasignados = aparatos.map(ap => {
+        if (!validIds.has(ap.medidorId)) {
+          return { ...ap, medidorId: maxId };
+        }
+        return ap;
+      });
+      setAparatos(reasignados);
+      await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
+      updated = updated.slice(0, qty);
+    }
+    setMedidores(updated);
+    await dbService.saveMedidores(currentProyectoId, updated);
+  };
+
+  const handleAddMedidor = async () => {
+    const nextNum = medidores.length + 1;
+    if (nextNum > 6) return;
+    const nuevo = {
+      id: `med_${nextNum}`,
+      numero: nextNum,
+      nombre: `Medidor ${nextNum}`,
+      forzarTrifasico: false
+    };
+    const updated = [...medidores, nuevo];
+    setMedidores(updated);
+    await dbService.saveMedidores(currentProyectoId, updated);
+  };
+
+  const handleRemoveMedidor = async (medId) => {
+    if (medidores.length <= 1) return;
+    const remaining = medidores.filter(m => m.id !== medId);
+    const fallbackId = remaining[0].id;
+    const reasignados = aparatos.map(ap => {
+      if (ap.medidorId === medId) {
+        return { ...ap, medidorId: fallbackId };
+      }
+      return ap;
+    });
+    setAparatos(reasignados);
+    await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
+    setMedidores(remaining);
+    await dbService.saveMedidores(currentProyectoId, remaining);
+    if (activeMedidorId === medId) {
+      setActiveMedidorId(fallbackId);
+    }
+  };
+
+  const handleUpdateMedidor = async (medId, fields) => {
+    const updated = medidores.map(m => m.id === medId ? { ...m, ...fields } : m);
+    setMedidores(updated);
+    await dbService.saveMedidores(currentProyectoId, updated);
+  };
+
+  const handleToggleForzarTrifasicoMedidor = async (medId) => {
+    const target = medidores.find(m => m.id === medId);
+    if (!target) return;
+    await handleUpdateMedidor(medId, { forzarTrifasico: !target.forzarTrifasico });
+  };
+
+  const handleBalancearMedidor = (medId) => {
+    setActiveMedidorId(medId);
+    setActiveTab('balanceador');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleApplyBalancingToAparatos = async (balancedBreakers) => {
+    if (!currentProyectoId || !Array.isArray(balancedBreakers) || balancedBreakers.length === 0) return;
+    const updatedAps = aplicarDistribucion(aparatos, balancedBreakers, currentAcometida.fasesDisponibles);
+    setAparatos(updatedAps);
+    const saved = await dbService.guardarTodosLosAparatos(currentProyectoId, updatedAps);
+    return saved;
+  };
+
+  // Normalización unificada de todo el sistema eléctrico (Single Source of Truth)
+  const computedElectricalSystem = useMemo(() => {
+    const totalVA = aparatos.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
+    const alimPrincipal = calcularAlimentadorGeneral(totalVA, currentAcometida.id, alimentadorLongitud);
+    
+    const cargas = aparatos.map((ap, index) => {
+      const w = parseFloat(ap.watts) || 0;
+      const fp = parseFloat(ap.fp) || 1.0;
+      const va = uvieCalcularVA(w, fp, ap.usarVaDirecto);
+      const inNom = calcularCorrienteNominal(va, ap.tipoCarga);
+      const icCorr = calcularCorrienteCorregida(inNom);
+      
+      const autoProteccion = seleccionarProteccion(icCorr);
+      const activeProteccion = ap.overrideBreaker && ap.overrideBreaker !== 'Auto' ? parseInt(ap.overrideBreaker) : autoProteccion;
+
+      let autoConductor = seleccionarConductor(activeProteccion);
+      const longitud = ap.longitudMetros !== undefined ? parseFloat(ap.longitudMetros) : 15;
+
+      if (!ap.overrideCable || ap.overrideCable === 'Auto') {
+        const caidaBase = calcularCaidaTension(
+          longitud,
+          inNom,
+          currentAcometida.id === 'monofasico' ? 'monofasica' : ap.tipoCarga,
+          autoConductor
+        );
+        if ((alimPrincipal?.caida || 0) + caidaBase > 5.0) {
+          if (autoConductor === '14 AWG') autoConductor = '12 AWG';
+          else if (autoConductor === '12 AWG') autoConductor = '10 AWG';
+          else if (autoConductor === '10 AWG') autoConductor = '8 AWG';
+        }
+      }
+
+      const activeConductor = ap.overrideCable && ap.overrideCable !== 'Auto' ? ap.overrideCable : autoConductor;
+
+      const caidaDerivado = calcularCaidaTension(
+        longitud,
+        inNom,
+        currentAcometida.id === 'monofasico' ? 'monofasica' : ap.tipoCarga,
+        activeConductor
+      );
+
+      const caidaTotal = parseFloat(((alimPrincipal?.caida || 0) + caidaDerivado).toFixed(2));
+      const awg = activeConductor.split(' ')[0];
+      
+      let conductorStr = '';
+      let interruptorStr = '';
+      if (ap.tipoCarga === 'monofasica') {
+        conductorStr = `2 # ${awg} + 1 # ${awg} T`;
+        interruptorStr = `1x${activeProteccion}A`;
+      } else if (ap.tipoCarga === 'bifasica') {
+        conductorStr = `3 # ${awg} + 1 # ${awg} T`;
+        interruptorStr = `2x${activeProteccion}A`;
+      } else {
+        conductorStr = `4 # ${awg} + 1 # ${awg} T`;
+        interruptorStr = `3x${activeProteccion}A`;
+      }
+
+      return {
+        ...ap,
+        index,
+        num: `C-${index + 1}`,
+        desc: ap.tipo + (ap.modelo ? ` (${ap.modelo})` : ''),
+        watts: w,
+        fp,
+        va,
+        voltaje: ap.tipoCarga === 'monofasica' ? '127 V' : '220 V',
+        inNom,
+        icCorr,
+        breaker: activeProteccion,
+        interruptorStr,
+        conductor: activeConductor,
+        conductorStr,
+        longitudMetros: longitud,
+        caida: caidaDerivado,
+        caidaTotal,
+        isVdCritical: caidaTotal > 5.0,
+        isBranchCritical: caidaDerivado > 3.0
+      };
+    });
+
+    const circuitos = agruparCircuitos(cargas, alimPrincipal, currentAcometida.fasesDisponibles);
+    return {
+      cargas: circuitos.flatMap(c => c.loads),
+      totalWatts,
+      totalVA,
+      acometida: currentAcometida,
+      fasesLoad,
+      fasesVA,
+      desbalanceUVIE,
+      alimPrincipal,
+      circuitos
+    };
+  }, [aparatos, currentAcometida, alimentadorLongitud, totalWatts, fasesLoad, fasesVA, desbalanceUVIE]);
+
+  const handleExportarDxf = (opcion = 'ambas') => {
+    try {
+      const model = buildPlanoDocumentModel({
+        computedElectricalSystem,
+        aparatos,
+        planoMetadata
+      });
+      const cleanProj = (model.infoPlano.proyecto || 'Proyecto')
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .replace(/_+/g, '_');
+      const cleanPlaza = (model.infoPlano.plaza || 'Plaza')
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .replace(/_+/g, '_');
+      const sufijo = opcion === 'unifilar' ? '_IE-01_Unifilar' : opcion === 'cuadro' ? '_IE-02_Cuadro' : '_2Laminas';
+      const fileName = `Plano_Electrico_${cleanProj}_${cleanPlaza}${sufijo}.dxf`;
+      const dxfContent = generarDxfProyecto(model, opcion);
+      descargarArchivoDxf(dxfContent, fileName);
+    } catch (err) {
+      console.error('Error exportando AutoCAD DXF:', err);
+      alert(`Error al generar AutoCAD DXF: ${err.message || err}`);
+    }
+  };
+
+  // 5. Calcular el Consumo de Energía Bimestral Bruto (kWh)
   const totalKwhDiario = aparatos.reduce((sum, ap) => sum + calcularKwhDiarioAparato(ap), 0);
   const activeKwhDiario = salesKwhDiario !== null ? salesKwhDiario : totalKwhDiario;
   const kwhBimestralTotal = activeKwhDiario * 60; // Ciclo bimensual CFE
 
-  // 5. Calcular la tarifa promedio actual de CFE ($ / kWh) para alimentar el Ciclo de Vida
+  // 6. Calcular la tarifa promedio actual de CFE ($ / kWh) para alimentar el Ciclo de Vida
   const cfeDesgloseCompleto = calcularCobroCFECompleto(kwhBimestralTotal, tarifas, costosMEM);
   const costoKwhPromedio = kwhBimestralTotal > 0 ? (cfeDesgloseCompleto.factura.subtotal / kwhBimestralTotal) : 3.80;
 
@@ -1348,6 +1681,18 @@ export default function App() {
         <Sliders size={14} />
         Balance de Tablero
       </button>
+
+      <button
+        onClick={() => setActiveTab('piePlano')}
+        className={`py-3.5 px-1 text-xs uppercase tracking-wider font-bold border-b-2 transition-all flex items-center gap-2 ${
+          activeTab === 'piePlano'
+            ? 'border-teal-400 text-teal-400'
+            : 'border-transparent text-slate-400 hover:text-slate-200'
+        }`}
+      >
+        <FileSpreadsheet size={14} />
+        Plano CAD 90x60
+      </button>
     </div>
   </div>
 
@@ -1373,6 +1718,15 @@ export default function App() {
               {/* Estatus CFE */}
               <div className="page-break-avoid">
                 <AcometidaCard 
+                  totalWattsProyecto={totalWatts}
+                  totalVAProyecto={totalVAProyecto}
+                  medidores={medidores}
+                  medidoresData={medidoresData}
+                  onSetCantidadMedidores={handleSetCantidadMedidores}
+                  onAddMedidor={handleAddMedidor}
+                  onRemoveMedidor={handleRemoveMedidor}
+                  onUpdateMedidor={handleUpdateMedidor}
+                  onToggleForzarTrifasicoMedidor={handleToggleForzarTrifasicoMedidor}
                   tipoSystem={currentAcometida}
                   fasesLoad={fasesLoad}
                   fasesVA={fasesVA}
@@ -1389,7 +1743,7 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
                   <div>
                     <h2 className="text-base font-bold text-white font-display">Cuadro de Cargas Normativo</h2>
-                    <p className="text-xs text-slate-500">Calculado bajo NOM-001-SEDE.</p>
+                    <p className="text-xs text-slate-500">Calculado bajo NOM-001-SEDE. Agrupado por medidores independientes.</p>
                   </div>
                   
                   {/* Botones de Exportación */}
@@ -1413,6 +1767,16 @@ export default function App() {
                       <FileSpreadsheet size={14} />
                       Exportar CAD (CSV)
                     </button>
+
+                    {/* Botón DXF AutoCAD */}
+                    <button
+                      onClick={() => handleExportarDxf('ambas')}
+                      className="px-3 py-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
+                      title="Descargar láminas completas en archivo .DXF compatible con AutoCAD"
+                    >
+                      <FileSpreadsheet size={14} />
+                      AutoCAD (DXF)
+                    </button>
                   </div>
                 </div>
 
@@ -1431,9 +1795,11 @@ export default function App() {
                     onDeleteAparato={handleDeleteAparato}
                     onUpdateAparatoProps={handleUpdateAparatoProps}
                     onBalancearFases={handleBalancearFases}
+                    onBalancearMedidor={handleBalancearMedidor}
                     balancingConfigsCount={balancingConfigs.length}
                     fasesUnit={fasesUnit}
                     onChangeFasesUnit={handleCycleFasesUnit}
+                    medidores={medidores}
                   />
                 )}
               </div>
@@ -1636,6 +2002,8 @@ export default function App() {
                 onCostosMEMChange={handleCostosMEMChange}
                 diasPeriodo={diasPeriodo}
                 onDiasPeriodoChange={setDiasPeriodo}
+                medidores={medidores}
+                aparatos={aparatos}
               />
             </div>
           )}
@@ -1698,9 +2066,11 @@ export default function App() {
               <CuadroCargasUVIE 
                 aparatos={aparatos}
                 acometida={currentAcometida}
+                medidores={medidores}
                 fasesUnit={fasesUnit}
                 onChangeFasesUnit={handleCycleFasesUnit}
                 onBalancearFases={handleBalancearFases}
+                onBalancearMedidor={handleBalancearMedidor}
                 balancingConfigsCount={balancingConfigs.length}
               />
             </div>
@@ -1736,6 +2106,8 @@ export default function App() {
             <div className="space-y-6 animate-fadeIn">
               <DiagramaUnifilarCAD 
                 aparatos={aparatos}
+                computedCircuits={computedElectricalSystem.circuitos}
+                alimPrincipal={computedElectricalSystem.alimPrincipal}
                 acometida={currentAcometida}
                 proyecto={{
                   nombre: cajetinProyecto,
@@ -1766,16 +2138,31 @@ export default function App() {
                 </h2>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed font-sans">
                   Distribuye automáticamente los aparatos en interruptores termomagnéticos usando algoritmo matemático greedy o Inteligencia Artificial (Gemini).
-                  Garantiza desbalanceo ≤ 5% entre fases según normativa UVIE y NOM-001-SEDE-2012.
+                  Garantiza desbalanceo ≤ 5% entre fases según normativa UVIE y NOM-001-SEDE-2012 para cada medidor independiente.
                 </p>
               </div>
               <BalanceadorTablero
                 aparatos={aparatos}
-                onUpdateAparato={handleUpdateAparatoProps}
+                onApplyBalancing={handleApplyBalancingToAparatos}
                 acometida={currentAcometida}
                 proyectoId={currentProyectoId}
+                computedElectricalSystem={computedElectricalSystem}
+                medidores={medidores}
+                activeMedidorId={activeMedidorId}
+                onSelectMedidor={setActiveMedidorId}
               />
             </div>
+          )}
+
+          {/* PESTAÑA 9: PIE DE PLANO CAD Y PREVISUALIZACIÓN 90X60 */}
+          {activeTab === 'piePlano' && (
+            <ModuloPieDePlano
+              computedElectricalSystem={computedElectricalSystem}
+              aparatos={aparatos}
+              planoMetadata={planoMetadata}
+              onUpdatePlanoMetadata={handleUpdatePlanoMetadata}
+              onExportDxf={(opcion) => handleExportarDxf(opcion)}
+            />
           )}
 
           {/* PESTAÑA 2: VISTA DE CICLO DE VIDA (MODO VERSUS Y COMPETENCIA) */}
@@ -1986,6 +2373,8 @@ export default function App() {
                 onAddAparato={handleAddAparato}
                 isCollapsed={isFormCollapsed}
                 onToggleCollapse={() => setIsFormCollapsed(true)}
+                medidores={medidores}
+                currentMedidorId={activeMedidorId}
               />
             </div>
           </div>

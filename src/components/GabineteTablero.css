@@ -1,0 +1,50 @@
+.cabinet-view {
+  border: 1px solid #1e293b;
+  border-radius: 20px;
+  background: #060b13;
+  color: #d7e2ed;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+}
+
+.cabinet-heading {
+  background: linear-gradient(135deg, #090e17 0%, #0f172a 50%, #090e17 100%);
+}
+
+.cabinet-breaker-interactive {
+  user-select: none;
+  transition: opacity 0.25s ease, transform 0.15s ease, filter 0.15s ease;
+}
+
+.cabinet-breaker-interactive:hover {
+  filter: drop-shadow(0 4px 12px rgba(45, 212, 191, 0.45));
+}
+
+.cabinet-breaker-interactive:active {
+  cursor: grabbing;
+}
+
+.breaker-amperage-face text {
+  user-select: none;
+  pointer-events: none;
+}
+
+.cabinet-slot-grid rect:hover {
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.5));
+}
+
+/* Scrollbar estilizada para el gabinete */
+.cabinet-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.cabinet-scroll::-webkit-scrollbar-track {
+  background: #060b13;
+}
+.cabinet-scroll::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+.cabinet-scroll::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}

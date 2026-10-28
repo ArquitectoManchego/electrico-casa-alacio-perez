@@ -152,32 +152,73 @@ export function obtenerSeccionConductor(conductorStr) {
 }
 
 /**
- * Calcula la caída de tensión como porcentaje.
+ * Calcula la caída de tensión porcentual bajo la NOM-001-SEDE.
+ * 
+ * Fórmulas normalizadas (con resistividad de cobre comercial a 60-75°C rho ≈ 0.02 Ω·mm²/m):
+ * - Monofásica (127V):  %e = (4 * L * I) / (127 * S)
+ * - Bifásica (220V):    %e = (4 * L * I) / (220 * S)  [circuito a 2 fases, trayecto ida y vuelta 2L]
+ * - Trifásica (220V):   %e = (3.464 * L * I) / (220 * S) [sqrt(3) * rho * 100 = 3.464]
+ * 
+ * NOTA CRÍTICA DE ESCALA:
+ * La fórmula empírica (4*L*I)/(V*S) ya incluye el factor 100 implícito (0.04 * 100 = 4)
+ * para arrojar directamente el porcentaje (ej. 0.66%). NO se debe multiplicar por 100 al final.
+ * 
  * @param {number} longitud - Longitud en metros.
- * @param {number} iCorregida - Corriente corregida (Ic) en Amperes.
+ * @param {number} corriente - Corriente de operación en Amperes (por norma se usa In para caída de tensión).
  * @param {string} tipoCarga - 'monofasica', 'bifasica' o 'trifasica'.
- * @param {string} conductorStr - Calibre del conductor.
- * @returns {number} Porcentaje de caída de tensión.
+ * @param {string} conductorStr - Calibre del conductor (ej: "14 AWG").
+ * @returns {number} Porcentaje de caída de tensión (%e).
  */
-export function calcularCaidaTension(longitud, iCorregida, tipoCarga, conductorStr) {
+export function calcularCaidaTension(longitud, corriente, tipoCarga, conductorStr) {
   const L = parseFloat(longitud) || 0;
-  const Ic = parseFloat(iCorregida) || 0;
+  const I = parseFloat(corriente) || 0;
   const S = obtenerSeccionConductor(conductorStr);
   
-  if (L <= 0 || Ic <= 0 || S <= 0) return 0;
+  if (L <= 0 || I <= 0 || S <= 0) return 0;
   
   let caida = 0;
   if (tipoCarga === 'monofasica') {
-    caida = (4 * L * Ic) / (127 * S) * 100;
+    caida = (4 * L * I) / (127 * S);
   } else if (tipoCarga === 'bifasica') {
-    caida = (2 * L * Ic) / (220 * S) * 100;
+    caida = (4 * L * I) / (220 * S);
   } else if (tipoCarga === 'trifasica') {
-    caida = (1.732 * L * Ic) / (220 * S) * 100;
+    caida = (3.4641 * L * I) / (220 * S);
   } else {
-    caida = (4 * L * Ic) / (127 * S) * 100;
+    caida = (4 * L * I) / (127 * S);
   }
   
+  // Sanity Check automático de rango físico
+  if (isNaN(caida) || !isFinite(caida) || caida < 0) return 0;
+  
   return parseFloat(caida.toFixed(2));
+}
+
+/**
+ * Valida la sanidad física y límites normativos de un cálculo eléctrico.
+ * @param {object} calculo - Objeto con { caida, fp, watts, voltaje }
+ * @returns {Array<string>} Lista de advertencias o errores detectados.
+ */
+export function validarSanidadElectrica(calculo) {
+  const warnings = [];
+  if (!calculo) return warnings;
+  
+  const caida = parseFloat(calculo.caida);
+  if (isNaN(caida) || !isFinite(caida)) {
+    warnings.push('Error: Porcentaje de caída de tensión no es un número válido.');
+  } else if (caida > 20.0) {
+    warnings.push(`Advertencia Crítica: Caída de tensión físicamente excesiva (${caida.toFixed(2)}%). Revise longitud o calibre.`);
+  } else if (caida < 0) {
+    warnings.push('Error: Caída de tensión negativa detectada.');
+  }
+  
+  if (calculo.fp !== undefined) {
+    const fp = parseFloat(calculo.fp);
+    if (isNaN(fp) || fp <= 0 || fp > 1.0) {
+      warnings.push(`Advertencia: Factor de potencia fuera de norma (0.01 - 1.0): ${calculo.fp}`);
+    }
+  }
+  
+  return warnings;
 }
 
 /**
@@ -193,6 +234,49 @@ export function seleccionarConductorDeTierra(breakerAmps) {
   if (b <= 60) return '10 AWG';
   if (b <= 100) return '8 AWG';
   if (b <= 200) return '6 AWG';
+  return '4 AWG';
+}
+
+/**
+ * Áreas nominales de la sección transversal de conductores de cobre (mm²)
+ * Conforme a NOM-001-SEDE-2012 Capítulo 10, Tabla 8.
+ */
+export const AREAS_CONDUCTOR_NOM = {
+  '14 AWG': 2.08,
+  '12 AWG': 3.31,
+  '10 AWG': 5.26,
+  '8 AWG': 8.37,
+  '6 AWG': 13.30,
+  '4 AWG': 21.15,
+  '3 AWG': 26.67,
+  '2 AWG': 33.62,
+  '1 AWG': 42.41,
+  '1/0 AWG': 53.49,
+  '2/0 AWG': 67.43,
+  '3/0 AWG': 85.01,
+  '4/0 AWG': 107.2
+};
+
+/**
+ * Ajusta el Conductor de Puesta a Tierra del Equipo (C.P.T.) conforme al Artículo 250-122(b)
+ * de la NOM-001-SEDE-2012 cuando los conductores de fase se incrementan por caída de tensión.
+ */
+export function ajustarConductorTierraPorArt250_122(tierraBase, conductorBase, conductorAumentado) {
+  const aBase = AREAS_CONDUCTOR_NOM[conductorBase] || 13.30;
+  const aAum = AREAS_CONDUCTOR_NOM[conductorAumentado] || aBase;
+  const aTierraBase = AREAS_CONDUCTOR_NOM[tierraBase] || 5.26;
+  
+  if (aAum <= aBase) return tierraBase;
+  
+  const factor = aAum / aBase;
+  const aTierraReq = aTierraBase * factor;
+  
+  const ordenCalibres = ['14 AWG', '12 AWG', '10 AWG', '8 AWG', '6 AWG', '4 AWG', '3 AWG', '2 AWG', '1/0 AWG', '2/0 AWG', '3/0 AWG', '4/0 AWG'];
+  for (const cal of ordenCalibres) {
+    if ((AREAS_CONDUCTOR_NOM[cal] || 0) >= aTierraReq - 0.05) {
+      return cal;
+    }
+  }
   return '4 AWG';
 }
 
