@@ -66,7 +66,7 @@ export default function AcometidaCard({
               onChange={(e) => onSetCantidadMedidores && onSetCantidadMedidores(parseInt(e.target.value))}
               className="px-3 py-1.5 rounded-lg glass-input text-xs font-bold text-white bg-slate-900 border-slate-700"
             >
-              {[1, 2, 3, 4, 5, 6].map(num => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
                 <option key={num} value={num} className="bg-slate-900 text-white">
                   {num} {num === 1 ? 'Medidor CFE' : 'Medidores CFE'}
                 </option>

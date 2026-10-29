@@ -59,6 +59,15 @@ export const DEFAULT_MEDIDORES = [
   { id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }
 ];
 
+export const DEFAULT_MEDIDORES_CONSORCIO = [
+  { id: 'med_1', numero: 1, nombre: 'Imperia Uniformes', forzarTrifasico: false },
+  { id: 'med_2', numero: 2, nombre: 'Papelería ImperiArte', forzarTrifasico: false },
+  { id: 'med_3', numero: 3, nombre: 'Hawaiian Paradise Universidades', forzarTrifasico: false },
+  { id: 'med_4', numero: 4, nombre: 'Bordados Veracruz', forzarTrifasico: false },
+  { id: 'med_5', numero: 5, nombre: 'Taller de Costura Imperia', forzarTrifasico: false },
+  { id: 'med_6', numero: 6, nombre: 'Publi-Imperia & Consorcio', forzarTrifasico: false }
+];
+
 // Generador de semillas de inventario para cada negocio
 function generarSeedAparatos(proyectoId) {
   const formatearAp = (item) => {
@@ -169,14 +178,14 @@ function generarSeedAparatos(proyectoId) {
   // Proyecto Maestro: Consorcio General (Inmueble Completo)
   const consolidado = [
     ...imperiaList.map(x => ({ ...x, tipo: '[Imperia] ' + x.tipo, medidorId: 'med_1' })),
-    ...papeleriaList.map(x => ({ ...x, tipo: '[Papelería] ' + x.tipo, medidorId: 'med_1' })),
-    ...hawaiianList.map(x => ({ ...x, tipo: '[Hawaiian] ' + x.tipo, medidorId: 'med_1' })),
-    ...bordadosList.map(x => ({ ...x, tipo: '[Bordados] ' + x.tipo, medidorId: 'med_2' })),
-    ...costuraList.map(x => ({ ...x, tipo: '[Costura] ' + x.tipo, medidorId: 'med_2' })),
-    ...publiList.map(x => ({ ...x, tipo: '[Publi-Imperia] ' + x.tipo, medidorId: 'med_3' })),
-    ...oficinasList.map(x => ({ ...x, tipo: '[Consorcio] ' + x.tipo, medidorId: 'med_3' })),
-    { id: 'gen_1', tipo: '[Servicios] Bomba Presurizadora / Hidroneumático (1 HP)', modelo: 'Bomba 1 HP 127V', watts: 850, fp: 0.82, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 600, vidaUtil: 7, medidorId: 'med_3' },
-    { id: 'gen_2', tipo: '[Servicios] Contactos GFCI Sanitarios y Pasillos', modelo: 'Receptáculos GFCI 20A', watts: 1800, fp: 1.0, tipoCarga: 'monofasica', fase: 'C', horasAlta: 2, precio: 3200, mantenimiento: 300, vidaUtil: 15, medidorId: 'med_3' }
+    ...papeleriaList.map(x => ({ ...x, tipo: '[Papelería] ' + x.tipo, medidorId: 'med_2' })),
+    ...hawaiianList.map(x => ({ ...x, tipo: '[Hawaiian] ' + x.tipo, medidorId: 'med_3' })),
+    ...bordadosList.map(x => ({ ...x, tipo: '[Bordados] ' + x.tipo, medidorId: 'med_4' })),
+    ...costuraList.map(x => ({ ...x, tipo: '[Costura] ' + x.tipo, medidorId: 'med_5' })),
+    ...publiList.map(x => ({ ...x, tipo: '[Publi-Imperia] ' + x.tipo, medidorId: 'med_6' })),
+    ...oficinasList.map(x => ({ ...x, tipo: '[Consorcio] ' + x.tipo, medidorId: 'med_6' })),
+    { id: 'gen_1', tipo: '[Servicios] Bomba Presurizadora / Hidroneumático (1 HP)', modelo: 'Bomba 1 HP 127V', watts: 850, fp: 0.82, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 600, vidaUtil: 7, medidorId: 'med_6' },
+    { id: 'gen_2', tipo: '[Servicios] Contactos GFCI Sanitarios y Pasillos', modelo: 'Receptáculos GFCI 20A', watts: 1800, fp: 1.0, tipoCarga: 'monofasica', fase: 'C', horasAlta: 2, precio: 3200, mantenimiento: 300, vidaUtil: 15, medidorId: 'med_6' }
   ];
 
   return consolidado.map(formatearAp);
@@ -235,6 +244,16 @@ const localStore = {
           ap.variantes = [baseVariant];
           ap.activaVariantId = 'default';
         }
+        // Migración inteligente para consorcio_general a los 6 medidores según negocio
+        if (proyectoId === 'consorcio_general') {
+          const t = (ap.tipo || '').toLowerCase();
+          if (t.includes('[imperia]')) ap.medidorId = 'med_1';
+          else if (t.includes('[papelería]') || t.includes('[papeleria]')) ap.medidorId = 'med_2';
+          else if (t.includes('[hawaiian]')) ap.medidorId = 'med_3';
+          else if (t.includes('[bordados]')) ap.medidorId = 'med_4';
+          else if (t.includes('[costura]')) ap.medidorId = 'med_5';
+          else if (t.includes('[publi-imperia]') || t.includes('[consorcio]') || t.includes('[servicios]')) ap.medidorId = 'med_6';
+        }
         if (!ap.medidorId) {
           ap.medidorId = 'med_1';
         }
@@ -254,18 +273,21 @@ const localStore = {
       const data = localStorage.getItem('electrico_casa_medidores_' + proyectoId);
       if (data) {
         const parsed = JSON.parse(data);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (proyectoId === 'consorcio_general' && parsed.length < 6) {
+            localStore.saveMedidores(proyectoId, DEFAULT_MEDIDORES_CONSORCIO);
+            return DEFAULT_MEDIDORES_CONSORCIO;
+          }
+          return parsed;
+        }
       }
       if (proyectoId === 'consorcio_general') {
-        return [
-          { id: 'med_1', numero: 1, nombre: 'Medidor 1 (Showroom y Alimentos)', forzarTrifasico: false },
-          { id: 'med_2', numero: 2, nombre: 'Medidor 2 (Talleres Textiles)', forzarTrifasico: false },
-          { id: 'med_3', numero: 3, nombre: 'Medidor 3 (Gráficos y Oficinas)', forzarTrifasico: false }
-        ];
+        localStore.saveMedidores(proyectoId, DEFAULT_MEDIDORES_CONSORCIO);
+        return DEFAULT_MEDIDORES_CONSORCIO;
       }
       return [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
     } catch (e) {
-      return [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+      return (proyectoId === 'consorcio_general') ? DEFAULT_MEDIDORES_CONSORCIO : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
     }
   },
   saveMedidores: (proyectoId, medidores) => {
@@ -396,6 +418,10 @@ export const dbService = {
         if (docSnap.exists() && docSnap.data().medidores) {
           const m = docSnap.data().medidores;
           if (Array.isArray(m) && m.length > 0) {
+            if (proyectoId === 'consorcio_general' && m.length < 6) {
+              await this.saveMedidores(proyectoId, DEFAULT_MEDIDORES_CONSORCIO);
+              return DEFAULT_MEDIDORES_CONSORCIO;
+            }
             localStore.saveMedidores(proyectoId, m);
             return m;
           }

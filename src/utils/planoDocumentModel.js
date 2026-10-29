@@ -508,8 +508,10 @@ export function buildPlanoDocumentModel({
     const isMedBifasico = dataMed.acometida.id === 'bifasico';
     const fasesNombresMed = isMedTrifasico ? ['L1', 'L2', 'L3'] : (isMedBifasico ? ['L1', 'L2'] : ['L1']);
 
-    const numUnifilar = `IE-0${(idx * 2) + 1}`;
-    const numCuadro = `IE-0${(idx * 2) + 2}`;
+    const n1 = (idx * 2) + 1;
+    const n2 = (idx * 2) + 2;
+    const numUnifilar = `IE-${n1 < 10 ? '0' + n1 : n1}`;
+    const numCuadro = `IE-${n2 < 10 ? '0' + n2 : n2}`;
 
     const infoPlanoMed = {
       ...infoPlano,

@@ -21,7 +21,7 @@ import {
   X
 } from 'lucide-react';
 
-import { dbService } from './firebase';
+import { dbService, DEFAULT_MEDIDORES_CONSORCIO } from './firebase';
 import { determinarAcometida, generarCombinacionesBalanceo } from './utils/electricalCalculations';
 import { 
   calcularVA as uvieCalcularVA, 
@@ -370,11 +370,7 @@ export default function App() {
   const [cajetinEscala, setCajetinEscala] = useState("S/E");
 
   // Multi-medidor state
-  const [medidores, setMedidores] = useState([
-    { id: 'med_1', numero: 1, nombre: 'Medidor 1: Imperia Uniformes & Cafetería', forzarTrifasico: false },
-    { id: 'med_2', numero: 2, nombre: 'Medidor 2: Bordados & Taller de Costura', forzarTrifasico: false },
-    { id: 'med_3', numero: 3, nombre: 'Medidor 3: Papelería, Consorcio & Promocionales', forzarTrifasico: false }
-  ]);
+  const [medidores, setMedidores] = useState(DEFAULT_MEDIDORES_CONSORCIO);
   const [activeMedidorId, setActiveMedidorId] = useState('med_1');
 
   // Metadatos de lámina de plano CAD 90x60
@@ -585,9 +581,15 @@ export default function App() {
         // Cargar medidores para este proyecto
         const mList = await dbService.getMedidores(currentProyectoId);
         if (Array.isArray(mList) && mList.length > 0) {
-          setMedidores(mList);
-          if (!mList.some(m => m.id === activeMedidorId)) {
-            setActiveMedidorId(mList[0].id);
+          if (currentProyectoId === 'consorcio_general' && mList.length < 6) {
+            setMedidores(DEFAULT_MEDIDORES_CONSORCIO);
+            await dbService.saveMedidores(currentProyectoId, DEFAULT_MEDIDORES_CONSORCIO);
+            setActiveMedidorId(DEFAULT_MEDIDORES_CONSORCIO[0].id);
+          } else {
+            setMedidores(mList);
+            if (!mList.some(m => m.id === activeMedidorId)) {
+              setActiveMedidorId(mList[0].id);
+            }
           }
         }
       } catch (error) {
@@ -718,14 +720,15 @@ export default function App() {
 
   // Operaciones de gestión multi-medidor
   const handleSetCantidadMedidores = async (nuevaCantidad) => {
-    const qty = Math.max(1, Math.min(6, parseInt(nuevaCantidad) || 1));
+    const qty = Math.max(1, Math.min(12, parseInt(nuevaCantidad) || 1));
     let updated = [...medidores];
     if (qty > updated.length) {
       for (let i = updated.length + 1; i <= qty; i++) {
+        const defaultName = DEFAULT_MEDIDORES_CONSORCIO[i - 1]?.nombre || `Medidor ${i}`;
         updated.push({
           id: `med_${i}`,
           numero: i,
-          nombre: `Medidor ${i}`,
+          nombre: defaultName,
           forzarTrifasico: false
         });
       }
@@ -748,11 +751,12 @@ export default function App() {
 
   const handleAddMedidor = async () => {
     const nextNum = medidores.length + 1;
-    if (nextNum > 6) return;
+    if (nextNum > 12) return;
+    const defaultName = DEFAULT_MEDIDORES_CONSORCIO[nextNum - 1]?.nombre || `Medidor ${nextNum}`;
     const nuevo = {
       id: `med_${nextNum}`,
       numero: nextNum,
-      nombre: `Medidor ${nextNum}`,
+      nombre: defaultName,
       forzarTrifasico: false
     };
     const updated = [...medidores, nuevo];
