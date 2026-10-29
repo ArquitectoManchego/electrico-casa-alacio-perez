@@ -19,13 +19,16 @@ import {
   seleccionarConductor,
   calcularDesbalanceUVIE
 } from '../utils/ecuacionesUVIE';
+import {
+  normalizarFaseParaMedidor,
+  distribuirCargaPorFases
+} from '../utils/electricalCalculations';
 
-// Obtener la fase por defecto física de un slot (Square D alternada)
-const getFasePredefinidaDeSlot = (slotNum) => {
-  const cycle = Math.ceil(slotNum / 2) % 3;
-  if (cycle === 1) return 'A';
-  if (cycle === 2) return 'B';
-  return 'C';
+// Obtener la fase por defecto física de un slot respetando las fases habilitadas del medidor
+const getFasePredefinidaDeSlot = (slotNum, fasesDisp = ['A', 'B', 'C']) => {
+  const lista = Array.isArray(fasesDisp) && fasesDisp.length > 0 ? fasesDisp : ['A'];
+  const idx = (Math.ceil(slotNum / 2) - 1) % lista.length;
+  return lista[idx] || lista[0];
 };
 
 // Determinar ducto comercial según calibre AWG
@@ -126,6 +129,16 @@ export default function TableroVisual({
 
   const fasesDisponibles = acometidaActiva.fasesDisponibles || ['A'];
 
+  const resolverAcometidaDeAp = (ap) => {
+    if (selectedMedId === 'todos' && medidoresData) {
+      const mId = ap.medidorId || listaMedidores[0]?.id;
+      if (mId && medidoresData[mId]?.acometida) {
+        return medidoresData[mId].acometida;
+      }
+    }
+    return acometidaActiva;
+  };
+
   // Obtener aparato asignado a un slot dentro de los aparatos de este medidor
   const getAparatoEnSlot = (slotNum) => {
     return aparatosActivos.find(ap => ap.slot === slotNum);
@@ -134,17 +147,23 @@ export default function TableroVisual({
   // Manejar colocación o movimiento de aparato
   const handleSlotClick = (slotNum) => {
     if (selectedAppId) {
-      const previo = aparatos.find(ap => ap.id === selectedAppId);
+      const previo = aparatosActivos.find(ap => ap.id === selectedAppId) || aparatos.find(ap => ap.id === selectedAppId);
       
       const ocupante = getAparatoEnSlot(slotNum);
-      if (ocupante) {
+      if (ocupante && ocupante.id !== selectedAppId) {
         onUpdateAparato(ocupante.id, { slot: null });
       }
 
-      const fasePorDefecto = getFasePredefinidaDeSlot(slotNum);
+      const acomDeAp = previo ? resolverAcometidaDeAp(previo) : acometidaActiva;
+      const fDisp = acomDeAp.fasesDisponibles || fasesDisponibles;
+      const faseSlot = getFasePredefinidaDeSlot(slotNum, fDisp);
+      const faseNueva = (previo && (previo.tipoCarga === 'bifasica' || previo.tipoCarga === 'trifasica') && fDisp.length >= 2)
+        ? normalizarFaseParaMedidor(previo, acomDeAp)
+        : faseSlot;
+
       onUpdateAparato(selectedAppId, { 
         slot: slotNum,
-        fase: fasesDisponibles.includes(fasePorDefecto) ? fasePorDefecto : fasesDisponibles[0]
+        fase: faseNueva
       });
 
       setSelectedAppId(null);
@@ -156,41 +175,55 @@ export default function TableroVisual({
     onUpdateAparato(appId, { slot: null });
   };
 
-  // Limpiar todo el tablero
+  // Limpiar únicamente el tablero del medidor activo
   const handleLimpiarTablero = () => {
-    aparatos.forEach(ap => {
+    aparatosActivos.forEach(ap => {
       if (ap.slot) {
         onUpdateAparato(ap.id, { slot: null });
       }
     });
   };
 
-  // Auto-distribuir equitativamente en slots libres
+  // Auto-distribuir equitativamente en slots libres del medidor activo respetando fases habilitadas
   const handleAutoDistribuir = () => {
-    handleLimpiarTablero();
-    setTimeout(() => {
-      let slotIndex = 1;
-      aparatos.forEach(ap => {
-        const targetFase = getFasePredefinidaDeSlot(slotIndex);
-        onUpdateAparato(ap.id, { 
-          slot: slotIndex,
-          fase: fasesDisponibles.includes(targetFase) ? targetFase : fasesDisponibles[0]
-        });
-        slotIndex++;
+    let slotIndex = 1;
+    aparatosActivos.forEach(ap => {
+      const acomDeAp = resolverAcometidaDeAp(ap);
+      const fDisp = acomDeAp.fasesDisponibles || fasesDisponibles;
+      const targetFaseSlot = getFasePredefinidaDeSlot(slotIndex, fDisp);
+      const faseAsignada = ((ap.tipoCarga === 'bifasica' || ap.tipoCarga === 'trifasica') && fDisp.length >= 2)
+        ? normalizarFaseParaMedidor(ap, acomDeAp)
+        : targetFaseSlot;
+      onUpdateAparato(ap.id, { 
+        slot: slotIndex,
+        fase: faseAsignada
       });
-    }, 100);
+      slotIndex++;
+    });
   };
 
-  // Rotar fase en el diagrama
+  // Rotar fase en el diagrama dentro de las fases habilitadas del medidor
   const handleCycleFase = (appId, currentFase) => {
-    if (fasesDisponibles.length <= 1) return;
-    let nextFase = 'A';
-    if (fasesDisponibles.length === 2) {
-      nextFase = currentFase === 'A' ? 'B' : 'A';
+    const ap = aparatosActivos.find(x => x.id === appId) || aparatos.find(x => x.id === appId);
+    const acomDeAp = ap ? resolverAcometidaDeAp(ap) : acometidaActiva;
+    const fDisp = acomDeAp.fasesDisponibles || fasesDisponibles;
+    if (fDisp.length <= 1) return;
+
+    let nextFase = fDisp[0];
+    if (ap?.tipoCarga === 'trifasica' && fDisp.length === 3) {
+      nextFase = 'A-B-C';
+    } else if (ap?.tipoCarga === 'bifasica' && fDisp.length >= 2) {
+      if (fDisp.length === 2) {
+        nextFase = `${fDisp[0]}-${fDisp[1]}`;
+      } else {
+        const pares = ['A-B', 'B-C', 'C-A'];
+        const curNorm = normalizarFaseParaMedidor(ap, acomDeAp);
+        const idx = pares.indexOf(curNorm);
+        nextFase = pares[(idx + 1) % pares.length];
+      }
     } else {
-      if (currentFase === 'A') nextFase = 'B';
-      else if (currentFase === 'B') nextFase = 'C';
-      else nextFase = 'A';
+      const idx = fDisp.indexOf(currentFase);
+      nextFase = idx >= 0 ? fDisp[(idx + 1) % fDisp.length] : fDisp[0];
     }
     onUpdateAparato(appId, { fase: nextFase });
   };
@@ -218,42 +251,26 @@ export default function TableroVisual({
     ? autoMainConductor
     : projectSettings.mainConductorOverride;
 
-  const cablesCount = acometidaActiva.id === 'trifasico' ? 5 : acometidaActiva.id === 'bifasico' ? 4 : 3;
+  const fasesPolosMain = acometidaActiva.id === 'trifasico' ? 3 : acometidaActiva.id === 'bifasico' ? 2 : 1;
+  const cablesCount = fasesPolosMain + 2;
   const autoMainConduit = seleccionarTubo(activeMainConductor, cablesCount);
   const activeMainConduit = projectSettings.mainConduitOverride === 'Auto'
     ? autoMainConduit
     : projectSettings.mainConduitOverride;
 
-  // 3. Cargar fasesVA del tablero (sincronizada)
+  // 3. Cargar fasesVA del tablero estrictamente sobre las fases habilitadas del medidor
   const fasesVA = { A: 0, B: 0, C: 0 };
   aparatosActivos.forEach(ap => {
-    const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
     if (ap.slot) {
-      if (ap.tipoCarga === 'trifasica' && acometidaActiva.id === 'trifasico') {
-        fasesVA.A += va / 3;
-        fasesVA.B += va / 3;
-        fasesVA.C += va / 3;
-      } else if (ap.tipoCarga === 'bifasica' && (acometidaActiva.id === 'bifasico' || acometidaActiva.id === 'trifasico')) {
-        const fasePar = ap.fase || 'A-B';
-        const partes = fasePar.split('-');
-        partes.forEach(f => {
-          if (fasesVA[f] !== undefined) {
-            fasesVA[f] += va / partes.length;
-          }
-        });
-      } else {
-        let f = ap.fase || 'A';
-        if (!fasesDisponibles.includes(f)) {
-          f = fasesDisponibles[0] || 'A';
-        }
-        if (fasesVA[f] !== undefined) {
-          fasesVA[f] += va;
-        }
-      }
+      const acomDeAp = resolverAcometidaDeAp(ap);
+      const dist = distribuirCargaPorFases(ap, acomDeAp);
+      fasesVA.A += dist.fVA.A;
+      fasesVA.B += dist.fVA.B;
+      fasesVA.C += dist.fVA.C;
     }
   });
 
-  const desbalance = calcularDesbalanceUVIE(fasesVA.A, fasesVA.B, fasesVA.C, acometidaActiva.id);
+  const desbalance = calcularDesbalanceUVIE(fasesVA.A, fasesVA.B, fasesVA.C, acometidaActiva.id, fasesDisponibles);
 
   // Lista de aparatos sin ranura en el panel de este medidor
   const aparatosSinSlot = aparatosActivos.filter(ap => !ap.slot);
@@ -598,7 +615,7 @@ export default function TableroVisual({
                 </h3>
               </div>
               <div className="text-right text-[10px] font-mono text-slate-400 space-y-0.5">
-                <div className="uppercase">Acometida: <span className="font-bold text-teal-400">{acometida.tipo}</span></div>
+                <div className="uppercase">Acometida: <span className="font-bold text-teal-400">{acometidaActiva.tipo}</span></div>
                 <div>Desbalanceo: <span className={`font-bold ${desbalance > 5.0 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>{desbalance.toFixed(2)}%</span></div>
               </div>
             </div>
@@ -631,7 +648,7 @@ export default function TableroVisual({
                   <line x1="90" y1="95" x2="100" y2="95" stroke="#f8fafc" strokeWidth="1.5" />
                   <line x1="100" y1="95" x2="110" y2="82" stroke="#f8fafc" strokeWidth="1.5" />
                   <line x1="100" y1="88" x2="104" y2="92" stroke="#f8fafc" strokeWidth="1.5" />
-                  {acometida.id !== 'monofasico' && (
+                  {acometidaActiva.id !== 'monofasico' && (
                     <>
                       {/* Segunda pole del interruptor principal si es bifásico/trifásico */}
                       <line x1="96" y1="95" x2="96" y2="95" stroke="#94a3b8" strokeDasharray="1,1" />
@@ -640,10 +657,10 @@ export default function TableroVisual({
 
                   {/* Texto Informativo del Interruptor General */}
                   <text x="125" y="83" fill="#f1f5f9" fontSize="9" fontWeight="bold">
-                    ITM Principal: {acometida.id === 'trifasico' ? '3' : acometida.id === 'bifasico' ? '2' : '1'}x{activeMainBreaker}A
+                    ITM Principal: {fasesPolosMain}x{activeMainBreaker}A
                   </text>
                   <text x="125" y="94" fill="#38bdf8" fontSize="8" fontFamily="monospace">
-                    Alimentador: {cablesCount}x{activeMainConductor} + 1x{activeMainConductor} (N) + 1x{activeMainConductor === '14 AWG' ? '14' : activeMainConductor === '12 AWG' ? '12' : '10'} AWG (T)
+                    Alimentador: {fasesPolosMain}x{activeMainConductor} + 1x{activeMainConductor} (N) + 1x{activeMainConductor === '14 AWG' ? '14' : activeMainConductor === '12 AWG' ? '12' : '10'} AWG (T)
                   </text>
                   <text x="125" y="104" fill="#94a3b8" fontSize="8" fontFamily="sans-serif">
                     Ducto {activeMainConduit} {projectSettings.conduitMaterial} ({projectSettings.cableInsulation})
@@ -654,8 +671,12 @@ export default function TableroVisual({
 
                   {/* 4. Barras Colectoras Paralelas */}
                   {/* Fase A */}
-                  <line x1="60" y1="125" x2="60" y2={120 + slotsPanel.length * 60} stroke="#f87171" strokeWidth="1.5" />
-                  <text x="60" y="122" fill="#f87171" fontSize="7" fontWeight="bold" textAnchor="middle">L1</text>
+                  {fasesDisponibles.includes('A') && (
+                    <>
+                      <line x1="60" y1="125" x2="60" y2={120 + slotsPanel.length * 60} stroke="#f87171" strokeWidth="1.5" />
+                      <text x="60" y="122" fill="#f87171" fontSize="7" fontWeight="bold" textAnchor="middle">L1</text>
+                    </>
+                  )}
 
                   {/* Fase B */}
                   {fasesDisponibles.includes('B') && (
@@ -681,14 +702,17 @@ export default function TableroVisual({
                   <line x1="120" y1="125" x2="120" y2={120 + slotsPanel.length * 60} stroke="#10b981" strokeWidth="1.2" />
                   <text x="120" y="122" fill="#10b981" fontSize="7" fontWeight="bold" textAnchor="middle">T</text>
 
-                  {/* 5. Renderizado de Circuitos Derivados (slots 1 a 16) */}
+                  {/* 5. Renderizado de Circuitos Derivados */}
                   {slotsPanel.map((slotNum, idx) => {
                     const y = 145 + idx * 60;
                     const ap = getAparatoEnSlot(slotNum);
                     
                     if (ap) {
+                      const acomDeAp = resolverAcometidaDeAp(ap);
+                      const fDispAp = acomDeAp.fasesDisponibles || fasesDisponibles;
+                      const tipoEf = fDispAp.length <= 1 ? 'monofasica' : (ap.tipoCarga === 'trifasica' && fDispAp.length < 3 ? 'bifasica' : (ap.tipoCarga || 'monofasica'));
                       const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-                      const iNom = calcularCorrienteNominal(va, ap.tipoCarga);
+                      const iNom = calcularCorrienteNominal(va, tipoEf);
                       const iCorr = calcularCorrienteCorregida(iNom);
                       
                       const autoBreaker = seleccionarProteccion(iCorr);
@@ -701,19 +725,19 @@ export default function TableroVisual({
                         ? ap.overrideCable
                         : autoConductor;
 
-                      const cCount = ap.tipoCarga === 'monofasica' ? 3 : ap.tipoCarga === 'bifasica' ? 3 : 4;
+                      const cCount = tipoEf === 'monofasica' ? 3 : tipoEf === 'bifasica' ? 3 : 4;
                       const autoConduit = seleccionarTubo(activeConductor, cCount);
                       const activeConduit = ap.overrideTubo && ap.overrideTubo !== 'Auto'
                         ? ap.overrideTubo
                         : autoConduit;
 
-                      const faseActual = ap.fase || 'A';
-                      const poles = ap.tipoCarga === 'monofasica' ? 1 : ap.tipoCarga === 'bifasica' ? 2 : 3;
+                      const faseActual = normalizarFaseParaMedidor({ ...ap, tipoCarga: tipoEf }, acomDeAp);
+                      const poles = tipoEf === 'monofasica' ? 1 : tipoEf === 'bifasica' ? 2 : 3;
 
                       // Posición X del nodo de fase en las barras
                       let xNode = 60;
-                      if (faseActual === 'B') xNode = 75;
-                      if (faseActual === 'C') xNode = 90;
+                      if (faseActual.startsWith('B')) xNode = 75;
+                      if (faseActual.startsWith('C')) xNode = 90;
 
                       return (
                         <g key={slotNum} className="group/circ">
@@ -725,7 +749,7 @@ export default function TableroVisual({
                             cx={xNode} 
                             cy={y} 
                             r="3" 
-                            fill={faseActual === 'A' ? '#ef4444' : faseActual === 'B' ? '#f59e0b' : '#3b82f6'} 
+                            fill={faseActual.startsWith('A') ? '#ef4444' : faseActual.startsWith('B') ? '#f59e0b' : '#3b82f6'} 
                             className="cursor-pointer unifilar-node"
                             onClick={() => handleCycleFase(ap.id, faseActual)}
                           />
@@ -891,8 +915,12 @@ export default function TableroVisual({
                     const ap = getAparatoEnSlot(slotNum);
                     
                     if (ap) {
+                      const acomDeAp = resolverAcometidaDeAp(ap);
+                      const fDispAp = acomDeAp.fasesDisponibles || fasesDisponibles;
+                      const tipoEf = fDispAp.length <= 1 ? 'monofasica' : (ap.tipoCarga === 'trifasica' && fDispAp.length < 3 ? 'bifasica' : (ap.tipoCarga || 'monofasica'));
+                      const faseNorm = normalizarFaseParaMedidor({ ...ap, tipoCarga: tipoEf }, acomDeAp);
                       const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-                      const prot = seleccionarProteccion(calcularCorrienteCorregida(calcularCorrienteNominal(va, ap.tipoCarga)));
+                      const prot = seleccionarProteccion(calcularCorrienteCorregida(calcularCorrienteNominal(va, tipoEf)));
                       const activeBreaker = ap.overrideBreaker && ap.overrideBreaker !== 'Auto'
                         ? parseInt(ap.overrideBreaker)
                         : prot;
@@ -913,8 +941,8 @@ export default function TableroVisual({
                             </button>
                           </div>
                           <div className="flex justify-between items-center text-[9px] text-slate-500 mt-1 border-t border-slate-950/40 pt-1">
-                            <span>{ap.watts} W (Fase {ap.fase})</span>
-                            <span className="font-bold text-teal-400">{ap.tipoCarga === 'monofasica' ? '1x' : ap.tipoCarga === 'bifasica' ? '2x' : '3x'}{activeBreaker}A</span>
+                            <span>{ap.watts} W (Fase {faseNorm})</span>
+                            <span className="font-bold text-teal-400">{tipoEf === 'monofasica' ? '1x' : tipoEf === 'bifasica' ? '2x' : '3x'}{activeBreaker}A</span>
                           </div>
                         </div>
                       );
@@ -970,8 +998,8 @@ export default function TableroVisual({
                       const apLeft = getAparatoEnSlot(slotLeft);
                       const apRight = getAparatoEnSlot(slotRight);
 
-                      const faseLeft = apLeft ? (apLeft.fase || 'A') : getFasePredefinidaDeSlot(slotLeft);
-                      const faseRight = apRight ? (apRight.fase || 'A') : getFasePredefinidaDeSlot(slotRight);
+                      const faseLeft = apLeft ? normalizarFaseParaMedidor(apLeft, resolverAcometidaDeAp(apLeft)) : getFasePredefinidaDeSlot(slotLeft, fasesDisponibles);
+                      const faseRight = apRight ? normalizarFaseParaMedidor(apRight, resolverAcometidaDeAp(apRight)) : getFasePredefinidaDeSlot(slotRight, fasesDisponibles);
 
                       return (
                         <div key={rowIndex} className="flex justify-between items-center h-[72px] w-full px-1 relative">
@@ -983,8 +1011,8 @@ export default function TableroVisual({
                               title={`Fase actual: ${faseLeft}. Haz clic para rotar.`}
                             >
                               <div className="w-2.5 h-0.5 bg-slate-700 group-hover:bg-teal-400" />
-                              <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-black text-slate-950 font-mono shadow transition-all active:scale-90 ${
-                                faseLeft === 'A' ? 'bg-red-500 text-white' : faseLeft === 'B' ? 'bg-amber-500 text-slate-950' : 'bg-blue-500 text-white'
+                              <div className={`px-1 min-w-[14px] h-3.5 rounded-full flex items-center justify-center text-[7px] font-black text-slate-950 font-mono shadow transition-all active:scale-90 ${
+                                faseLeft.startsWith('A') ? 'bg-red-500 text-white' : faseLeft.startsWith('B') ? 'bg-amber-500 text-slate-950' : 'bg-blue-500 text-white'
                               }`}>
                                 {faseLeft}
                               </div>
@@ -1000,8 +1028,8 @@ export default function TableroVisual({
                               className="flex items-center group cursor-pointer"
                               title={`Fase actual: ${faseRight}. Haz clic para rotar.`}
                             >
-                              <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-black text-slate-950 font-mono shadow transition-all active:scale-90 ${
-                                faseRight === 'A' ? 'bg-red-500 text-white' : faseRight === 'B' ? 'bg-amber-500 text-slate-950' : 'bg-blue-500 text-white'
+                              <div className={`px-1 min-w-[14px] h-3.5 rounded-full flex items-center justify-center text-[7px] font-black text-slate-950 font-mono shadow transition-all active:scale-90 ${
+                                faseRight.startsWith('A') ? 'bg-red-500 text-white' : faseRight.startsWith('B') ? 'bg-amber-500 text-slate-950' : 'bg-blue-500 text-white'
                               }`}>
                                 {faseRight}
                               </div>
@@ -1022,8 +1050,12 @@ export default function TableroVisual({
                     const ap = getAparatoEnSlot(slotNum);
                     
                     if (ap) {
+                      const acomDeAp = resolverAcometidaDeAp(ap);
+                      const fDispAp = acomDeAp.fasesDisponibles || fasesDisponibles;
+                      const tipoEf = fDispAp.length <= 1 ? 'monofasica' : (ap.tipoCarga === 'trifasica' && fDispAp.length < 3 ? 'bifasica' : (ap.tipoCarga || 'monofasica'));
+                      const faseNorm = normalizarFaseParaMedidor({ ...ap, tipoCarga: tipoEf }, acomDeAp);
                       const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-                      const prot = seleccionarProteccion(calcularCorrienteCorregida(calcularCorrienteNominal(va, ap.tipoCarga)));
+                      const prot = seleccionarProteccion(calcularCorrienteCorregida(calcularCorrienteNominal(va, tipoEf)));
                       const activeBreaker = ap.overrideBreaker && ap.overrideBreaker !== 'Auto'
                         ? parseInt(ap.overrideBreaker)
                         : prot;
@@ -1044,8 +1076,8 @@ export default function TableroVisual({
                             </button>
                           </div>
                           <div className="flex justify-between items-center text-[9px] text-slate-500 mt-1 border-t border-slate-950/40 pt-1">
-                            <span>{ap.watts} W (Fase {ap.fase})</span>
-                            <span className="font-bold text-teal-400">{ap.tipoCarga === 'monofasica' ? '1x' : ap.tipoCarga === 'bifasica' ? '2x' : '3x'}{activeBreaker}A</span>
+                            <span>{ap.watts} W (Fase {faseNorm})</span>
+                            <span className="font-bold text-teal-400">{tipoEf === 'monofasica' ? '1x' : tipoEf === 'bifasica' ? '2x' : '3x'}{activeBreaker}A</span>
                           </div>
                         </div>
                       );
@@ -1073,12 +1105,12 @@ export default function TableroVisual({
             )}
 
             {/* Banner inferior de advertencia sobre desbalanceo */}
-            {desbalance > 5.0 && acometida.id !== 'monofasico' && (
+            {desbalance > 5.0 && acometidaActiva.id !== 'monofasico' && fasesDisponibles.length >= 2 && (
               <div className="mt-6 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-400 text-[10px] font-sans flex items-start gap-2.5 no-print animate-pulse-subtle">
                 <Zap className="flex-shrink-0 mt-0.5" size={14} />
                 <div>
                   <span className="font-bold uppercase tracking-wider block mb-0.5">Centro de Carga Desbalanceado ({desbalance.toFixed(2)}%)</span>
-                  <span>El desbalanceo de corriente entre fases supera el 5.0% límite normativo de la NOM-001-SEDE. Utiliza el botón de **"Auto-Acomodar"** o haz clic en los círculos de fase en el diagrama/tablero para balancear las cargas.</span>
+                  <span>El desbalanceo de corriente entre fases supera el 5.0% límite normativo de la NOM-001-SEDE. Utiliza el botón de **"Balancear Matemático"** o haz clic en los círculos de fase en el diagrama/tablero para balancear las cargas.</span>
                 </div>
               </div>
             )}

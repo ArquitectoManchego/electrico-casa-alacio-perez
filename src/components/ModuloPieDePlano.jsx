@@ -29,6 +29,8 @@ export default function ModuloPieDePlano({
   computedElectricalSystem,
   aparatos,
   planoMetadata = {},
+  medidores = [],
+  medidoresData = {},
   onUpdatePlanoMetadata,
   onExportDxf
 }) {
@@ -42,9 +44,11 @@ export default function ModuloPieDePlano({
     return buildPlanoDocumentModel({
       computedElectricalSystem,
       aparatos,
-      planoMetadata
+      planoMetadata,
+      medidores,
+      medidoresData
     });
-  }, [computedElectricalSystem, aparatos, planoMetadata]);
+  }, [computedElectricalSystem, aparatos, planoMetadata, medidores, medidoresData]);
 
   // Manejo de cambios en el formulario del cajetín
   const handleFieldChange = (field, value) => {

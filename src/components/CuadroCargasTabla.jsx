@@ -9,6 +9,11 @@ import {
   calcularCaidaTension,
   calcularDesbalanceUVIE
 } from '../utils/ecuacionesUVIE';
+import {
+  determinarAcometidaMedidor,
+  normalizarFaseParaMedidor,
+  distribuirCargaPorFases
+} from '../utils/electricalCalculations';
 
 export default function CuadroCargasTabla({ 
   aparatos = [], 
@@ -28,67 +33,85 @@ export default function CuadroCargasTabla({
   medidores = [],
   medidoresData = {}
 }) {
+  const [medidorFiltro, setMedidorFiltro] = React.useState('todos');
+
   // Asegurar lista válida de medidores
   const listaMedidores = Array.isArray(medidores) && medidores.length > 0
     ? medidores
     : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+
+  const defaultMedId = listaMedidores[0].id;
+  const knownIds = new Set(listaMedidores.map(m => m.id));
 
   const medidoresMap = new Map();
   listaMedidores.forEach(m => {
     medidoresMap.set(m.id, m.nombre || `Medidor ${m.numero}`);
   });
 
-  // Calcular la suma global de cargas por fase en la unidad seleccionada
-  const fasesDisplayTotal = { A: 0, B: 0, C: 0 };
-  
-  aparatos.forEach(ap => {
-    const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-    const fp = parseFloat(ap.fp) || 1.0;
-    
-    // Calcular desglose de VA por fase por fila (base)
-    const vaFila = { A: 0, B: 0, C: 0 };
-    if (ap.tipoCarga === 'trifasica' && acometidaId === 'trifasico') {
-      vaFila.A = va / 3;
-      vaFila.B = va / 3;
-      vaFila.C = va / 3;
-    } else if (ap.tipoCarga === 'bifasica' && (acometidaId === 'bifasico' || acometidaId === 'trifasico')) {
-      const combo = ap.fase || 'A-B';
-      const partes = combo.split('-');
-      partes.forEach(f => {
-        if (vaFila[f] !== undefined) {
-          vaFila[f] = va / partes.length;
-        }
-      });
-    } else {
-      let f = ap.fase;
-      if (!fasesDisponibles.includes(f)) {
-        f = 'A';
-      }
-      vaFila[f] = va;
-    }
-
-    // Convertir a la unidad actual
-    ['A', 'B', 'C'].forEach(f => {
-      const vaFase = vaFila[f];
-      if (vaFase > 0) {
-        if (fasesUnit === 'VA') {
-          fasesDisplayTotal[f] += vaFase;
-        } else if (fasesUnit === 'W') {
-          fasesDisplayTotal[f] += vaFase * fp;
-        } else if (fasesUnit === 'A') {
-          if (ap.tipoCarga === 'trifasica' && acometidaId === 'trifasico') {
-            fasesDisplayTotal[f] += vaFase / 127.017;
-          } else if (ap.tipoCarga === 'bifasica') {
-            fasesDisplayTotal[f] += vaFase / 110;
-          } else {
-            fasesDisplayTotal[f] += vaFase / 127;
-          }
-        }
-      }
+  // Agrupar aparatos por medidor (incluyendo huérfanos en el primer medidor)
+  const gruposPorMedidor = listaMedidores.map((med, idx) => {
+    const aps = aparatos.filter(ap => {
+      const mId = ap.medidorId && knownIds.has(ap.medidorId) ? ap.medidorId : defaultMedId;
+      return mId === med.id;
     });
+    const dataMed = medidoresData?.[med.id];
+    const acometidaMed = dataMed?.acometida || determinarAcometidaMedidor(med, aps);
+    return {
+      medidor: med,
+      idx,
+      aparatos: aps,
+      acometidaMed
+    };
   });
 
-  const desbalanceSuperado = desbalance > 5.0 && acometidaId !== 'monofasico';
+  // Calcular la suma global de cargas por fase respetando estrictamente las fases habilitadas de cada medidor
+  const fasesDisplayTotal = { A: 0, B: 0, C: 0 };
+  const medidoresConDesbalance = [];
+
+  gruposPorMedidor.forEach(({ medidor, aparatos: apsMed, acometidaMed }) => {
+    const fVAMed = { A: 0, B: 0, C: 0 };
+    apsMed.forEach(ap => {
+      const dist = distribuirCargaPorFases(ap, acometidaMed);
+      fVAMed.A += dist.fVA.A;
+      fVAMed.B += dist.fVA.B;
+      fVAMed.C += dist.fVA.C;
+
+      ['A', 'B', 'C'].forEach(f => {
+        if (fasesUnit === 'VA') {
+          fasesDisplayTotal[f] += dist.fVA[f];
+        } else if (fasesUnit === 'W') {
+          fasesDisplayTotal[f] += dist.fLoad[f];
+        } else if (fasesUnit === 'A') {
+          fasesDisplayTotal[f] += dist.fAmps[f];
+        }
+      });
+    });
+
+    if ((acometidaMed.fasesDisponibles?.length || 1) > 1 && apsMed.length > 0) {
+      const desbalMed = calcularDesbalanceUVIE(
+        fVAMed.A,
+        fVAMed.B,
+        fVAMed.C,
+        acometidaMed.id,
+        acometidaMed.fasesDisponibles
+      );
+      if (desbalMed > 5.0) {
+        medidoresConDesbalance.push({
+          id: medidor.id,
+          nombre: medidor.nombre || `Medidor ${medidor.numero}`,
+          desbalance: desbalMed
+        });
+      }
+    }
+  });
+
+  const maxDesbalanceMedidores = medidoresConDesbalance.length > 0
+    ? Math.max(...medidoresConDesbalance.map(m => m.desbalance))
+    : (listaMedidores.length === 1 ? desbalance : 0);
+
+  const desbalanceSuperado = listaMedidores.length > 1
+    ? medidoresConDesbalance.length > 0
+    : (desbalance > 5.0 && acometidaId !== 'monofasico');
 
   if (aparatos.length === 0) {
     return null;
@@ -97,21 +120,6 @@ export default function CuadroCargasTabla({
   // Totales financieros globales
   const totalPrecio = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.precio) || 0), 0);
   const totalMantenimiento = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.mantenimiento) || 0), 0);
-
-  const [medidorFiltro, setMedidorFiltro] = React.useState('todos');
-
-  // Agrupar aparatos por medidor
-  const gruposPorMedidor = listaMedidores.map(med => {
-    const aps = aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id);
-    return { medidor: med, aparatos: aps };
-  });
-
-  // Si hay aparatos asignados a medidores que ya no existen, agregarlos al primer medidor
-  const knownIds = new Set(listaMedidores.map(m => m.id));
-  const huerfanos = aparatos.filter(ap => ap.medidorId && !knownIds.has(ap.medidorId));
-  if (huerfanos.length > 0 && gruposPorMedidor.length > 0) {
-    gruposPorMedidor[0].aparatos.push(...huerfanos);
-  }
 
   const gruposFiltrados = medidorFiltro === 'todos' 
     ? gruposPorMedidor 
@@ -169,16 +177,33 @@ export default function CuadroCargasTabla({
 
       {/* Banner de Alerta UVIE */}
       {desbalanceSuperado && (
-        <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400 animate-pulse-subtle flex items-start gap-3 glow-red">
-          <ShieldAlert className="mt-0.5 flex-shrink-0 animate-bounce text-rose-500" size={20} />
-          <div>
-            <h4 className="font-bold text-sm text-white uppercase tracking-wide">
-              Incumplimiento Normativo UVIE - Desbalanceo Crítico: {desbalance.toFixed(2)}%
-            </h4>
-            <p className="text-xs mt-1 leading-relaxed text-rose-300 font-sans">
-              El desbalanceo entre fases excede el **5.0%** permitido por la NOM-001-SEDE. Las unidades de verificación (UVIE) **rechazarán** este cuadro de cargas. Por favor, haz clic en el botón de **"Balancear Fases"** abajo a la derecha para resolverlo automáticamente.
-            </p>
+        <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400 animate-pulse-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 glow-red">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="mt-0.5 flex-shrink-0 animate-bounce text-rose-500" size={20} />
+            <div>
+              <h4 className="font-bold text-sm text-white uppercase tracking-wide">
+                Incumplimiento Normativo UVIE - Desbalanceo Máximo: {maxDesbalanceMedidores.toFixed(2)}%
+              </h4>
+              <p className="text-xs mt-1 leading-relaxed text-rose-300 font-sans">
+                {medidoresConDesbalance.length > 0 ? (
+                  <>
+                    Medidores fuera del límite del 5.0% NOM-001-SEDE:{' '}
+                    <strong>{medidoresConDesbalance.map(m => `${m.nombre} (${m.desbalance.toFixed(1)}%)`).join(', ')}</strong>.
+                  </>
+                ) : (
+                  <>El desbalanceo entre fases excede el 5.0% permitido por la NOM-001-SEDE.</>
+                )}
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={onBalancearFases}
+            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 self-start sm:self-center whitespace-nowrap transition-all active:scale-95 no-print"
+          >
+            <ArrowRightLeft size={13} />
+            Balancear Todos los Medidores
+          </button>
         </div>
       )}
 
@@ -374,16 +399,10 @@ export default function CuadroCargasTabla({
             </thead>
 
             <tbody className="divide-y divide-slate-800/40 text-xs text-slate-300 font-mono">
-              {gruposFiltrados.map(({ medidor, aparatos: apsGrupo }) => {
-                const dataMed = medidoresData?.[medidor.id];
-                const tieneBifasicoGrupo = apsGrupo.some(a => a.tipoCarga === 'bifasica');
-                const tieneTrifasicoGrupo = apsGrupo.some(a => a.tipoCarga === 'trifasica');
-                const acometidaMed = dataMed?.acometida || {
-                  id: (tieneTrifasicoGrupo ? 'trifasico' : (tieneBifasicoGrupo ? 'bifasico' : 'monofasico')),
-                  fasesDisponibles: (tieneTrifasicoGrupo ? ['A', 'B', 'C'] : (tieneBifasicoGrupo ? ['A', 'B'] : ['A']))
-                };
+              {gruposFiltrados.map(({ medidor, aparatos: apsGrupo, acometidaMed }) => {
+                const fasesMed = acometidaMed?.fasesDisponibles || ['A'];
 
-                // Calcular subtotales para este medidor
+                // Calcular subtotales para este medidor usando la distribución canónica por fases habilitadas
                 let subTotalW = 0;
                 let subTotalVA = 0;
                 let subTotalPrecio = 0;
@@ -393,54 +412,32 @@ export default function CuadroCargasTabla({
                 const subFasesDisplay = { A: 0, B: 0, C: 0 };
 
                 apsGrupo.forEach(ap => {
-                  const w = parseFloat(ap.watts) || 0;
-                  const fp = parseFloat(ap.fp) || 1.0;
-                  const va = calcularVA(w, fp, ap.usarVaDirecto);
-                  subTotalW += w;
-                  subTotalVA += va;
+                  const dist = distribuirCargaPorFases(ap, acometidaMed);
+                  subTotalW += dist.watts;
+                  subTotalVA += dist.va;
                   subTotalPrecio += (parseFloat(ap.precio) || 0);
                   subTotalMantenimiento += (parseFloat(ap.mantenimiento) || 0);
                   subSumaVida += (parseFloat(ap.vidaUtil) || 0);
 
-                  const vaFila = { A: 0, B: 0, C: 0 };
-                  if (ap.tipoCarga === 'trifasica' && acometidaMed.id === 'trifasico') {
-                    vaFila.A = va / 3;
-                    vaFila.B = va / 3;
-                    vaFila.C = va / 3;
-                  } else if (ap.tipoCarga === 'bifasica') {
-                    const combo = ap.fase || (acometidaMed.fasesDisponibles.length >= 2 ? `${acometidaMed.fasesDisponibles[0]}-${acometidaMed.fasesDisponibles[1]}` : 'A-B');
-                    const partes = combo.split('-');
-                    partes.forEach(f => {
-                      if (vaFila[f] !== undefined) vaFila[f] = va / partes.length;
-                    });
-                  } else {
-                    let f = ap.fase;
-                    if (!acometidaMed.fasesDisponibles.includes(f)) f = acometidaMed.fasesDisponibles[0] || 'A';
-                    vaFila[f] = va;
-                  }
-
                   ['A', 'B', 'C'].forEach(f => {
-                    const vf = vaFila[f];
-                    if (vf > 0) {
-                      subFasesBaseVA[f] += vf;
-                      if (fasesUnit === 'VA') {
-                        subFasesDisplay[f] += vf;
-                      } else if (fasesUnit === 'W') {
-                        subFasesDisplay[f] += vf * fp;
-                      } else if (fasesUnit === 'A') {
-                        if (ap.tipoCarga === 'trifasica') {
-                          subFasesDisplay[f] += vf / 127.017;
-                        } else if (ap.tipoCarga === 'bifasica') {
-                          subFasesDisplay[f] += vf / 110;
-                        } else {
-                          subFasesDisplay[f] += vf / 127;
-                        }
-                      }
+                    subFasesBaseVA[f] += dist.fVA[f];
+                    if (fasesUnit === 'VA') {
+                      subFasesDisplay[f] += dist.fVA[f];
+                    } else if (fasesUnit === 'W') {
+                      subFasesDisplay[f] += dist.fLoad[f];
+                    } else if (fasesUnit === 'A') {
+                      subFasesDisplay[f] += dist.fAmps[f];
                     }
                   });
                 });
 
-                const subDesbalance = calcularDesbalanceUVIE(subFasesBaseVA.A, subFasesBaseVA.B, subFasesBaseVA.C, acometidaMed.id);
+                const subDesbalance = calcularDesbalanceUVIE(
+                  subFasesBaseVA.A,
+                  subFasesBaseVA.B,
+                  subFasesBaseVA.C,
+                  acometidaMed.id,
+                  fasesMed
+                );
                 const subPromedioVida = apsGrupo.length > 0 ? (subSumaVida / apsGrupo.length).toFixed(1) : '0';
 
                 return (
@@ -449,12 +446,15 @@ export default function CuadroCargasTabla({
                     {listaMedidores.length > 1 && (
                       <tr className="bg-slate-900/80 border-t-2 border-b border-teal-500/40 text-xs font-sans">
                         <td colSpan={19} className="p-2.5 px-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Gauge size={14} className="text-teal-400" />
                               <span className="font-bold text-white uppercase tracking-wider">{medidor.nombre || `Medidor ${medidor.numero}`}</span>
                               <span className="text-[10px] px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/30 font-mono">
                                 {apsGrupo.length} {apsGrupo.length === 1 ? 'circuito' : 'circuitos'}
+                              </span>
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                                Fases activas: {fasesMed.join(', ')} ({acometidaMed.id === 'trifasico' ? '3F' : acometidaMed.id === 'bifasico' ? '2F' : '1F'})
                               </span>
                             </div>
                             <button
@@ -484,53 +484,31 @@ export default function CuadroCargasTabla({
                     {apsGrupo.map((ap) => {
                       runningGlobalIndex += 1;
                       const currentIndex = runningGlobalIndex;
-                      const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-                      const fp = parseFloat(ap.fp) || 1.0;
-                      const tension = ap.tipoCarga === 'monofasica' || acometidaId === 'monofasico' ? 127 : 220;
-                      const inominal = calcularCorrienteNominal(va, acometidaId === 'monofasico' ? 'monofasica' : ap.tipoCarga);
+                      const dist = distribuirCargaPorFases(ap, acometidaMed);
+                      const va = dist.va;
+                      const faseNorm = dist.faseNorm;
+
+                      const tipoEfectivo = acometidaMed.id === 'monofasico'
+                        ? 'monofasica'
+                        : (ap.tipoCarga === 'trifasica' && acometidaMed.id !== 'trifasico' ? 'bifasica' : ap.tipoCarga);
+                      const tension = tipoEfectivo === 'monofasica' ? 127 : 220;
+                      const inominal = calcularCorrienteNominal(va, tipoEfectivo);
                       const icorregida = calcularCorrienteCorregida(inominal);
-                      
+
                       const autoProteccion = seleccionarProteccion(icorregida);
                       const activeProteccion = ap.overrideBreaker && ap.overrideBreaker !== 'Auto' ? parseInt(ap.overrideBreaker) : autoProteccion;
-                      
+
                       const autoConductor = seleccionarConductor(activeProteccion);
                       const activeConductor = ap.overrideCable && ap.overrideCable !== 'Auto' ? ap.overrideCable : autoConductor;
 
-                      // Calcular desglose de VA por fase
-                      const vaFila = { A: 0, B: 0, C: 0 };
-                      if (ap.tipoCarga === 'trifasica' && acometidaMed.id === 'trifasico') {
-                        vaFila.A = va / 3;
-                        vaFila.B = va / 3;
-                        vaFila.C = va / 3;
-                      } else if (ap.tipoCarga === 'bifasica') {
-                        const fasePar = ap.fase || (acometidaMed.fasesDisponibles.length >= 2 ? `${acometidaMed.fasesDisponibles[0]}-${acometidaMed.fasesDisponibles[1]}` : 'A-B');
-                        const partes = fasePar.split('-');
-                        partes.forEach(f => {
-                          if (vaFila[f] !== undefined) vaFila[f] = va / partes.length;
-                        });
-                      } else {
-                        let f = ap.fase;
-                        if (!acometidaMed.fasesDisponibles.includes(f)) f = acometidaMed.fasesDisponibles[0] || 'A';
-                        vaFila[f] = va;
-                      }
-
                       const displayFila = { A: 0, B: 0, C: 0 };
                       ['A', 'B', 'C'].forEach(f => {
-                        const vf = vaFila[f];
-                        if (vf > 0) {
-                          if (fasesUnit === 'VA') {
-                            displayFila[f] = vf;
-                          } else if (fasesUnit === 'W') {
-                            displayFila[f] = vf * fp;
-                          } else if (fasesUnit === 'A') {
-                            if (ap.tipoCarga === 'trifasica') {
-                              displayFila[f] = vf / 127.017;
-                            } else if (ap.tipoCarga === 'bifasica') {
-                              displayFila[f] = vf / 110;
-                            } else {
-                              displayFila[f] = vf / 127;
-                            }
-                          }
+                        if (fasesUnit === 'VA') {
+                          displayFila[f] = dist.fVA[f];
+                        } else if (fasesUnit === 'W') {
+                          displayFila[f] = dist.fLoad[f];
+                        } else if (fasesUnit === 'A') {
+                          displayFila[f] = dist.fAmps[f];
                         }
                       });
 
@@ -588,9 +566,9 @@ export default function CuadroCargasTabla({
                                     const newTipo = e.target.value;
                                     const updates = { tipoCarga: newTipo };
                                     if (newTipo === 'bifasica') {
-                                      updates.fase = 'A-B';
+                                      updates.fase = fasesMed.length >= 2 ? `${fasesMed[0]}-${fasesMed[1]}` : 'A-B';
                                     } else if (newTipo === 'monofasica') {
-                                      updates.fase = 'A';
+                                      updates.fase = fasesMed[0] || 'A';
                                     } else if (newTipo === 'trifasica') {
                                       updates.fase = 'A-B-C';
                                     }
@@ -600,15 +578,11 @@ export default function CuadroCargasTabla({
                                   title="Cambiar tipo de conexión de carga (Monofásica, Bifásica o Trifásica)"
                                 >
                                   <option value="monofasica" className="bg-slate-900 text-slate-300">1F-1N (127V)</option>
-                                  {acometidaId !== 'monofasico' && (
-                                    <option value="bifasica" className="bg-slate-900 text-slate-300">2F-0N (220V)</option>
-                                  )}
-                                  {acometidaId === 'trifasico' && (
-                                    <option value="trifasica" className="bg-slate-900 text-slate-300">3F-0N (220V)</option>
-                                  )}
+                                  <option value="bifasica" className="bg-slate-900 text-slate-300">2F-0N (220V)</option>
+                                  <option value="trifasica" className="bg-slate-900 text-slate-300">3F-0N (220V)</option>
                                 </select>
                                 <span className="print:inline hidden">
-                                  {ap.tipoCarga === 'monofasica' ? '1F-1N' : ap.tipoCarga === 'bifasica' ? '2F-0N' : '3F-0N'}
+                                  {tipoEfectivo === 'monofasica' ? '1F-1N' : tipoEfectivo === 'bifasica' ? '2F-0N' : '3F-0N'}
                                 </span>
                               </span>
                             </div>
@@ -676,13 +650,28 @@ export default function CuadroCargasTabla({
                             />
                           </td>
 
-                          {/* Desglose por Fases Interactivo (Clic para activar/desactivar fases) */}
+                          {/* Desglose por Fases Interactivo (Solo fases habilitadas en el medidor) */}
                           <td className="p-2 border-x border-slate-800/40 bg-slate-950/10 text-center select-none">
                             <div className="grid grid-cols-3 gap-1">
                               {['A', 'B', 'C'].map((fase) => {
-                                const val = displayFila[fase] || 0;
-                                const isActive = val > 0 || (ap.fase && ap.fase.includes(fase));
-                                const isAvailableInMed = acometidaMed.fasesDisponibles.includes(fase);
+                                const isAvailableInMed = fasesMed.includes(fase);
+                                const val = isAvailableInMed ? (displayFila[fase] || 0) : 0;
+                                const isActive = isAvailableInMed && (val > 0 || faseNorm.split('-').includes(fase));
+
+                                if (!isAvailableInMed) {
+                                  return (
+                                    <button
+                                      key={fase}
+                                      type="button"
+                                      disabled
+                                      className="py-1 px-0.5 rounded text-[10px] font-mono border border-dashed border-slate-800/60 bg-slate-950/40 text-slate-700 opacity-40 cursor-not-allowed flex flex-col items-center justify-center min-h-[30px]"
+                                      title={`Fase ${fase} deshabilitada en ${medidor.nombre || `Medidor ${medidor.numero}`}. Actívala arriba en Distribución de Carga por Fase si requiere 3 fases.`}
+                                    >
+                                      <span className="text-[9px] font-sans leading-none">{fase}</span>
+                                      <span className="font-semibold leading-tight text-[9.5px]">-</span>
+                                    </button>
+                                  );
+                                }
 
                                 const colorStyles = fase === 'A'
                                   ? (isActive ? 'bg-red-500/25 text-red-300 border-red-500/50 shadow-xs shadow-red-500/10' : 'text-slate-600 hover:text-red-400 hover:border-red-500/30')
@@ -709,8 +698,8 @@ export default function CuadroCargasTabla({
                                     }`}
                                     title={
                                       isActive 
-                                        ? `Fase ${fase} activa (${Math.round(val)} ${fasesUnit}). Clic para alternar.` 
-                                        : `Fase ${fase} inactiva. Clic para conectar esta carga a Fase ${fase}.`
+                                        ? `Fase ${fase} activa (${fasesUnit === 'A' ? val.toFixed(1) : Math.round(val)} ${fasesUnit}). Clic para alternar entre fases habilitadas.` 
+                                        : `Fase ${fase} habilitada sin carga en este circuito. Clic para mover carga a Fase ${fase}.`
                                     }
                                   >
                                     <span className="text-[9px] opacity-75 font-sans leading-none">{fase}</span>
@@ -745,7 +734,7 @@ export default function CuadroCargasTabla({
                               }`}
                               title={ap.overrideBreaker && ap.overrideBreaker !== 'Auto' ? 'Valor personalizado (override)' : 'Valor automático'}
                             >
-                              {ap.tipoCarga === 'monofasica' ? '1x' : ap.tipoCarga === 'bifasica' ? '2x' : '3x'}{activeProteccion}A{ap.overrideBreaker && ap.overrideBreaker !== 'Auto' && '*'} / {ap.kaic || '10 kA'}
+                              {tipoEfectivo === 'monofasica' ? '1x' : tipoEfectivo === 'bifasica' ? '2x' : '3x'}{activeProteccion}A{ap.overrideBreaker && ap.overrideBreaker !== 'Auto' && '*'} / {ap.kaic || '10 kA'}
                             </span>
                           </td>
 
@@ -788,8 +777,8 @@ export default function CuadroCargasTabla({
                             {(() => {
                               const caida = calcularCaidaTension(
                                 ap.longitudMetros !== undefined ? ap.longitudMetros : 15,
-                                icorregida,
-                                acometidaId === 'monofasico' ? 'monofasica' : ap.tipoCarga,
+                                inominal,
+                                tipoEfectivo,
                                 activeConductor
                               );
                               const esCritico = caida > 3.00;
@@ -807,23 +796,25 @@ export default function CuadroCargasTabla({
                           {/* Acciones */}
                           <td className="p-3 text-center no-print">
                             <div className="flex items-center justify-center gap-2">
-                              {((ap.tipoCarga === 'monofasica' && fasesDisponibles.length > 1) || 
-                                (ap.tipoCarga === 'bifasica' && acometidaId === 'trifasico')) && (
+                              {((tipoEfectivo === 'monofasica' && fasesMed.length > 1) || 
+                                (tipoEfectivo === 'bifasica' && fasesMed.length >= 3)) && (
                                 <button
                                   onClick={() => {
-                                    if (ap.tipoCarga === 'monofasica') {
-                                      const currentIdx = fasesDisponibles.indexOf(ap.fase);
-                                      const nextIdx = (currentIdx + 1) % fasesDisponibles.length;
-                                      onUpdateFase(ap.id, fasesDisponibles[nextIdx]);
+                                    if (tipoEfectivo === 'monofasica') {
+                                      const currentIdx = fasesMed.indexOf(faseNorm);
+                                      const nextIdx = (currentIdx + 1) % fasesMed.length;
+                                      onUpdateFase(ap.id, fasesMed[nextIdx]);
                                     } else {
-                                      const combos = ['A-B', 'B-C', 'A-C'];
-                                      const currentIdx = combos.indexOf(ap.fase || 'A-B');
+                                      const combos = ['A-B', 'B-C', 'A-C'].filter(par =>
+                                        par.split('-').every(p => fasesMed.includes(p))
+                                      );
+                                      const currentIdx = combos.indexOf(faseNorm);
                                       const nextIdx = (currentIdx + 1) % combos.length;
-                                      onUpdateFase(ap.id, combos[nextIdx]);
+                                      onUpdateFase(ap.id, combos[nextIdx] || 'A-B');
                                     }
                                   }}
                                   className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
-                                  title="Rotar de Fase manualmente"
+                                  title="Rotar entre las fases habilitadas del medidor"
                                 >
                                   <ArrowRightLeft size={11} />
                                 </button>
@@ -859,14 +850,20 @@ export default function CuadroCargasTabla({
                       <td className="p-2.5 text-center text-slate-400">{subPromedioVida}a</td>
                       <td className="p-2.5 border-x border-slate-800/40 bg-slate-950/20 text-center">
                         <div className="grid grid-cols-3 gap-1">
-                          <span className="text-red-400">
-                            {fasesUnit === 'A' ? subFasesDisplay.A.toFixed(2) : Math.round(subFasesDisplay.A).toLocaleString()}
+                          <span className={fasesMed.includes('A') ? 'text-red-400' : 'text-slate-600 opacity-50'}>
+                            {fasesMed.includes('A')
+                              ? (fasesUnit === 'A' ? subFasesDisplay.A.toFixed(2) : Math.round(subFasesDisplay.A).toLocaleString())
+                              : '-'}
                           </span>
-                          <span className="text-amber-400">
-                            {fasesUnit === 'A' ? subFasesDisplay.B.toFixed(2) : Math.round(subFasesDisplay.B).toLocaleString()}
+                          <span className={fasesMed.includes('B') ? 'text-amber-400' : 'text-slate-600 opacity-50'}>
+                            {fasesMed.includes('B')
+                              ? (fasesUnit === 'A' ? subFasesDisplay.B.toFixed(2) : Math.round(subFasesDisplay.B).toLocaleString())
+                              : '-'}
                           </span>
-                          <span className="text-blue-400">
-                            {fasesUnit === 'A' ? subFasesDisplay.C.toFixed(2) : Math.round(subFasesDisplay.C).toLocaleString()}
+                          <span className={fasesMed.includes('C') ? 'text-blue-400' : 'text-slate-600 opacity-50'}>
+                            {fasesMed.includes('C')
+                              ? (fasesUnit === 'A' ? subFasesDisplay.C.toFixed(2) : Math.round(subFasesDisplay.C).toLocaleString())
+                              : '-'}
                           </span>
                         </div>
                       </td>
@@ -936,8 +933,10 @@ export default function CuadroCargasTabla({
                     <span className="text-amber-400">
                       {fasesUnit === 'A' ? fasesDisplayTotal.B.toFixed(2) : Math.round(fasesDisplayTotal.B).toLocaleString()} {fasesUnit}
                     </span>
-                    <span className="text-blue-400">
-                      {fasesUnit === 'A' ? fasesDisplayTotal.C.toFixed(2) : Math.round(fasesDisplayTotal.C).toLocaleString()} {fasesUnit}
+                    <span className={fasesDisplayTotal.C > 0 ? 'text-blue-400' : 'text-slate-600 opacity-60'}>
+                      {fasesDisplayTotal.C > 0
+                        ? `${fasesUnit === 'A' ? fasesDisplayTotal.C.toFixed(2) : Math.round(fasesDisplayTotal.C).toLocaleString()} ${fasesUnit}`
+                        : '-'}
                     </span>
                   </div>
                 </td>
@@ -946,26 +945,27 @@ export default function CuadroCargasTabla({
                 <td colSpan="8" className="p-3 text-right">
                   <div className="flex items-center gap-3 justify-end">
                     <span className="text-slate-400 font-sans text-[10px]">
-                      Desbalance Global UVIE: <span className={desbalanceSuperado ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>{desbalance.toFixed(2)}%</span>
+                      {listaMedidores.length > 1 ? 'Desbalance Máx. por Medidor:' : 'Desbalance Global UVIE:'}{' '}
+                      <span className={desbalanceSuperado ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
+                        {desbalance.toFixed(2)}%
+                      </span>
                     </span>
                     
                     {/* Botón de Balanceador dinámico */}
-                    {acometidaId !== 'monofasico' && (
-                      <button
-                        onClick={onBalancearFases}
-                        disabled={balancingConfigsCount === 0}
-                        type="button"
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 select-none no-print ${
-                          balancingConfigsCount === 0
-                            ? 'bg-slate-800/80 text-slate-500 border border-slate-700/40 cursor-not-allowed'
-                            : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 hover:shadow-md hover:shadow-emerald-500/20 active:scale-95'
-                        }`}
-                        title={balancingConfigsCount > 0 ? `Optimizar balanceo de fases (${balancingConfigsCount} combinaciones)` : 'Fases perfectamente balanceadas (<5%)'}
-                      >
-                        <ArrowRightLeft size={12} />
-                        {balancingConfigsCount > 0 ? `Balancear Global (${balancingConfigsCount})` : 'Balanceado'}
-                      </button>
-                    )}
+                    <button
+                      onClick={onBalancearFases}
+                      disabled={balancingConfigsCount === 0 && !desbalanceSuperado}
+                      type="button"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 select-none no-print ${
+                        balancingConfigsCount === 0 && !desbalanceSuperado
+                          ? 'bg-slate-800/80 text-slate-500 border border-slate-700/40 cursor-not-allowed'
+                          : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 hover:shadow-md hover:shadow-emerald-500/20 active:scale-95'
+                      }`}
+                      title={balancingConfigsCount > 0 || desbalanceSuperado ? 'Optimizar balanceo de fases en cada medidor independiente' : 'Todos los medidores están balanceados (≤5%)'}
+                    >
+                      <ArrowRightLeft size={12} />
+                      {balancingConfigsCount > 0 || desbalanceSuperado ? 'Balancear Todos' : 'Balanceado'}
+                    </button>
                   </div>
                 </td>
               </tr>

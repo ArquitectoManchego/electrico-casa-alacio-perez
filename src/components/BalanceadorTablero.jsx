@@ -284,7 +284,13 @@ function SingleMedidorTableroModule({
   }, [breakers]);
 
   const desbalancePct = useMemo(() =>
-    calcularDesbalanceUVIE(fasesVAActual.A, fasesVAActual.B, fasesVAActual.C, acometidaMedidor?.id), 
+    calcularDesbalanceUVIE(
+      fasesVAActual.A,
+      fasesVAActual.B,
+      fasesVAActual.C,
+      acometidaMedidor?.id,
+      acometidaMedidor?.fasesDisponibles
+    ),
     [fasesVAActual, acometidaMedidor]
   );
 
@@ -331,7 +337,11 @@ function SingleMedidorTableroModule({
       onBalancearMedidor(medidor.id);
       return;
     }
-    const result = calcularDistribucion(aparatosMedidor, acometidaMedidor?.id || 'monofasico');
+    const result = calcularDistribucion(
+      aparatosMedidor,
+      acometidaMedidor?.id || 'monofasico',
+      acometidaMedidor?.fasesDisponibles
+    );
     if (result.errores.length) {
       setApplyError(`No se aplicó el balance: ${result.errores.join(' ')}`);
       return;
@@ -740,7 +750,7 @@ export default function BalanceadorTablero({
                 acometidaMedidor={acomMed}
                 proyectoId={proyectoId}
                 computedElectricalSystem={computedElectricalSystem}
-                onApplyBalancing={onApplyBalancing}
+                onApplyBalancing={(breakersMed) => onApplyBalancing && onApplyBalancing(breakersMed, med.id)}
                 onBalancearMedidor={onBalancearMedidor}
               />
             );
@@ -763,7 +773,7 @@ export default function BalanceadorTablero({
                 acometidaMedidor={acomMed}
                 proyectoId={proyectoId}
                 computedElectricalSystem={computedElectricalSystem}
-                onApplyBalancing={onApplyBalancing}
+                onApplyBalancing={(breakersMed) => onApplyBalancing && onApplyBalancing(breakersMed, currentMed.id)}
                 onBalancearMedidor={onBalancearMedidor}
               />
             );

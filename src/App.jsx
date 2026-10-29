@@ -22,7 +22,13 @@ import {
 } from 'lucide-react';
 
 import { dbService, DEFAULT_MEDIDORES_CONSORCIO } from './firebase';
-import { determinarAcometida, determinarAcometidaMedidor, generarCombinacionesBalanceo } from './utils/electricalCalculations';
+import { 
+  determinarAcometida, 
+  determinarAcometidaMedidor, 
+  generarCombinacionesBalanceo,
+  normalizarFaseParaMedidor,
+  distribuirCargaPorFases
+} from './utils/electricalCalculations';
 import { 
   calcularVA as uvieCalcularVA, 
   calcularCorrienteNominal, 
@@ -143,20 +149,24 @@ function AddVariantForm({ onSave, onCancel }) {
   );
 }
 
-const getFasePredefinidaDeSlot = (slotNum) => {
-  const cycle = Math.ceil(slotNum / 2) % 3;
-  if (cycle === 1) return 'A';
-  if (cycle === 2) return 'B';
-  return 'C';
+const getFasePredefinidaDeSlot = (slotNum, fasesDisponibles = ['A', 'B', 'C']) => {
+  const fases = Array.isArray(fasesDisponibles) && fasesDisponibles.length > 0 ? fasesDisponibles : ['A'];
+  const idx = (Math.ceil(slotNum / 2) - 1) % fases.length;
+  return fases[idx];
 };
 
-const asignarSlotParaFase = (fase, slotsOcupados, currentSlot) => {
-  const fasesCompatibles = (fase || 'A').split('-');
-  if (currentSlot && fasesCompatibles.includes(getFasePredefinidaDeSlot(currentSlot))) {
+const asignarSlotParaFase = (fase, slotsOcupados, currentSlot, fasesDisponibles = ['A', 'B', 'C']) => {
+  const fases = Array.isArray(fasesDisponibles) && fasesDisponibles.length > 0 ? fasesDisponibles : ['A'];
+  const fasesCompatibles = (fase || fases[0]).split('-');
+  if (
+    currentSlot &&
+    !slotsOcupados.has(currentSlot) &&
+    fasesCompatibles.includes(getFasePredefinidaDeSlot(currentSlot, fases))
+  ) {
     return currentSlot;
   }
-  for (let slotIndex = 1; slotIndex <= 24; slotIndex++) {
-    if (fasesCompatibles.includes(getFasePredefinidaDeSlot(slotIndex)) && !slotsOcupados.has(slotIndex)) {
+  for (let slotIndex = 1; slotIndex <= 42; slotIndex++) {
+    if (fasesCompatibles.includes(getFasePredefinidaDeSlot(slotIndex, fases)) && !slotsOcupados.has(slotIndex)) {
       return slotIndex;
     }
   }
@@ -474,39 +484,61 @@ export default function App() {
           setCajetinEscala(proj.cajetinEscala || "S/E");
         }
         
+        // Cargar medidores primero para sanitizar fases y ranuras por medidor independiente
+        let finalMedidores = await dbService.getMedidores(currentProyectoId);
+        if (Array.isArray(finalMedidores) && finalMedidores.length > 0) {
+          if (currentProyectoId === 'consorcio_general' && finalMedidores.length < 6) {
+            finalMedidores = DEFAULT_MEDIDORES_CONSORCIO;
+            await dbService.saveMedidores(currentProyectoId, DEFAULT_MEDIDORES_CONSORCIO);
+          }
+        } else {
+          finalMedidores = [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+        }
+
+        setMedidores(finalMedidores);
+        if (!finalMedidores.some(m => m.id === activeMedidorId)) {
+          setActiveMedidorId(finalMedidores[0].id);
+        }
+
         let cambioDetectado = false;
-        
-        // Deduplicar por ID único y por slot único (dos equipos no pueden compartir el mismo slot)
+        const defaultMedId = finalMedidores[0]?.id || 'med_1';
+
+        // Deduplicar únicamente por ID único (diferentes medidores pueden usar el mismo número de slot físico)
         const idsVistos = new Set();
-        const slotsVistos = new Set();
         const datosFiltrados = [];
-        
+
         data.forEach(ap => {
           if (!ap.id) return;
-          
           if (idsVistos.has(ap.id)) {
             cambioDetectado = true;
             return;
           }
-          if (ap.slot && slotsVistos.has(ap.slot)) {
-            // Duplicado por slot coincidente en el mismo proyecto -> descartar
-            cambioDetectado = true;
-            return;
-          }
-          
           idsVistos.add(ap.id);
-          if (ap.slot) {
-            slotsVistos.add(ap.slot);
-          }
           datosFiltrados.push(ap);
         });
 
-        const slotsOcupados = new Set();
+        // Pre-calcular acometida efectiva de cada medidor para normalizar fases y ranuras
+        const acometidaPorMedidor = {};
+        finalMedidores.forEach(med => {
+          const apsDelMed = datosFiltrados.filter(ap => (ap.medidorId || defaultMedId) === med.id);
+          acometidaPorMedidor[med.id] = determinarAcometidaMedidor(med, apsDelMed);
+        });
+
+        const slotsPorMedidor = new Map();
         const migratedData = datosFiltrados.map(ap => {
+          const medId = finalMedidores.some(m => m.id === ap.medidorId) ? ap.medidorId : defaultMedId;
+          if (!slotsPorMedidor.has(medId)) {
+            slotsPorMedidor.set(medId, new Set());
+          }
+          const slotsOcupados = slotsPorMedidor.get(medId);
+          const acometidaMed = acometidaPorMedidor[medId] || { id: 'bifasico', fasesDisponibles: ['A', 'B'] };
+          const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
+
           // Asegurar propiedades de la UVIE con valores por defecto
           const tieneCamposUvie = ap.tuberiaDiametro && ap.kaic;
           const apConUvie = {
             ...ap,
+            medidorId: medId,
             tuberiaDiametro: ap.tuberiaDiametro || '16 mm (1/2")',
             tuberiaTipo: ap.tuberiaTipo || 'Pared Delgada',
             longitudMetros: ap.longitudMetros !== undefined ? parseFloat(ap.longitudMetros) : 15,
@@ -515,53 +547,34 @@ export default function App() {
             factorAgrupamiento: ap.factorAgrupamiento !== undefined ? parseFloat(ap.factorAgrupamiento) : 1.0
           };
 
-          if (!tieneCamposUvie) {
+          if (!tieneCamposUvie || ap.medidorId !== medId) {
+            cambioDetectado = true;
+          }
+
+          const faseNorm = normalizarFaseParaMedidor(apConUvie, acometidaMed);
+          if (faseNorm !== apConUvie.fase) {
+            apConUvie.fase = faseNorm;
             cambioDetectado = true;
           }
 
           let slotInvalido = !apConUvie.slot || slotsOcupados.has(apConUvie.slot);
-          
+
           if (!slotInvalido) {
-            const slotFase = getFasePredefinidaDeSlot(apConUvie.slot);
+            const slotFase = getFasePredefinidaDeSlot(apConUvie.slot, fasesDisp);
             if (apConUvie.tipoCarga === 'monofasica') {
               slotInvalido = slotFase !== apConUvie.fase;
             } else if (apConUvie.tipoCarga === 'bifasica') {
               const partes = (apConUvie.fase || 'A-B').split('-');
               slotInvalido = !partes.includes(slotFase);
             } else if (apConUvie.tipoCarga === 'trifasica') {
-              slotInvalido = false; 
+              slotInvalido = false;
             }
           }
-          
+
           if (slotInvalido) {
             cambioDetectado = true;
-            let slotIndex = 1;
-            const targetFase = apConUvie.fase || 'A';
-            
-            const esSlotCompatible = (slotIdx, tFase) => {
-              const slotFase = getFasePredefinidaDeSlot(slotIdx);
-              if (apConUvie.tipoCarga === 'monofasica') {
-                return slotFase === tFase;
-              } else if (apConUvie.tipoCarga === 'bifasica') {
-                const partes = tFase.split('-');
-                return partes.includes(slotFase);
-              }
-              return true; 
-            };
-
-            while (slotIndex <= 24 && (slotsOcupados.has(slotIndex) || !esSlotCompatible(slotIndex, targetFase))) {
-              slotIndex++;
-            }
-            
-            if (slotIndex > 24) {
-              slotIndex = 1;
-              while (slotIndex <= 24 && slotsOcupados.has(slotIndex)) {
-                slotIndex++;
-              }
-            }
-            
-            const finalSlot = slotIndex <= 24 ? slotIndex : null;
-            const updatedAp = { ...apConUvie, slot: finalSlot, fase: targetFase };
+            const finalSlot = asignarSlotParaFase(apConUvie.fase, slotsOcupados, null, fasesDisp);
+            const updatedAp = { ...apConUvie, slot: finalSlot, fase: apConUvie.fase };
             if (finalSlot) {
               slotsOcupados.add(finalSlot);
             }
@@ -574,24 +587,9 @@ export default function App() {
 
         setAparatos(migratedData);
 
-        // Si hubo cambios por migración, desbalance o duplicados corregidos, guardar de forma atómica una sola vez
+        // Si hubo cambios por migración, fase fuera de rango o slots corregidos, guardar una sola vez
         if (cambioDetectado) {
           await dbService.guardarTodosLosAparatos(currentProyectoId, migratedData);
-        }
-
-        // Cargar medidores para este proyecto
-        const mList = await dbService.getMedidores(currentProyectoId);
-        if (Array.isArray(mList) && mList.length > 0) {
-          if (currentProyectoId === 'consorcio_general' && mList.length < 6) {
-            setMedidores(DEFAULT_MEDIDORES_CONSORCIO);
-            await dbService.saveMedidores(currentProyectoId, DEFAULT_MEDIDORES_CONSORCIO);
-            setActiveMedidorId(DEFAULT_MEDIDORES_CONSORCIO[0].id);
-          } else {
-            setMedidores(mList);
-            if (!mList.some(m => m.id === activeMedidorId)) {
-              setActiveMedidorId(mList[0].id);
-            }
-          }
         }
       } catch (error) {
         console.error('Error cargando aparatos:', error);
@@ -601,60 +599,12 @@ export default function App() {
     }
     loadData();
   }, [currentProyectoId]);
+
   // 1. Potencia activa total (Watts) y aparente total (VA) de todo el proyecto
   const totalWatts = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
   const totalVAProyecto = aparatos.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
-  const currentAcometida = determinarAcometida(totalWatts, forzarTrifasico);
 
-  // 2. Sumar Watts y VA por Fase globales
-  const fasesLoad = { A: 0, B: 0, C: 0 };
-  const fasesVA = { A: 0, B: 0, C: 0 };
-
-  aparatos.forEach(ap => {
-    const w = parseFloat(ap.watts) || 0;
-    const fp = parseFloat(ap.fp) || 1.0;
-    const va = uvieCalcularVA(w, fp, ap.usarVaDirecto);
-
-    if (currentAcometida.id === 'monofasico') {
-      fasesLoad.A += w;
-      fasesVA.A += va;
-    } else if (ap.tipoCarga === 'trifasica' && currentAcometida.id === 'trifasico') {
-      fasesLoad.A += w / 3;
-      fasesLoad.B += w / 3;
-      fasesLoad.C += w / 3;
-
-      fasesVA.A += va / 3;
-      fasesVA.B += va / 3;
-      fasesVA.C += va / 3;
-    } else if (ap.tipoCarga === 'bifasica' && (currentAcometida.id === 'bifasico' || currentAcometida.id === 'trifasico')) {
-      const fasePar = ap.fase || 'A-B';
-      const partes = fasePar.split('-');
-      
-      partes.forEach(f => {
-        if (fasesLoad[f] !== undefined) {
-          fasesLoad[f] += w / partes.length;
-          fasesVA[f] += va / partes.length;
-        }
-      });
-    } else {
-      let f = ap.fase;
-      if (!currentAcometida.fasesDisponibles.includes(f)) {
-        f = 'A';
-      }
-      fasesLoad[f] += w;
-      fasesVA[f] += va;
-    }
-  });
-
-  // 3. Calcular desbalanceo de fases usando la fórmula UVIE para CFE
-  const desbalanceUVIE = calcularDesbalanceUVIE(
-    fasesVA.A, 
-    fasesVA.B, 
-    fasesVA.C, 
-    currentAcometida.id
-  );
-
-  // 4. Mapa de cálculos independientes por medidor CFE
+  // 2. Mapa de cálculos independientes por medidor CFE (Fuente canónica por contrato/tablero)
   const medidoresData = useMemo(() => {
     const map = {};
     const lista = Array.isArray(medidores) && medidores.length > 0
@@ -662,62 +612,111 @@ export default function App() {
       : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
 
     lista.forEach(med => {
+      const medEfectivo = lista.length === 1 && forzarTrifasico
+        ? { ...med, forzarTrifasico: true }
+        : med;
       const apsMed = aparatos.filter(ap => (ap.medidorId || lista[0].id) === med.id);
       const wTotal = apsMed.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
       const vaTotal = apsMed.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
-      const acometidaMed = determinarAcometidaMedidor(med, apsMed);
+      const acometidaMed = determinarAcometidaMedidor(medEfectivo, apsMed);
 
       const fLoad = { A: 0, B: 0, C: 0 };
       const fVA = { A: 0, B: 0, C: 0 };
+      const fAmps = { A: 0, B: 0, C: 0 };
 
       apsMed.forEach(ap => {
-        const w = parseFloat(ap.watts) || 0;
-        const fp = parseFloat(ap.fp) || 1.0;
-        const va = uvieCalcularVA(w, fp, ap.usarVaDirecto);
+        const dist = distribuirCargaPorFases(ap, acometidaMed);
+        fLoad.A += dist.fLoad.A;
+        fLoad.B += dist.fLoad.B;
+        fLoad.C += dist.fLoad.C;
 
-        if (acometidaMed.id === 'monofasico') {
-          fLoad.A += w;
-          fVA.A += va;
-        } else if (ap.tipoCarga === 'trifasica' && acometidaMed.id === 'trifasico') {
-          fLoad.A += w / 3;
-          fLoad.B += w / 3;
-          fLoad.C += w / 3;
-          fVA.A += va / 3;
-          fVA.B += va / 3;
-          fVA.C += va / 3;
-        } else if (ap.tipoCarga === 'bifasica' && (acometidaMed.id === 'bifasico' || acometidaMed.id === 'trifasico')) {
-          const combo = ap.fase || 'A-B';
-          const parts = combo.split('-');
-          parts.forEach(p => {
-            if (fLoad[p] !== undefined) {
-              fLoad[p] += w / parts.length;
-              fVA[p] += va / parts.length;
-            }
-          });
-        } else {
-          let f = ap.fase;
-          if (!acometidaMed.fasesDisponibles.includes(f)) f = 'A';
-          fLoad[f] += w;
-          fVA[f] += va;
-        }
+        fVA.A += dist.fVA.A;
+        fVA.B += dist.fVA.B;
+        fVA.C += dist.fVA.C;
+
+        fAmps.A += dist.fAmps.A;
+        fAmps.B += dist.fAmps.B;
+        fAmps.C += dist.fAmps.C;
       });
 
-      const desbal = calcularDesbalanceUVIE(fVA.A, fVA.B, fVA.C, acometidaMed.id);
+      const desbal = calcularDesbalanceUVIE(
+        fVA.A,
+        fVA.B,
+        fVA.C,
+        acometidaMed.id,
+        acometidaMed.fasesDisponibles
+      );
 
       map[med.id] = {
-        medidor: med,
+        medidor: medEfectivo,
         aparatos: apsMed,
         totalWatts: wTotal,
         totalVA: vaTotal,
         acometida: acometidaMed,
         fasesLoad: fLoad,
         fasesVA: fVA,
+        fasesAmps: fAmps,
         desbalanceUVIE: desbal,
-        forzarTrifasico: med.forzarTrifasico
+        forzarTrifasico: Boolean(medEfectivo.forzarTrifasico)
       };
     });
     return map;
-  }, [medidores, aparatos]);
+  }, [medidores, aparatos, forzarTrifasico]);
+
+  // 3. Sumar Watts, VA y Amperes por Fase globales exactamente desde los medidores activos
+  const fasesLoad = { A: 0, B: 0, C: 0 };
+  const fasesVA = { A: 0, B: 0, C: 0 };
+  const fasesAmps = { A: 0, B: 0, C: 0 };
+
+  Object.values(medidoresData).forEach(d => {
+    fasesLoad.A += d.fasesLoad.A;
+    fasesLoad.B += d.fasesLoad.B;
+    fasesLoad.C += d.fasesLoad.C;
+
+    fasesVA.A += d.fasesVA.A;
+    fasesVA.B += d.fasesVA.B;
+    fasesVA.C += d.fasesVA.C;
+
+    fasesAmps.A += d.fasesAmps.A;
+    fasesAmps.B += d.fasesAmps.B;
+    fasesAmps.C += d.fasesAmps.C;
+  });
+
+  const medidoresEntries = Object.values(medidoresData);
+  const currentAcometida = useMemo(() => {
+    if (medidoresEntries.length === 1) {
+      return medidoresEntries[0].acometida;
+    }
+    const base = determinarAcometida(totalWatts, forzarTrifasico);
+    if (forzarTrifasico) return base;
+    const fasesActivasGlobal = ['A', 'B', 'C'].filter(f =>
+      medidoresEntries.some(d => d.acometida?.fasesDisponibles?.includes(f))
+    );
+    if (fasesActivasGlobal.length === 1) {
+      return {
+        ...determinarAcometida(1000, false),
+        fasesDisponibles: fasesActivasGlobal
+      };
+    }
+    if (fasesActivasGlobal.length === 2) {
+      return {
+        ...determinarAcometida(6000, false),
+        fasesDisponibles: fasesActivasGlobal
+      };
+    }
+    return base;
+  }, [medidoresEntries, totalWatts, forzarTrifasico]);
+
+  // 4. Desbalance representativo UVIE: en multi-medidor es el máximo desbalance individual entre medidores
+  const desbalanceUVIE = medidoresEntries.length > 1
+    ? Math.max(0, ...medidoresEntries.map(d => d.desbalanceUVIE || 0))
+    : calcularDesbalanceUVIE(
+        fasesVA.A,
+        fasesVA.B,
+        fasesVA.C,
+        currentAcometida.id,
+        currentAcometida.fasesDisponibles
+      );
 
   // Operaciones de gestión multi-medidor
   const handleSetCantidadMedidores = async (nuevaCantidad) => {
@@ -793,7 +792,89 @@ export default function App() {
   const handleToggleForzarTrifasicoMedidor = async (medId) => {
     const target = medidores.find(m => m.id === medId);
     if (!target) return;
-    await handleUpdateMedidor(medId, { forzarTrifasico: !target.forzarTrifasico });
+    const nextTrifasico = !target.forzarTrifasico;
+    await handleUpdateMedidor(medId, {
+      forzarTrifasico: nextTrifasico,
+      fasesHabilitadas: nextTrifasico ? ['A', 'B', 'C'] : undefined,
+      tipoAcometida: nextTrifasico ? 'trifasico' : undefined
+    });
+  };
+
+  // Motor puro de balanceo para un medidor específico (garantiza no empeorar jamás el desbalance y respetar fases activas)
+  const balancearAparatosDeMedidor = (med, apsMed) => {
+    const acometidaMed = determinarAcometidaMedidor(med, apsMed);
+    const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
+
+    // Sanitizar fases actuales primero como línea base
+    const baseSanitizada = apsMed.map(ap => ({
+      ...ap,
+      fase: normalizarFaseParaMedidor(ap, acometidaMed)
+    }));
+
+    const curVA = { A: 0, B: 0, C: 0 };
+    baseSanitizada.forEach(ap => {
+      const dist = distribuirCargaPorFases(ap, acometidaMed);
+      curVA.A += dist.fVA.A;
+      curVA.B += dist.fVA.B;
+      curVA.C += dist.fVA.C;
+    });
+    const desbalActual = calcularDesbalanceUVIE(curVA.A, curVA.B, curVA.C, acometidaMed.id, fasesDisp);
+
+    let mejorLista = baseSanitizada;
+    let mejorDesbal = desbalActual;
+
+    if (acometidaMed.id !== 'monofasico' && fasesDisp.length > 1) {
+      const configs = generarCombinacionesBalanceo(baseSanitizada, acometidaMed.id, fasesDisp);
+      if (configs.length > 0) {
+        const mejor = configs[0];
+        const candidata = baseSanitizada.map(ap => {
+          const match = mejor.asignacion.find(a => a.id === ap.id);
+          const faseAsignada = match ? match.fase : ap.fase;
+          return {
+            ...ap,
+            fase: normalizarFaseParaMedidor({ ...ap, fase: faseAsignada }, acometidaMed)
+          };
+        });
+
+        const candVA = { A: 0, B: 0, C: 0 };
+        candidata.forEach(ap => {
+          const dist = distribuirCargaPorFases(ap, acometidaMed);
+          candVA.A += dist.fVA.A;
+          candVA.B += dist.fVA.B;
+          candVA.C += dist.fVA.C;
+        });
+        const candDesbal = calcularDesbalanceUVIE(candVA.A, candVA.B, candVA.C, acometidaMed.id, fasesDisp);
+
+        if (candDesbal <= desbalActual + 1e-6) {
+          mejorLista = candidata;
+          mejorDesbal = candDesbal;
+        }
+      }
+    }
+
+    // Reasignar slots físicos exclusivamente dentro del tablero de este medidor
+    const slotsOcupados = new Set();
+    const finalApsMed = mejorLista.map(ap => {
+      let slotValido = ap.slot && !slotsOcupados.has(ap.slot);
+      if (slotValido) {
+        const slotFase = getFasePredefinidaDeSlot(ap.slot, fasesDisp);
+        if (ap.tipoCarga === 'monofasica' && slotFase !== ap.fase) slotValido = false;
+        if (ap.tipoCarga === 'bifasica' && !ap.fase.split('-').includes(slotFase)) slotValido = false;
+      }
+      if (!slotValido) {
+        const nuevoSlot = asignarSlotParaFase(ap.fase, slotsOcupados, null, fasesDisp);
+        if (nuevoSlot) slotsOcupados.add(nuevoSlot);
+        return { ...ap, slot: nuevoSlot };
+      }
+      slotsOcupados.add(ap.slot);
+      return ap;
+    });
+
+    return {
+      finalApsMed,
+      acometidaMed,
+      nuevoDesbal: mejorDesbal
+    };
   };
 
   const handleBalancearMedidor = async (medId) => {
@@ -802,110 +883,16 @@ export default function App() {
       ? medidores
       : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
     const med = lista.find(m => m.id === medId) || lista[0];
+    const medEfectivo = lista.length === 1 && forzarTrifasico ? { ...med, forzarTrifasico: true } : med;
 
-    // 1. Filtrar aparatos correspondientes a este medidor
     const apsMed = aparatos.filter(ap => (ap.medidorId || lista[0].id) === med.id);
     if (apsMed.length === 0) {
       alert(`El ${med.nombre || `Medidor ${med.numero}`} no cuenta con circuitos registrados para balancear.`);
       return;
     }
 
-    // 2. Determinar acometida del medidor considerando cargas 220V o 3F y configuración de fases
-    const acometidaMed = determinarAcometidaMedidor(med, apsMed);
+    const { finalApsMed, nuevoDesbal } = balancearAparatosDeMedidor(medEfectivo, apsMed);
 
-    let updatedApsMed = [];
-
-    if (acometidaMed.id === 'monofasico' || acometidaMed.fasesDisponibles.length <= 1) {
-      // Monofásico 127V: Todas las cargas van a la única fase disponible
-      const unicaFase = acometidaMed.fasesDisponibles[0] || 'A';
-      updatedApsMed = apsMed.map(ap => ({
-        ...ap,
-        fase: unicaFase
-      }));
-    } else {
-      // Bifásico o Trifásico: buscar asignación con desbalance UVIE óptimo <= 5%
-      const configs = generarCombinacionesBalanceo(apsMed, acometidaMed.id, acometidaMed.fasesDisponibles);
-      if (configs.length > 0) {
-        const mejor = configs[0];
-        updatedApsMed = apsMed.map(ap => {
-          const match = mejor.asignacion.find(a => a.id === ap.id);
-          return {
-            ...ap,
-            fase: match ? match.fase : (ap.fase || acometidaMed.fasesDisponibles[0])
-          };
-        });
-      } else {
-        // Algoritmo greedy LPT de respaldo
-        const cargasFase = {};
-        acometidaMed.fasesDisponibles.forEach(f => { cargasFase[f] = 0; });
-
-        // Cargas bifásicas y trifásicas
-        apsMed.forEach(ap => {
-          const va = uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-          if (ap.tipoCarga === 'bifasica') {
-            const par = acometidaMed.fasesDisponibles.length >= 2 
-              ? `${acometidaMed.fasesDisponibles[0]}-${acometidaMed.fasesDisponibles[1]}` 
-              : 'A-B';
-            par.split('-').forEach(p => { if (cargasFase[p] !== undefined) cargasFase[p] += va / 2; });
-          } else if (ap.tipoCarga === 'trifasica') {
-            acometidaMed.fasesDisponibles.forEach(p => { if (cargasFase[p] !== undefined) cargasFase[p] += va / 3; });
-          }
-        });
-
-        // Ordenar monofásicas de mayor a menor carga
-        const monofasicasSorted = [...apsMed.filter(ap => ap.tipoCarga === 'monofasica')]
-          .sort((a, b) => (parseFloat(b.watts) || 0) - (parseFloat(a.watts) || 0));
-
-        const mapaFasesMono = {};
-        monofasicasSorted.forEach(ap => {
-          let minFase = acometidaMed.fasesDisponibles[0];
-          let minVal = cargasFase[minFase];
-          acometidaMed.fasesDisponibles.forEach(f => {
-            if (cargasFase[f] < minVal) {
-              minVal = cargasFase[f];
-              minFase = f;
-            }
-          });
-          const va = uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-          cargasFase[minFase] += va;
-          mapaFasesMono[ap.id] = minFase;
-        });
-
-        updatedApsMed = apsMed.map(ap => {
-          if (ap.tipoCarga === 'monofasica' && mapaFasesMono[ap.id]) {
-            return { ...ap, fase: mapaFasesMono[ap.id] };
-          }
-          if (ap.tipoCarga === 'bifasica' && acometidaMed.id === 'bifasico') {
-            return { ...ap, fase: `${acometidaMed.fasesDisponibles[0]}-${acometidaMed.fasesDisponibles[1]}` };
-          }
-          return ap;
-        });
-      }
-    }
-
-    // 3. Reasignar slots físicos compatibles con la nueva fase
-    const slotsOcupados = new Set();
-    aparatos.filter(ap => (ap.medidorId || lista[0].id) !== med.id).forEach(ap => {
-      if (ap.slot) slotsOcupados.add(ap.slot);
-    });
-
-    const finalApsMed = updatedApsMed.map(ap => {
-      let slotValido = ap.slot && !slotsOcupados.has(ap.slot);
-      if (slotValido) {
-        const slotFase = getFasePredefinidaDeSlot(ap.slot);
-        if (ap.tipoCarga === 'monofasica' && slotFase !== ap.fase) slotValido = false;
-        if (ap.tipoCarga === 'bifasica' && !ap.fase.includes(slotFase)) slotValido = false;
-      }
-      if (!slotValido) {
-        const nuevoSlot = asignarSlotParaFase(ap.fase, slotsOcupados, null);
-        if (nuevoSlot) slotsOcupados.add(nuevoSlot);
-        return { ...ap, slot: nuevoSlot };
-      }
-      slotsOcupados.add(ap.slot);
-      return ap;
-    });
-
-    // 4. Integrar con el resto de los aparatos y persistir
     const actualizados = aparatos.map(ap => {
       const match = finalApsMed.find(m => m.id === ap.id);
       return match || ap;
@@ -913,25 +900,6 @@ export default function App() {
 
     setAparatos(actualizados);
     await dbService.guardarTodosLosAparatos(currentProyectoId, actualizados);
-
-    // 5. Calcular nuevo desbalance UVIE obtenido dividiendo con precisión cargas 2F y 3F
-    const sFases = { A: 0, B: 0, C: 0 };
-    finalApsMed.forEach(a => {
-      const va = uvieCalcularVA(a.watts, a.fp, a.usarVaDirecto);
-      if (a.tipoCarga === 'trifasica') {
-        sFases.A += va / 3;
-        sFases.B += va / 3;
-        sFases.C += va / 3;
-      } else if (a.tipoCarga === 'bifasica') {
-        const partes = (a.fase || 'A-B').split('-');
-        partes.forEach(p => { if (sFases[p] !== undefined) sFases[p] += va / partes.length; });
-      } else {
-        const f = a.fase || 'A';
-        if (sFases[f] !== undefined) sFases[f] += va;
-      }
-    });
-
-    const nuevoDesbal = calcularDesbalanceUVIE(sFases.A, sFases.B, sFases.C, acometidaMed.id);
 
     setBalanceToast({
       nombre: med.nombre || `Medidor ${med.numero}`,
@@ -954,7 +922,6 @@ export default function App() {
 
     let nuevasFases = [...fasesActuales];
     if (nuevasFases.includes(targetFase)) {
-      // Desactivar fase
       if (nuevasFases.length <= 1) {
         alert("Debe haber al menos una fase activa en el medidor.");
         return;
@@ -969,9 +936,9 @@ export default function App() {
       }
       nuevasFases = nuevasFases.filter(f => f !== targetFase);
     } else {
-      // Activar fase
       nuevasFases.push(targetFase);
-      nuevasFases.sort();
+      const orden = { A: 1, B: 2, C: 3 };
+      nuevasFases.sort((a, b) => (orden[a] || 9) - (orden[b] || 9));
     }
 
     const esTrifasico = nuevasFases.length >= 3;
@@ -985,22 +952,27 @@ export default function App() {
       tipoAcometida: nuevoTipo
     };
 
-    // Reasignar aparatos si su fase fue desactivada
+    // Reasignar aparatos de este medidor para que jamás usen fases deshabilitadas y ajustar sus slots
     let cambioAparatos = false;
+    const slotsOcupadosMed = new Set();
     const updatedAps = aparatos.map(ap => {
       if ((ap.medidorId || medidores[0]?.id) !== medId) return ap;
-      if (ap.tipoCarga === 'monofasica') {
-        if (!nuevasFases.includes(ap.fase)) {
-          cambioAparatos = true;
-          return { ...ap, fase: nuevasFases[0] };
-        }
-      } else if (ap.tipoCarga === 'bifasica') {
-        const partes = (ap.fase || 'A-B').split('-');
-        const validas = partes.filter(p => nuevasFases.includes(p));
-        if (validas.length < 2 && nuevasFases.length >= 2) {
-          cambioAparatos = true;
-          return { ...ap, fase: `${nuevasFases[0]}-${nuevasFases[1]}` };
-        }
+      const faseNorm = normalizarFaseParaMedidor(ap, nuevasFases);
+      let slotActual = ap.slot;
+      const slotFase = slotActual ? getFasePredefinidaDeSlot(slotActual, nuevasFases) : null;
+      const slotCompatible = slotActual && !slotsOcupadosMed.has(slotActual) && (
+        ap.tipoCarga === 'trifasica' ||
+        (ap.tipoCarga === 'bifasica' ? faseNorm.split('-').includes(slotFase) : slotFase === faseNorm)
+      );
+
+      if (!slotCompatible) {
+        slotActual = asignarSlotParaFase(faseNorm, slotsOcupadosMed, null, nuevasFases);
+      }
+      if (slotActual) slotsOcupadosMed.add(slotActual);
+
+      if (faseNorm !== ap.fase || slotActual !== ap.slot) {
+        cambioAparatos = true;
+        return { ...ap, fase: faseNorm, slot: slotActual };
       }
       return ap;
     });
@@ -1015,133 +987,177 @@ export default function App() {
     await dbService.saveMedidores(currentProyectoId, updatedMedidores);
   };
 
-  // Alternar o asignar fase al hacer clic directamente en las celdas de fase de un circuito en la tabla
+  // Alternar o asignar fase al hacer clic en las celdas de fase de un circuito en la tabla (respetando estrictamente las fases habilitadas del medidor)
   const handleToggleFaseCircuito = async (apId, targetFase) => {
     if (!currentProyectoId) return;
     const ap = aparatos.find(a => a.id === apId);
     if (!ap) return;
 
-    const medId = ap.medidorId || medidores[0]?.id;
+    const defaultMedId = medidores[0]?.id || 'med_1';
+    const medId = ap.medidorId || defaultMedId;
     const dataMed = medidoresData[medId];
-    const acometidaMed = dataMed?.acometida || { fasesDisponibles: ['A', 'B'] };
+    const acometidaMed = dataMed?.acometida || { id: 'bifasico', fasesDisponibles: ['A', 'B'] };
+    const fasesDisps = acometidaMed.fasesDisponibles || ['A'];
 
-    // Si la fase no estaba activa en el medidor, activarla automáticamente
-    if (!acometidaMed.fasesDisponibles.includes(targetFase)) {
-      await handleToggleFaseMedidor(medId, targetFase);
+    // No permitir asignar cargas a fases deshabilitadas en el medidor
+    if (!fasesDisps.includes(targetFase)) {
+      return;
     }
 
     let nuevaFase = targetFase;
     if (ap.tipoCarga === 'monofasica') {
-      nuevaFase = targetFase;
-    } else if (ap.tipoCarga === 'bifasica') {
-      const partes = (ap.fase || 'A-B').split('-');
-      if (partes.includes(targetFase)) {
-        // Clic en una fase ya activa -> rotar a otra combinación disponible
-        const otra = partes.find(p => p !== targetFase);
-        const fasesDisps = acometidaMed.fasesDisponibles.length >= 2 ? acometidaMed.fasesDisponibles : ['A', 'B', 'C'];
-        const disp = fasesDisps.find(f => f !== otra && f !== targetFase) || 'C';
-        nuevaFase = [otra, disp].sort().join('-');
+      if (ap.fase === targetFase && fasesDisps.length > 1) {
+        const idx = fasesDisps.indexOf(targetFase);
+        nuevaFase = fasesDisps[(idx + 1) % fasesDisps.length];
       } else {
-        // Clic en la fase inactiva -> añadirla reemplazando la segunda fase
-        nuevaFase = [partes[0], targetFase].sort().join('-');
+        nuevaFase = targetFase;
+      }
+    } else if (ap.tipoCarga === 'bifasica') {
+      if (fasesDisps.length <= 2) {
+        nuevaFase = fasesDisps.length === 2 ? `${fasesDisps[0]}-${fasesDisps[1]}` : fasesDisps[0];
+      } else {
+        const paresValidos = ['A-B', 'B-C', 'A-C'].filter(par =>
+          par.split('-').every(p => fasesDisps.includes(p))
+        );
+        const faseActualNorm = normalizarFaseParaMedidor(ap, fasesDisps);
+        const partes = faseActualNorm.split('-');
+        if (partes.includes(targetFase)) {
+          const currIdx = paresValidos.indexOf(faseActualNorm);
+          nuevaFase = paresValidos[(currIdx + 1) % paresValidos.length] || paresValidos[0];
+        } else {
+          const orden = { A: 1, B: 2, C: 3 };
+          nuevaFase = [partes[0], targetFase].sort((a, b) => orden[a] - orden[b]).join('-');
+        }
       }
     } else {
-      nuevaFase = 'A-B-C';
+      nuevaFase = fasesDisps.length >= 3 ? 'A-B-C' : normalizarFaseParaMedidor(ap, fasesDisps);
     }
 
     await handleUpdateFase(apId, nuevaFase);
   };
 
-
-  const handleApplyBalancingToAparatos = async (balancedBreakers) => {
+  const handleApplyBalancingToAparatos = async (balancedBreakers, targetMedidorId = null) => {
     if (!currentProyectoId || !Array.isArray(balancedBreakers) || balancedBreakers.length === 0) return;
+
+    if (targetMedidorId) {
+      const defaultMedId = medidores[0]?.id || 'med_1';
+      const apsMed = aparatos.filter(ap => (ap.medidorId || defaultMedId) === targetMedidorId);
+      const fasesMed = medidoresData[targetMedidorId]?.acometida?.fasesDisponibles || currentAcometida.fasesDisponibles;
+      const updatedMedAps = aplicarDistribucion(apsMed, balancedBreakers, fasesMed);
+      const mapUpdated = new Map(updatedMedAps.map(a => [a.id, a]));
+      const merged = aparatos.map(ap => mapUpdated.get(ap.id) || ap);
+      setAparatos(merged);
+      return await dbService.guardarTodosLosAparatos(currentProyectoId, merged);
+    }
+
     const updatedAps = aplicarDistribucion(aparatos, balancedBreakers, currentAcometida.fasesDisponibles);
     setAparatos(updatedAps);
-    const saved = await dbService.guardarTodosLosAparatos(currentProyectoId, updatedAps);
-    return saved;
+    return await dbService.guardarTodosLosAparatos(currentProyectoId, updatedAps);
   };
 
-  // Normalización unificada de todo el sistema eléctrico (Single Source of Truth)
+  // Normalización unificada de todo el sistema eléctrico por medidor (Single Source of Truth)
   const computedElectricalSystem = useMemo(() => {
+    const listaMedidores = Array.isArray(medidores) && medidores.length > 0
+      ? medidores
+      : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+
     const totalVA = aparatos.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
     const alimPrincipal = calcularAlimentadorGeneral(totalVA, currentAcometida.id, alimentadorLongitud);
-    
-    const cargas = aparatos.map((ap, index) => {
-      const w = parseFloat(ap.watts) || 0;
-      const fp = parseFloat(ap.fp) || 1.0;
-      const va = uvieCalcularVA(w, fp, ap.usarVaDirecto);
-      const inNom = calcularCorrienteNominal(va, ap.tipoCarga);
-      const icCorr = calcularCorrienteCorregida(inNom);
-      
-      const autoProteccion = seleccionarProteccion(icCorr);
-      const activeProteccion = ap.overrideBreaker && ap.overrideBreaker !== 'Auto' ? parseInt(ap.overrideBreaker) : autoProteccion;
 
-      let autoConductor = seleccionarConductor(activeProteccion);
-      const longitud = ap.longitudMetros !== undefined ? parseFloat(ap.longitudMetros) : 15;
+    const circuitos = [];
+    let globalIndex = 0;
 
-      if (!ap.overrideCable || ap.overrideCable === 'Auto') {
-        const caidaBase = calcularCaidaTension(
-          longitud,
-          inNom,
-          currentAcometida.id === 'monofasico' ? 'monofasica' : ap.tipoCarga,
-          autoConductor
-        );
-        if ((alimPrincipal?.caida || 0) + caidaBase > 5.0) {
-          if (autoConductor === '14 AWG') autoConductor = '12 AWG';
-          else if (autoConductor === '12 AWG') autoConductor = '10 AWG';
-          else if (autoConductor === '10 AWG') autoConductor = '8 AWG';
+    listaMedidores.forEach((med) => {
+      const dataMed = medidoresData[med.id];
+      const apsMed = dataMed
+        ? dataMed.aparatos
+        : aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id);
+      const acometidaMed = dataMed ? dataMed.acometida : determinarAcometidaMedidor(med, apsMed);
+      const vaMed = dataMed
+        ? dataMed.totalVA
+        : apsMed.reduce((s, a) => s + uvieCalcularVA(a.watts, a.fp, a.usarVaDirecto), 0);
+      const alimMed = calcularAlimentadorGeneral(vaMed, acometidaMed.id, alimentadorLongitud);
+
+      const cargasMed = apsMed.map((ap) => {
+        const index = globalIndex++;
+        const faseNorm = normalizarFaseParaMedidor(ap, acometidaMed);
+        const tipoEfectivo = acometidaMed.id === 'monofasico'
+          ? 'monofasica'
+          : (ap.tipoCarga === 'trifasica' && acometidaMed.id !== 'trifasico' ? 'bifasica' : ap.tipoCarga);
+
+        const w = parseFloat(ap.watts) || 0;
+        const fp = parseFloat(ap.fp) || 1.0;
+        const va = uvieCalcularVA(w, fp, ap.usarVaDirecto);
+        const inNom = calcularCorrienteNominal(va, tipoEfectivo);
+        const icCorr = calcularCorrienteCorregida(inNom);
+
+        const autoProteccion = seleccionarProteccion(icCorr);
+        const activeProteccion = ap.overrideBreaker && ap.overrideBreaker !== 'Auto' ? parseInt(ap.overrideBreaker) : autoProteccion;
+
+        let autoConductor = seleccionarConductor(activeProteccion);
+        const longitud = ap.longitudMetros !== undefined ? parseFloat(ap.longitudMetros) : 15;
+
+        if (!ap.overrideCable || ap.overrideCable === 'Auto') {
+          const caidaBase = calcularCaidaTension(longitud, inNom, tipoEfectivo, autoConductor);
+          if ((alimMed?.caida || 0) + caidaBase > 5.0) {
+            if (autoConductor === '14 AWG') autoConductor = '12 AWG';
+            else if (autoConductor === '12 AWG') autoConductor = '10 AWG';
+            else if (autoConductor === '10 AWG') autoConductor = '8 AWG';
+          }
         }
-      }
 
-      const activeConductor = ap.overrideCable && ap.overrideCable !== 'Auto' ? ap.overrideCable : autoConductor;
+        const activeConductor = ap.overrideCable && ap.overrideCable !== 'Auto' ? ap.overrideCable : autoConductor;
+        const caidaDerivado = calcularCaidaTension(longitud, inNom, tipoEfectivo, activeConductor);
+        const caidaTotal = parseFloat(((alimMed?.caida || 0) + caidaDerivado).toFixed(2));
+        const awg = activeConductor.split(' ')[0];
 
-      const caidaDerivado = calcularCaidaTension(
-        longitud,
-        inNom,
-        currentAcometida.id === 'monofasico' ? 'monofasica' : ap.tipoCarga,
-        activeConductor
-      );
+        let conductorStr = '';
+        let interruptorStr = '';
+        if (tipoEfectivo === 'monofasica') {
+          conductorStr = `2 # ${awg} + 1 # ${awg} T`;
+          interruptorStr = `1x${activeProteccion}A`;
+        } else if (tipoEfectivo === 'bifasica') {
+          conductorStr = `2 # ${awg} + 1 # ${awg} T`;
+          interruptorStr = `2x${activeProteccion}A`;
+        } else {
+          conductorStr = `3 # ${awg} + 1 # ${awg} T`;
+          interruptorStr = `3x${activeProteccion}A`;
+        }
 
-      const caidaTotal = parseFloat(((alimPrincipal?.caida || 0) + caidaDerivado).toFixed(2));
-      const awg = activeConductor.split(' ')[0];
-      
-      let conductorStr = '';
-      let interruptorStr = '';
-      if (ap.tipoCarga === 'monofasica') {
-        conductorStr = `2 # ${awg} + 1 # ${awg} T`;
-        interruptorStr = `1x${activeProteccion}A`;
-      } else if (ap.tipoCarga === 'bifasica') {
-        conductorStr = `3 # ${awg} + 1 # ${awg} T`;
-        interruptorStr = `2x${activeProteccion}A`;
-      } else {
-        conductorStr = `4 # ${awg} + 1 # ${awg} T`;
-        interruptorStr = `3x${activeProteccion}A`;
-      }
+        return {
+          ...ap,
+          fase: faseNorm,
+          medidorId: med.id,
+          index,
+          num: `C-${index + 1}`,
+          desc: ap.tipo + (ap.modelo ? ` (${ap.modelo})` : ''),
+          watts: w,
+          fp,
+          va,
+          voltaje: tipoEfectivo === 'monofasica' ? '127 V' : '220 V',
+          inNom,
+          icCorr,
+          breaker: activeProteccion,
+          interruptorStr,
+          conductor: activeConductor,
+          conductorStr,
+          longitudMetros: longitud,
+          caida: caidaDerivado,
+          caidaTotal,
+          isVdCritical: caidaTotal > 5.0,
+          isBranchCritical: caidaDerivado > 3.0
+        };
+      });
 
-      return {
-        ...ap,
-        index,
-        num: `C-${index + 1}`,
-        desc: ap.tipo + (ap.modelo ? ` (${ap.modelo})` : ''),
-        watts: w,
-        fp,
-        va,
-        voltaje: ap.tipoCarga === 'monofasica' ? '127 V' : '220 V',
-        inNom,
-        icCorr,
-        breaker: activeProteccion,
-        interruptorStr,
-        conductor: activeConductor,
-        conductorStr,
-        longitudMetros: longitud,
-        caida: caidaDerivado,
-        caidaTotal,
-        isVdCritical: caidaTotal > 5.0,
-        isBranchCritical: caidaDerivado > 3.0
-      };
+      const ctosMed = agruparCircuitos(cargasMed, alimMed, acometidaMed.fasesDisponibles).map((c, idxLocal) => ({
+        ...c,
+        medidorId: med.id,
+        numLocal: `C-${idxLocal + 1}`
+      }));
+
+      circuitos.push(...ctosMed);
     });
 
-    const circuitos = agruparCircuitos(cargas, alimPrincipal, currentAcometida.fasesDisponibles);
     return {
       cargas: circuitos.flatMap(c => c.loads),
       totalWatts,
@@ -1149,11 +1165,12 @@ export default function App() {
       acometida: currentAcometida,
       fasesLoad,
       fasesVA,
+      fasesAmps,
       desbalanceUVIE,
       alimPrincipal,
       circuitos
     };
-  }, [aparatos, currentAcometida, alimentadorLongitud, totalWatts, fasesLoad, fasesVA, desbalanceUVIE]);
+  }, [aparatos, medidores, medidoresData, currentAcometida, alimentadorLongitud, totalWatts, fasesLoad, fasesVA, fasesAmps, desbalanceUVIE]);
 
   const handleExportarDxf = (opcion = 'ambas') => {
     try {
@@ -1190,44 +1207,17 @@ export default function App() {
   const cfeDesgloseCompleto = calcularCobroCFECompleto(kwhBimestralTotal, tarifas, costosMEM);
   const costoKwhPromedio = kwhBimestralTotal > 0 ? (cfeDesgloseCompleto.factura.subtotal / kwhBimestralTotal) : 3.80;
 
-  // Sanitizar automáticamente fases de aparatos al cambiar la acometida para evitar fases inválidas en base de datos
+  // Sanitizar automáticamente fases de cada aparato según las fases habilitadas de SU medidor asignado
   useEffect(() => {
     if (!currentProyectoId || aparatos.length === 0) return;
-    
+    const defaultMedId = medidores[0]?.id || 'med_1';
+
     let tieneCambios = false;
     const sanitizados = aparatos.map(ap => {
-      let faseValida = ap.fase || 'A';
-      
-      if (currentAcometida.id === 'monofasico') {
-        if (faseValida !== 'A') {
-          faseValida = 'A';
-        }
-      } else if (currentAcometida.id === 'bifasico') {
-        if (ap.tipoCarga === 'bifasica') {
-          if (faseValida !== 'A-B') {
-            faseValida = 'A-B';
-          }
-        } else {
-          if (faseValida !== 'A' && faseValida !== 'B') {
-            faseValida = 'A';
-          }
-        }
-      } else if (currentAcometida.id === 'trifasico') {
-        if (ap.tipoCarga === 'monofasica') {
-          if (faseValida !== 'A' && faseValida !== 'B' && faseValida !== 'C') {
-            faseValida = 'A';
-          }
-        } else if (ap.tipoCarga === 'bifasica') {
-          if (faseValida !== 'A-B' && faseValida !== 'B-C' && faseValida !== 'A-C') {
-            faseValida = 'A-B';
-          }
-        } else if (ap.tipoCarga === 'trifasica') {
-          if (faseValida !== 'A-B-C') {
-            faseValida = 'A-B-C';
-          }
-        }
-      }
-      
+      const medId = ap.medidorId || defaultMedId;
+      const acometidaMed = medidoresData[medId]?.acometida || currentAcometida;
+      const faseValida = normalizarFaseParaMedidor(ap, acometidaMed);
+
       if (faseValida !== ap.fase) {
         tieneCambios = true;
         return { ...ap, fase: faseValida };
@@ -1239,42 +1229,55 @@ export default function App() {
       setAparatos(sanitizados);
       dbService.guardarTodosLosAparatos(currentProyectoId, sanitizados);
     }
-  }, [currentAcometida.id, currentProyectoId, aparatos]);
+  }, [medidoresData, currentAcometida, currentProyectoId, aparatos, medidores]);
 
-  // Recalcular combinaciones de balanceo de fases alternativas
+  // Recalcular disponibilidad de combinaciones de balanceo por medidor
   useEffect(() => {
-    if (currentProyectoId && aparatos.length > 0 && currentAcometida.id !== 'monofasico') {
-      const configs = generarCombinacionesBalanceo(aparatos, currentAcometida.id, currentAcometida.fasesDisponibles);
-      // Filtrar las que son idénticas a la configuración actual
-      const filtradas = configs.filter(c => {
-        return c.asignacion.some(a => {
-          const ap = aparatos.find(item => item.id === a.id);
-          return ap && ap.fase !== a.fase;
-        });
-      });
-      setBalancingConfigs(filtradas);
-    } else {
+    if (!currentProyectoId || aparatos.length === 0) {
       setBalancingConfigs([]);
+      return;
     }
-  }, [aparatos, currentAcometida.id, currentProyectoId]);
 
-  // Controladores de CRUD
+    const alternativas = [];
+    Object.values(medidoresData).forEach(d => {
+      if (!d || d.aparatos.length === 0 || d.acometida.id === 'monofasico' || d.acometida.fasesDisponibles.length <= 1) {
+        return;
+      }
+      const configs = generarCombinacionesBalanceo(d.aparatos, d.acometida.id, d.acometida.fasesDisponibles);
+      const mejoras = configs.filter(c =>
+        c.desbalance < d.desbalanceUVIE - 0.01 &&
+        c.asignacion.some(a => {
+          const ap = d.aparatos.find(item => item.id === a.id);
+          return ap && ap.fase !== a.fase;
+        })
+      );
+      if (mejoras.length > 0) {
+        alternativas.push(...mejoras);
+      }
+    });
+
+    setBalancingConfigs(alternativas);
+  }, [medidoresData, aparatos, currentProyectoId]);
+
+  // Controladores de CRUD con aislamiento de ranuras y fases por medidor
   const handleAddAparato = async (nuevoAparato) => {
     if (!currentProyectoId) return;
 
-    // Auto-asignar slot al nuevo aparato
-    const slotsOcupados = new Set(aparatos.map(ap => ap.slot).filter(Boolean));
-    let slotIndex = 1;
-    while (slotsOcupados.has(slotIndex)) {
-      slotIndex++;
-    }
-    const cycle = Math.ceil(slotIndex / 2) % 3;
-    const faseSlot = cycle === 1 ? 'A' : cycle === 2 ? 'B' : 'C';
-    const targetFase = nuevoAparato.fase || faseSlot;
+    const defaultMedId = medidores[0]?.id || 'med_1';
+    const medId = nuevoAparato.medidorId || defaultMedId;
+    const medObj = medidores.find(m => m.id === medId) || { id: medId, numero: 1, forzarTrifasico: false };
+    const apsMed = aparatos.filter(ap => (ap.medidorId || defaultMedId) === medId);
+    const acometidaMed = determinarAcometidaMedidor(medObj, [...apsMed, nuevoAparato]);
+    const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
+
+    const slotsOcupados = new Set(apsMed.map(ap => ap.slot).filter(Boolean));
+    const targetFase = normalizarFaseParaMedidor(nuevoAparato, acometidaMed);
+    const slotAsignado = asignarSlotParaFase(targetFase, slotsOcupados, null, fasesDisp);
 
     const completo = {
       ...nuevoAparato,
-      slot: slotIndex,
+      medidorId: medId,
+      slot: slotAsignado,
       fase: targetFase
     };
 
@@ -1282,25 +1285,31 @@ export default function App() {
     setAparatos(prev => [...prev, guardado]);
   };
 
-
-
   const handleUpdateFase = async (id, nuevaFase) => {
     if (!currentProyectoId) return;
-    
-    // Obtener slots ocupados por otros aparatos
-    const slotsOcupados = new Set(
-      aparatos.filter(ap => ap.id !== id).map(ap => ap.slot).filter(Boolean)
-    );
-    const prevAp = aparatos.find(ap => ap.id === id);
-    const nuevoSlot = asignarSlotParaFase(nuevaFase, slotsOcupados, prevAp?.slot);
 
-    const campos = { fase: nuevaFase, slot: nuevoSlot };
-    
-    // Guardar en base de datos
+    const defaultMedId = medidores[0]?.id || 'med_1';
+    const prevAp = aparatos.find(ap => ap.id === id);
+    if (!prevAp) return;
+
+    const medId = prevAp.medidorId || defaultMedId;
+    const acometidaMed = medidoresData[medId]?.acometida || currentAcometida;
+    const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
+    const faseNorm = normalizarFaseParaMedidor({ ...prevAp, fase: nuevaFase }, acometidaMed);
+
+    const slotsOcupados = new Set(
+      aparatos
+        .filter(ap => ap.id !== id && (ap.medidorId || defaultMedId) === medId)
+        .map(ap => ap.slot)
+        .filter(Boolean)
+    );
+    const nuevoSlot = asignarSlotParaFase(faseNorm, slotsOcupados, prevAp?.slot, fasesDisp);
+
+    const campos = { fase: faseNorm, slot: nuevoSlot };
+
     await dbService.updateAparato(currentProyectoId, id, campos);
 
-    // Actualizar estado local
-    setAparatos(prev => 
+    setAparatos(prev =>
       prev.map(ap => ap.id === id ? { ...ap, ...campos } : ap)
     );
   };
@@ -1336,116 +1345,106 @@ export default function App() {
 
   const handleUpdateAparatoProps = async (id, updatedFields) => {
     if (!currentProyectoId) return;
-    
-    // Si se modifica la fase pero no se especifica slot, recalcular slot compatible
+
+    const defaultMedId = medidores[0]?.id || 'med_1';
+    const prevAp = aparatos.find(ap => ap.id === id);
+    if (!prevAp) return;
+
     let fieldsToApply = { ...updatedFields };
-    if (fieldsToApply.fase && fieldsToApply.slot === undefined) {
-      const slotsOcupados = new Set(
-        aparatos.filter(ap => ap.id !== id).map(ap => ap.slot).filter(Boolean)
-      );
-      const prevAp = aparatos.find(ap => ap.id === id);
-      fieldsToApply.slot = asignarSlotParaFase(fieldsToApply.fase, slotsOcupados, prevAp?.slot);
+    const targetMedId = fieldsToApply.medidorId || prevAp.medidorId || defaultMedId;
+    const medObj = medidores.find(m => m.id === targetMedId) || { id: targetMedId, numero: 1 };
+    const candidateAp = { ...prevAp, ...fieldsToApply, medidorId: targetMedId };
+    const otrosDelMedidor = aparatos.filter(ap => ap.id !== id && (ap.medidorId || defaultMedId) === targetMedId);
+    const acometidaMed = determinarAcometidaMedidor(medObj, [...otrosDelMedidor, candidateAp]);
+    const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
+
+    if (fieldsToApply.fase !== undefined || fieldsToApply.tipoCarga !== undefined || fieldsToApply.medidorId !== undefined) {
+      fieldsToApply.fase = normalizarFaseParaMedidor(candidateAp, acometidaMed);
     }
 
-    // Actualización de variante activa y copia al nivel superior
-    setAparatos(prev => 
-      prev.map(ap => {
-        if (ap.id === id) {
-          const updatedVariantes = (ap.variantes || []).map(v => 
-            v.id === ap.activaVariantId ? { ...v, ...fieldsToApply } : v
-          );
-          return { 
-            ...ap, 
-            ...fieldsToApply, 
-            variantes: updatedVariantes 
-          };
-        }
-        return ap;
-      })
-    );
+    if ((fieldsToApply.fase !== undefined || fieldsToApply.medidorId !== undefined) && fieldsToApply.slot === undefined) {
+      const slotsOcupados = new Set(otrosDelMedidor.map(ap => ap.slot).filter(Boolean));
+      const prevSlot = targetMedId === (prevAp.medidorId || defaultMedId) ? prevAp.slot : null;
+      fieldsToApply.slot = asignarSlotParaFase(fieldsToApply.fase || prevAp.fase, slotsOcupados, prevSlot, fasesDisp);
+    }
 
-    // Guardar en Firestore en segundo plano
-    setAparatos(prev => {
-      const updatedAp = prev.find(ap => ap.id === id);
-      if (updatedAp) {
-        dbService.updateAparato(currentProyectoId, id, updatedAp);
-      }
-      return prev;
-    });
+    const updatedVariantes = (prevAp.variantes || []).map(v =>
+      v.id === prevAp.activaVariantId ? { ...v, ...fieldsToApply } : v
+    );
+    const nextAp = {
+      ...prevAp,
+      ...fieldsToApply,
+      variantes: updatedVariantes
+    };
+
+    setAparatos(prev => prev.map(ap => (ap.id === id ? nextAp : ap)));
+    await dbService.updateAparato(currentProyectoId, id, nextAp);
   };
 
+  // Balancear todos los medidores del proyecto respetando estrictamente las fases habilitadas de cada medidor
   const handleBalancearFases = async () => {
-    if (balancingConfigs.length === 0) return;
-    const config = balancingConfigs[0];
+    if (!currentProyectoId || aparatos.length === 0) return;
+    const lista = Array.isArray(medidores) && medidores.length > 0
+      ? medidores
+      : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
 
-    // Actualizar estado local asignando slots compatibles con las nuevas fases
-    const slotsOcupados = new Set();
-    const updated = [];
-    
-    aparatos.forEach(ap => {
-      const match = config.asignacion.find(a => a.id === ap.id);
-      const nuevaFase = match ? match.fase : (ap.fase || 'A');
-      
-      if (ap.slot && getFasePredefinidaDeSlot(ap.slot) === nuevaFase && !slotsOcupados.has(ap.slot)) {
-        updated.push({ ...ap, fase: nuevaFase, slot: ap.slot });
-        slotsOcupados.add(ap.slot);
-      } else {
-        updated.push({ ...ap, fase: nuevaFase, slot: null });
-      }
+    const porId = new Map();
+    let maxDesbal = 0;
+
+    lista.forEach(med => {
+      const medEfectivo = lista.length === 1 && forzarTrifasico ? { ...med, forzarTrifasico: true } : med;
+      const apsMed = aparatos.filter(ap => (ap.medidorId || lista[0].id) === med.id);
+      if (apsMed.length === 0) return;
+      const { finalApsMed, nuevoDesbal } = balancearAparatosDeMedidor(medEfectivo, apsMed);
+      if (nuevoDesbal > maxDesbal) maxDesbal = nuevoDesbal;
+      finalApsMed.forEach(a => porId.set(a.id, a));
     });
 
-    const finalUpdated = updated.map(ap => {
-      if (ap.slot === null) {
-        const nuevoSlot = asignarSlotParaFase(ap.fase, slotsOcupados, null);
-        slotsOcupados.add(nuevoSlot);
-        return { ...ap, slot: nuevoSlot };
-      }
-      return ap;
-    });
-
+    const finalUpdated = aparatos.map(ap => porId.get(ap.id) || ap);
     setAparatos(finalUpdated);
-
-    // Guardar todo de forma masiva en base de datos
     await dbService.guardarTodosLosAparatos(currentProyectoId, finalUpdated);
+
+    setBalanceToast({
+      nombre: lista.length > 1 ? `Todos los Medidores (${lista.length})` : (lista[0]?.nombre || 'Medidor 1'),
+      desbalance: maxDesbal.toFixed(2),
+      id: Date.now()
+    });
   };
 
   const handleActivarVariante = async (aparatoId, varianteId) => {
-    setAparatos(prev => 
-      prev.map(ap => {
-        if (ap.id === aparatoId) {
-          const match = ap.variantes.find(v => v.id === varianteId);
-          if (match) {
-            return {
-              ...ap,
-              activaVariantId: varianteId,
-              modelo: match.nombre,
-              watts: match.watts,
-              fp: match.fp,
-              precio: match.precio,
-              mantenimiento: match.mantenimiento,
-              vidaUtil: match.vidaUtil,
-              horasAlta: match.horasAlta,
-              horasReposo: match.horasReposo,
-              consumoVariable: match.consumoVariable,
-              durabilidadOption: match.durabilidadOption || 'estandar',
-              tipoCarga: match.tipoCarga,
-              usarVaDirecto: match.usarVaDirecto,
-              criteriosDurabilidad: match.criteriosDurabilidad || '',
-              criteriosMantenimiento: match.criteriosMantenimiento || ''
-            };
-          }
-        }
-        return ap;
-      })
-    );
+    const defaultMedId = medidores[0]?.id || 'med_1';
+    const prevAp = aparatos.find(ap => ap.id === aparatoId);
+    if (!prevAp) return;
+    const match = (prevAp.variantes || []).find(v => v.id === varianteId);
+    if (!match) return;
 
-    setAparatos(prev => {
-      const updatedAp = prev.find(ap => ap.id === aparatoId);
-      if (updatedAp) {
-        dbService.updateAparato(currentProyectoId, aparatoId, updatedAp);
-      }
-      return prev;
-    });
+    const medId = prevAp.medidorId || defaultMedId;
+    const medObj = medidores.find(m => m.id === medId) || { id: medId, numero: 1 };
+    const candidate = {
+      ...prevAp,
+      activaVariantId: varianteId,
+      modelo: match.nombre,
+      watts: match.watts,
+      fp: match.fp,
+      precio: match.precio,
+      mantenimiento: match.mantenimiento,
+      vidaUtil: match.vidaUtil,
+      horasAlta: match.horasAlta,
+      horasReposo: match.horasReposo,
+      consumoVariable: match.consumoVariable,
+      durabilidadOption: match.durabilidadOption || 'estandar',
+      tipoCarga: match.tipoCarga,
+      usarVaDirecto: match.usarVaDirecto,
+      criteriosDurabilidad: match.criteriosDurabilidad || '',
+      criteriosMantenimiento: match.criteriosMantenimiento || ''
+    };
+
+    const otros = aparatos.filter(ap => ap.id !== aparatoId && (ap.medidorId || defaultMedId) === medId);
+    const acometidaMed = determinarAcometidaMedidor(medObj, [...otros, candidate]);
+    candidate.fase = normalizarFaseParaMedidor(candidate, acometidaMed);
+
+    setAparatos(prev => prev.map(ap => (ap.id === aparatoId ? candidate : ap)));
+    await dbService.updateAparato(currentProyectoId, aparatoId, candidate);
   };
 
   const handleAgregarVariante = async (aparatoId, nuevaVarData) => {
@@ -2000,6 +1999,9 @@ export default function App() {
                   tipoSystem={currentAcometida}
                   fasesLoad={fasesLoad}
                   fasesVA={fasesVA}
+                  fasesAmps={fasesAmps}
+                  fasesUnit={fasesUnit}
+                  onCycleFasesUnit={handleCycleFasesUnit}
                   desbalance={desbalanceUVIE}
                   forzarTrifasico={forzarTrifasico}
                   onToggleForzarTrifasico={() => setForzarTrifasico(!forzarTrifasico)}
@@ -2030,7 +2032,7 @@ export default function App() {
                     
                     {/* Botón CSV AutoCAD */}
                     <button
-                      onClick={() => exportarCSVAutoCAD(aparatos, currentAcometida.id, currentAcometida.fasesDisponibles)}
+                      onClick={() => exportarCSVAutoCAD(aparatos, currentAcometida.id, currentAcometida.fasesDisponibles, medidores, medidoresData)}
                       className="px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-400 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
                       title="Descargar matriz CSV para AutoCAD Data Link"
                     >
@@ -2449,6 +2451,8 @@ export default function App() {
               computedElectricalSystem={computedElectricalSystem}
               aparatos={aparatos}
               planoMetadata={planoMetadata}
+              medidores={medidores}
+              medidoresData={medidoresData}
               onUpdatePlanoMetadata={handleUpdatePlanoMetadata}
               onExportDxf={(opcion) => handleExportarDxf(opcion)}
             />
@@ -2683,7 +2687,8 @@ export default function App() {
               <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">Balanceado</span>
             </p>
             <p className="text-[11px] text-slate-300 mt-0.5">
-              Cargas redistribuidas. Desbalance obtenido: <strong className="text-emerald-400 font-mono">{balanceToast.desbalance}%</strong> (Cumple NOM-001 ≤ 5%).
+              Cargas redistribuidas. Desbalance obtenido: <strong className="text-emerald-400 font-mono">{balanceToast.desbalance}%</strong>{' '}
+              {parseFloat(balanceToast.desbalance) <= 5.0 ? '(Cumple NOM-001 ≤ 5%).' : '(Mínimo matemático posible para estas cargas).'}
             </p>
           </div>
           <button

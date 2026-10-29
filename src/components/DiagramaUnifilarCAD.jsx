@@ -9,6 +9,7 @@ import {
   calcularCaidaTension,
   calcularAlimentadorGeneral
 } from '../utils/ecuacionesUVIE';
+import { normalizarFaseParaMedidor } from '../utils/electricalCalculations';
 
 export default function DiagramaUnifilarCAD({ 
   aparatos, 
@@ -85,8 +86,19 @@ export default function DiagramaUnifilarCAD({
   // Procesar circuitos con calibres y caídas de tensión individuales para este medidor
   const computedCircuits = useMemo(() => {
     return aparatosActivos.map((ap, index) => {
+      const medId = ap.medidorId || listaMedidores[0]?.id;
+      const acomDeAp = (selectedMedId === 'todos' && medidoresData && medidoresData[medId]?.acometida)
+        ? medidoresData[medId].acometida
+        : acometidaActiva;
+      const fDisp = acomDeAp?.fasesDisponibles || ['A'];
+      const tipoEfectivo = fDisp.length <= 1
+        ? 'monofasica'
+        : (ap.tipoCarga === 'trifasica' && fDisp.length < 3 ? 'bifasica' : (ap.tipoCarga || 'monofasica'));
+      const faseNorm = normalizarFaseParaMedidor({ ...ap, tipoCarga: tipoEfectivo }, acomDeAp);
+      const polos = tipoEfectivo === 'trifasica' ? 3 : tipoEfectivo === 'bifasica' ? 2 : 1;
+
       const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-      const inAmps = calcularCorrienteNominal(va, ap.tipoCarga);
+      const inAmps = calcularCorrienteNominal(va, tipoEfectivo);
       const icAmps = calcularCorrienteCorregida(inAmps);
       
       const autoProteccion = seleccionarProteccion(icAmps);
@@ -97,22 +109,24 @@ export default function DiagramaUnifilarCAD({
 
       const vd = calcularCaidaTension(
         ap.longitudMetros !== undefined ? ap.longitudMetros : 15,
-        icAmps,
-        ap.tipoCarga,
+        inAmps,
+        tipoEfectivo,
         activeConductor
       );
 
       const awg = activeConductor.split(' ')[0];
-      let conductorStr = "";
-      if (ap.tipoCarga === 'monofasica') conductorStr = `2 # ${awg} + 1 # ${awg} T`;
-      if (ap.tipoCarga === 'bifasica') conductorStr = `3 # ${awg} + 1 # ${awg} T`;
-      if (ap.tipoCarga === 'trifasica') conductorStr = `4 # ${awg} + 1 # ${awg} T`;
+      let conductorStr = `2 # ${awg} + 1 # ${awg} T`;
+      if (tipoEfectivo === 'bifasica') conductorStr = `2 # ${awg} + 1 # ${awg} T`;
+      if (tipoEfectivo === 'trifasica') conductorStr = `3 # ${awg} + 1 # ${awg} T`;
 
       // Caída de tensión acumulada (Alimentador principal + circuito derivado)
       const caidaTotal = (alimPrincipal?.caida || 0) + vd;
 
       return {
         ...ap,
+        fase: faseNorm,
+        tipoCarga: tipoEfectivo,
+        polos,
         num: `C-${index + 1}`,
         va,
         inAmps,
@@ -125,7 +139,7 @@ export default function DiagramaUnifilarCAD({
         isVdCritical: caidaTotal > 5.0 // NOM-001-SEDE: Caída de tensión total max 5%
       };
     });
-  }, [aparatosActivos, alimPrincipal, acometidaActiva.id]);
+  }, [aparatosActivos, alimPrincipal, acometidaActiva, selectedMedId, medidoresData, listaMedidores]);
 
   // Controles de Pan & Zoom
   const handleMouseDown = (e) => {
@@ -344,23 +358,25 @@ export default function DiagramaUnifilarCAD({
     document.body.removeChild(link);
   };
 
-  // Coordenadas de las barras colectoras del tablero
+  // Coordenadas de las barras colectoras del tablero según las fases habilitadas del medidor
   const getFaseCoordinates = (faseStr) => {
-    if (acometidaActiva.id === 'monofasico') {
+    const fDisp = acometidaActiva.fasesDisponibles || ['A'];
+    if (acometidaActiva.id === 'monofasico' || fDisp.length <= 1) {
       return { startX: 0, pathD: "M 0,0 L 100,0" };
     }
     const r = 6;
-    if (acometidaActiva.id === 'bifasico') {
-      if (faseStr.includes('A')) {
+    if (acometidaActiva.id === 'bifasico' || fDisp.length === 2) {
+      const primeraFase = fDisp[0] || 'A';
+      if ((faseStr || '').includes(primeraFase)) {
         return { startX: -15, pathD: `M -15,0 L ${15 - r},0 A ${r} ${r} 0 0 1 ${15 + r},0 L 100,0` };
       }
       return { startX: 15, pathD: "M 15,0 L 100,0" };
     }
-    // Trifásico
-    if (faseStr.includes('A')) {
+    // Trifásico (3 fases habilitadas)
+    if ((faseStr || '').includes('A')) {
       return { startX: -30, pathD: `M -30,0 L -${r},0 A ${r} ${r} 0 0 1 ${r},0 L ${30 - r},0 A ${r} ${r} 0 0 1 ${30 + r},0 L 100,0` };
     }
-    if (faseStr.includes('B')) {
+    if ((faseStr || '').includes('B')) {
       return { startX: 0, pathD: `M 0,0 L ${30 - r},0 A ${r} ${r} 0 0 1 ${30 + r},0 L 100,0` };
     }
     return { startX: 30, pathD: "M 30,0 L 100,0" };

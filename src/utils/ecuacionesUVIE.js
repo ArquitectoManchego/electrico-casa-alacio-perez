@@ -106,10 +106,20 @@ export function seleccionarConductor(proteccion) {
  * @param {string} acometidaId - Identificador de acometida ('monofasico', 'bifasico', 'trifasico').
  * @returns {number} Porcentaje de desbalanceo (0 - 100).
  */
-export function calcularDesbalanceUVIE(vaA, vaB, vaC, acometidaId) {
+export function calcularDesbalanceUVIE(vaA, vaB, vaC, acometidaId, fasesDisponibles = null) {
   const sA = parseFloat(vaA) || 0;
   const sB = parseFloat(vaB) || 0;
   const sC = parseFloat(vaC) || 0;
+
+  if (Array.isArray(fasesDisponibles) && fasesDisponibles.length > 0) {
+    if (fasesDisponibles.length <= 1) return 0;
+    const mapa = { A: sA, B: sB, C: sC };
+    const valores = fasesDisponibles.map(f => mapa[f] || 0);
+    const maxVal = Math.max(...valores);
+    const minVal = Math.min(...valores);
+    if (maxVal === 0) return 0;
+    return ((maxVal - minVal) / maxVal) * 100;
+  }
 
   if (acometidaId === 'monofasico') {
     return 0;

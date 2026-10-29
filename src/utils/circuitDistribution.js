@@ -1,4 +1,5 @@
 import { calcularVA, calcularCorrienteNominal, calcularCorrienteCorregida, seleccionarProteccion, seleccionarConductor, calcularCaidaTension, calcularDesbalanceUVIE } from './ecuacionesUVIE.js';
+import { normalizarFaseParaMedidor } from './electricalCalculations.js';
 
 export const polesOf = a => a.tipoCarga === 'trifasica' ? 3 : a.tipoCarga === 'bifasica' ? 2 : 1;
 
@@ -78,8 +79,8 @@ export function moverAparato(breakers, id, targetId, aparatos) {
   return {breakers:breakers.map(b=>({...b,aparatos:[...b.aparatos.filter(x=>x!==id),...(b.id===targetId?[id]:[])]}))};
 }
 
-export function calcularDistribucion(aparatos,tipo='bifasico') {
-  const fases=tipo==='monofasico'?['A']:tipo==='trifasico'?['A','B','C']:['A','B'];
+export function calcularDistribucion(aparatos,tipo='bifasico',fasesOverride=null) {
+  const fases=Array.isArray(fasesOverride)&&fasesOverride.length>0?fasesOverride:(tipo==='monofasico'?['A']:tipo==='trifasico'?['A','B','C']:['A','B']);
   const items=[...aparatos].sort((a,b)=>calcularVA(b.watts,b.fp,b.usarVaDirecto)-calcularVA(a.watts,a.fp,a.usarVaDirecto)||String(a.id).localeCompare(String(b.id)));
   const breakers=[];
   for(const a of items) {
@@ -97,7 +98,7 @@ export function calcularDistribucion(aparatos,tipo='bifasico') {
   }
   let enriched=evaluarDistribucion(breakers,aparatos,fases).breakers;
   // Exhaustive phase search for ordinary panels; bounded search with a greedy incumbent for large ones.
-  const options=b=>b.polos===1?fases:b.polos===2?(fases.length===3?['A-B','A-C','B-C']:['A-B']):['A-B-C'];
+  const options=b=>b.polos===1?fases:b.polos===2?(fases.length===3?['A-B','A-C','B-C']:[`${fases[0]}-${fases[1]}`]):['A-B-C'];
   const totals={A:0,B:0,C:0}; const greedy=[];
   for(const b of enriched) {const opts=options(b); const f=[...opts].sort((a,c)=>a.split('-').reduce((s,x)=>s+totals[x],0)-c.split('-').reduce((s,x)=>s+totals[x],0))[0]; greedy.push(f); f.split('-').forEach(x=>totals[x]+=b.vaTotal/b.polos);}
   const score=t=>Math.max(...fases.map(f=>t[f]))-Math.min(...fases.map(f=>t[f]));
@@ -112,7 +113,7 @@ export function calcularDistribucion(aparatos,tipo='bifasico') {
   enriched=enriched.map((b,i)=>({...b,fase:assignment[i]}));
   const final=evaluarDistribucion(enriched,aparatos,fases);
   const fasesVA={A:0,B:0,C:0}; final.breakers.forEach(b=>b.fase.split('-').forEach(f=>fasesVA[f]+=b.vaTotal/b.polos));
-  return {...final,fasesVA,desbalancePct:calcularDesbalanceUVIE(fasesVA.A,fasesVA.B,fasesVA.C,tipo),busquedaCompleta:!limited};
+  return {...final,fasesVA,desbalancePct:calcularDesbalanceUVIE(fasesVA.A,fasesVA.B,fasesVA.C,tipo,fases),busquedaCompleta:!limited};
 }
 
 export function aplicarDistribucion(aparatos,breakers,fases) {
@@ -130,10 +131,12 @@ export function aplicarDistribucion(aparatos,breakers,fases) {
 
 // Shared branch model: aggregate once, retain individual calculated loads for labels/editing.
 export function agruparCircuitos(cargas,alimPrincipal,fases=['A','B']) {
+  const fasesActivas = Array.isArray(fases) && fases.length > 0 ? fases : ['A'];
   const groups=new Map();
   cargas.forEach(c=>{const id=c.circuitoId||`project-${c.id}`;if(!groups.has(id))groups.set(id,[]);groups.get(id).push(c);});
   const circuits = [...groups.entries()].sort((a,b)=>(a[1][0].circuitoOrden??a[1][0].index)-(b[1][0].circuitoOrden??b[1][0].index)).map(([id,loads],index)=>{
     const first=loads[0]; const va=loads.reduce((s,a)=>s+a.va,0), watts=loads.reduce((s,a)=>s+a.watts,0);
+    const faseSanitizada = normalizarFaseParaMedidor(first, fasesActivas);
     const inNom=calcularCorrienteNominal(va,first.tipoCarga),icCorr=calcularCorrienteCorregida(inNom);
     const breaker=first.circuitoCapacidad || (first.overrideBreaker==='Auto'?seleccionarProteccion(icCorr):first.breaker);
     const conductor=loads.length===1?first.conductor:loads.map(a=>a.conductor).sort((a,b)=>parseInt(b)-parseInt(a))[0]||seleccionarConductor(breaker);
@@ -141,15 +144,15 @@ export function agruparCircuitos(cargas,alimPrincipal,fases=['A','B']) {
     const caida=loads.length===1?first.caida:calcularCaidaTension(longitudMetros,inNom,first.tipoCarga,conductor);
     const num=`C-${index+1}`;
     const caidaTotal=caida+(alimPrincipal?.caida||0);
-    return {...first,id,num,loads:loads.map(a=>({...a,num,breaker,conductor,caida,caidaTotal,circuitoAparatos:loads.length,circuitoIc:icCorr})),aparatos:loads.map(a=>a.id),watts,va,fp:va?watts/va:1,usarVaDirecto:false,inNom,icCorr,breaker,conductor,overrideBreaker:String(breaker),overrideCable:conductor,longitudMetros,caida,caidaTotal,tipo:loads.map(a=>a.tipo).join(' / '),desc:loads.map(a=>a.tipo).join(' / '),modelo:loads.length===1?first.modelo:'Circuito compartido',interruptorStr:`${polesOf(first)}x${breaker}A`,conductorStr:`${polesOf(first)===1?2:polesOf(first)} # ${parseInt(conductor)} + 1 # ${parseInt(conductor)} T`};
+    return {...first,fase:faseSanitizada,id,num,loads:loads.map(a=>({...a,fase:faseSanitizada,num,breaker,conductor,caida,caidaTotal,circuitoAparatos:loads.length,circuitoIc:icCorr})),aparatos:loads.map(a=>a.id),watts,va,fp:va?watts/va:1,usarVaDirecto:false,inNom,icCorr,breaker,conductor,overrideBreaker:String(breaker),overrideCable:conductor,longitudMetros,caida,caidaTotal,tipo:loads.map(a=>a.tipo).join(' / '),desc:loads.map(a=>a.tipo).join(' / '),modelo:loads.length===1?first.modelo:'Circuito compartido',interruptorStr:`${polesOf(first)}x${breaker}A`,conductorStr:`${polesOf(first)===1?2:polesOf(first)} # ${parseInt(conductor)} + 1 # ${parseInt(conductor)} T`};
   });
   // A shared branch gets one position, including when balancing clears old slots.
   // All consuming modules receive this same placement; no apparatus is hidden for a null slot.
   const occupied=new Set();
-  const phaseAt=slot=>fases[(Math.ceil(slot/2)-1)%fases.length];
+  const phaseAt=slot=>fasesActivas[(Math.ceil(slot/2)-1)%fasesActivas.length];
   return circuits.map(c=>{
-    const poles=polesOf(c);
-    const requested=(c.fase||fases[0]).split('-').sort().join('-');
+    const poles=Math.min(polesOf(c), fasesActivas.length);
+    const requested=(c.fase||fasesActivas[0]).split('-').sort().join('-');
     const fits=slot=>Array.from({length:poles},(_,i)=>slot+2*i).every(s=>!occupied.has(s)) && Array.from({length:poles},(_,i)=>phaseAt(slot+2*i)).sort().join('-')===requested;
     let slot=Number.isInteger(c.slot)&&c.slot>0&&fits(c.slot)?c.slot:1;
     while(!fits(slot)&&slot<1000) slot++;

@@ -287,9 +287,11 @@ export default function AcometidaCard({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {['A', 'B', 'C'].map((fase) => {
                     const isAvailable = acometida.fasesDisponibles.includes(fase);
-                    const loadW = fasesLoadMed[fase] || 0;
-                    const loadVA = fasesVAMed[fase] || 0;
-                    const corriente = calcularCorriente(loadVA);
+                    const loadW = isAvailable ? (fasesLoadMed[fase] || 0) : 0;
+                    const loadVA = isAvailable ? (fasesVAMed[fase] || 0) : 0;
+                    const corriente = isAvailable
+                      ? (data.fasesAmps?.[fase] !== undefined ? data.fasesAmps[fase] : calcularCorriente(loadVA))
+                      : 0;
 
                     let displayVal = `${Math.round(loadVA).toLocaleString('es-MX')} VA`;
                     if (fasesUnit === 'W') {

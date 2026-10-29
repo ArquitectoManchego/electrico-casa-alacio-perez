@@ -1,17 +1,17 @@
 import { 
-  calcularVA, 
   calcularCorrienteNominal, 
   calcularCorrienteCorregida, 
   seleccionarProteccion, 
   seleccionarConductor 
-} from './ecuacionesUVIE';
+} from './ecuacionesUVIE.js';
+import { distribuirCargaPorFases } from './electricalCalculations.js';
 
 /**
  * Genera y descarga un archivo CSV estructurado para AutoCAD Data Link.
  * Columnas: Cto, Descripción, Fase A VA, Fase B VA, Fase C VA, I Corregida, Protección, Conductor
  */
-export function exportarCSVAutoCAD(aparatos, acometidaId, fasesDisponibles) {
-  if (aparatos.length === 0) return;
+export function exportarCSVAutoCAD(aparatos, acometidaId, fasesDisponibles, medidores = [], medidoresData = {}) {
+  if (!Array.isArray(aparatos) || aparatos.length === 0) return;
 
   const cabeceras = [
     'Cto',
@@ -26,46 +26,43 @@ export function exportarCSVAutoCAD(aparatos, acometidaId, fasesDisponibles) {
 
   const filas = [];
   const totalesVA = { A: 0, B: 0, C: 0 };
+  const tieneMedidores = Array.isArray(medidores) && medidores.length > 0;
+  const acometidaFallback = {
+    id: acometidaId || 'monofasico',
+    fasesDisponibles: Array.isArray(fasesDisponibles) && fasesDisponibles.length > 0 ? fasesDisponibles : ['A']
+  };
 
   aparatos.forEach((ap, index) => {
     const ctoId = `C-${index + 1}`;
-    const desc = `${ap.tipo} ${ap.modelo ? `(${ap.modelo})` : ''}`.replace(/,/g, ' '); // Evitar romper el formato CSV
-    const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
-    
-    // Distribución por Fase
-    const vaFila = { A: 0, B: 0, C: 0 };
-    if (acometidaId === 'monofasico') {
-      vaFila.A = va;
-    } else if (ap.tipoCarga === 'trifasica' && acometidaId === 'trifasico') {
-      vaFila.A = va / 3;
-      vaFila.B = va / 3;
-      vaFila.C = va / 3;
-    } else if (ap.tipoCarga === 'bifasica' && (acometidaId === 'bifasico' || acometidaId === 'trifasico')) {
-      const fasePar = ap.fase || 'A-B';
-      const partes = fasePar.split('-');
-      partes.forEach(f => {
-        if (vaFila[f] !== undefined) {
-          vaFila[f] = va / partes.length;
-        }
-      });
-    } else {
-      let f = ap.fase;
-      if (!fasesDisponibles.includes(f)) {
-        f = 'A';
-      }
-      vaFila[f] = va;
-    }
+    const medId = tieneMedidores ? (ap.medidorId || medidores[0]?.id) : null;
+    const medObj = tieneMedidores ? medidores.find(m => m.id === medId) : null;
+    const prefijoMed = (tieneMedidores && medidores.length > 1 && medObj) ? `[M${medObj.numero}] ` : '';
+    const desc = `${prefijoMed}${ap.tipo} ${ap.modelo ? `(${ap.modelo})` : ''}`.replace(/,/g, ' ').trim();
+
+    const acometidaDeAp = (medId && medidoresData && medidoresData[medId]?.acometida)
+      ? medidoresData[medId].acometida
+      : acometidaFallback;
+    const fDisp = acometidaDeAp.fasesDisponibles || ['A'];
+
+    const dist = distribuirCargaPorFases(ap, acometidaDeAp);
+    const va = dist.va;
+    const vaFila = dist.fVA;
 
     // Acumular Totales
     totalesVA.A += vaFila.A;
     totalesVA.B += vaFila.B;
     totalesVA.C += vaFila.C;
 
-    // Corrientes y Dimensionamientos
-    const inominal = calcularCorrienteNominal(va, acometidaId === 'monofasico' ? 'monofasica' : ap.tipoCarga);
+    // Corrientes y Dimensionamientos según fases reales habilitadas del medidor
+    const tipoEfectivo = fDisp.length <= 1
+      ? 'monofasica'
+      : (ap.tipoCarga === 'trifasica' && fDisp.length < 3 ? 'bifasica' : (ap.tipoCarga || 'monofasica'));
+    const inominal = calcularCorrienteNominal(va, tipoEfectivo);
     const icorregida = calcularCorrienteCorregida(inominal);
-    const proteccion = seleccionarProteccion(icorregida);
-    const conductor = seleccionarConductor(proteccion);
+    const autoProteccion = seleccionarProteccion(icorregida);
+    const proteccion = ap.overrideBreaker && ap.overrideBreaker !== 'Auto' ? parseInt(ap.overrideBreaker) : autoProteccion;
+    const autoConductor = seleccionarConductor(proteccion);
+    const conductor = ap.overrideCable && ap.overrideCable !== 'Auto' ? ap.overrideCable : autoConductor;
 
     // Agregar fila
     filas.push([

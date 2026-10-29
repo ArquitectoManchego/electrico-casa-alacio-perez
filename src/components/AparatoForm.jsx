@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { PlusCircle, RefreshCw, Layers, Clock, AlertTriangle, ShieldCheck, HeartPulse, HelpCircle, Gauge } from 'lucide-react';
-import { determinarAcometida, obtenerFaseGreedy } from '../utils/electricalCalculations';
+import { determinarAcometida, determinarAcometidaMedidor, obtenerFaseGreedy, normalizarFaseParaMedidor } from '../utils/electricalCalculations';
 import { CATALOGO_RESIDENCIAL } from '../utils/catalogoAparatos';
 
 // Mapear el catálogo maestro para generar los presets del formulario
-const PRESETS = CATALOGO_RESIDENCIAL.map((item, idx) => {
+const PRESETS = CATALOGO_RESIDENCIAL.map((item) => {
   let tipoCarga = item.tipoCarga || 'monofasica';
   if (!item.tipoCarga) {
     if (item.watts >= 10000) {
@@ -55,6 +55,7 @@ export default function AparatoForm({
   const [selectedFase, setSelectedFase] = useState('A');
   const [faseSugerida, setFaseSugerida] = useState('A');
   const [projectedAcometida, setProjectedAcometida] = useState(determinarAcometida(0));
+  const [projectedMedidorWatts, setProjectedMedidorWatts] = useState(0);
   const [timeWarning, setTimeWarning] = useState('');
 
   useEffect(() => {
@@ -69,39 +70,44 @@ export default function AparatoForm({
     return t.includes('refrigerador') || t.includes('congeladora') || t.includes('enfriador') || t.includes('chiller');
   };
 
-  // Efecto para calcular de forma reactiva la fase sugerida y acometida proyectada, y validar tiempos
+  // Efecto para calcular de forma reactiva la fase sugerida y acometida proyectada DEL MEDIDOR SELECCIONADO
   useEffect(() => {
-    const inputWatts = parseFloat(formData.watts) || 0;
-    const currentTotalWatts = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
-    const newTotalWatts = currentTotalWatts + inputWatts;
-    
-    // Determinar la acometida resultante si agregamos este aparato
-    const newAcometida = determinarAcometida(newTotalWatts);
-    setProjectedAcometida(newAcometida);
+    const defaultMedId = medidores[0]?.id || 'med_1';
+    const targetMedId = formData.medidorId || currentMedidorId || defaultMedId;
+    const targetMedObj = medidores.find(m => m.id === targetMedId) || { id: targetMedId, numero: 1, forzarTrifasico: false };
+    const apsDelMedidor = aparatos.filter(ap => (ap.medidorId || defaultMedId) === targetMedId);
 
-    // Sugerir la fase usando Greedy basado en las fases del nuevo sistema
+    const inputWatts = parseFloat(formData.watts) || 0;
+    const currentMedWatts = apsDelMedidor.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
+    setProjectedMedidorWatts(currentMedWatts + inputWatts);
+
+    const simulatedNewAp = {
+      watts: inputWatts,
+      fp: parseFloat(formData.fp) || 1.0,
+      usarVaDirecto: formData.usarVaDirecto,
+      tipoCarga: formData.tipoCarga || 'monofasica'
+    };
+
+    const newAcometida = determinarAcometidaMedidor(targetMedObj, [...apsDelMedidor, simulatedNewAp]);
+    setProjectedAcometida(newAcometida);
+    const fasesDisp = newAcometida.fasesDisponibles || ['A'];
+
     if (formData.tipoCarga === 'monofasica') {
-      const sugerida = obtenerFaseGreedy(aparatos, inputWatts, newAcometida.fasesDisponibles);
+      const sugerida = obtenerFaseGreedy(apsDelMedidor, inputWatts, fasesDisp);
       setFaseSugerida(sugerida);
-      
-      if (!newAcometida.fasesDisponibles.includes(selectedFase) || selectedFase.includes('-')) {
+
+      if (!fasesDisp.includes(selectedFase) || selectedFase.includes('-')) {
         setSelectedFase(sugerida);
       }
     } else if (formData.tipoCarga === 'bifasica') {
-      if (newAcometida.id === 'bifasico') {
-        setSelectedFase('A-B');
-      } else if (newAcometida.id === 'trifasico') {
-        if (!['A-B', 'B-C', 'A-C'].includes(selectedFase)) {
-          setSelectedFase('A-B');
-        }
-      } else {
-        setSelectedFase('A');
+      const faseNorm = normalizarFaseParaMedidor({ tipoCarga: 'bifasica', fase: selectedFase }, fasesDisp);
+      if (faseNorm !== selectedFase) {
+        setSelectedFase(faseNorm);
       }
     } else if (formData.tipoCarga === 'trifasica') {
-      if (newAcometida.id === 'trifasico') {
-        setSelectedFase('A-B-C');
-      } else {
-        setSelectedFase('A');
+      const faseNorm = normalizarFaseParaMedidor({ tipoCarga: 'trifasica', fase: selectedFase }, fasesDisp);
+      if (faseNorm !== selectedFase) {
+        setSelectedFase(faseNorm);
       }
     }
 
@@ -118,7 +124,7 @@ export default function AparatoForm({
     } else {
       setTimeWarning('');
     }
-  }, [formData.watts, formData.tipoCarga, formData.consumoVariable, formData.horasAlta, formData.horasReposo, formData.tipo, aparatos, selectedFase]);
+  }, [formData.watts, formData.fp, formData.usarVaDirecto, formData.tipoCarga, formData.medidorId, formData.consumoVariable, formData.horasAlta, formData.horasReposo, formData.tipo, aparatos, medidores, currentMedidorId, selectedFase]);
 
   // Sincronizar selección monofásica con la sugerencia Greedy
   useEffect(() => {
@@ -129,6 +135,7 @@ export default function AparatoForm({
 
   const handlePresetChange = (e) => {
     const val = e.target.value;
+    const activeMedId = formData.medidorId || currentMedidorId || medidores[0]?.id || 'med_1';
     if (val === 'custom') {
       setPresetIndex('custom');
       setFormData({
@@ -146,13 +153,20 @@ export default function AparatoForm({
         vidaUtil: 5,
         criteriosDurabilidad: 'Aparato registrado de forma manual y personalizada.',
         criteriosMantenimiento: 'Criterio manual de mantenimiento.',
-        durabilidadOption: 'estandar'
+        durabilidadOption: 'estandar',
+        tuberiaDiametro: '16 mm (1/2")',
+        tuberiaTipo: 'Pared Delgada',
+        longitudMetros: 15,
+        kaic: '10 kA',
+        factorTemperatura: 1.0,
+        factorAgrupamiento: 1.0,
+        medidorId: activeMedId
       });
     } else {
       const idx = parseInt(val);
       setPresetIndex(idx);
       const preset = PRESETS[idx];
-      setFormData({ ...preset });
+      setFormData({ ...preset, medidorId: activeMedId });
     }
   };
 
@@ -271,8 +285,10 @@ export default function AparatoForm({
   };
 
   const renderFaseOptions = () => {
-    if (projectedAcometida.id === 'monofasico' || formData.tipoCarga === 'monofasica') {
-      return projectedAcometida.fasesDisponibles.map(f => (
+    const fasesDisp = projectedAcometida.fasesDisponibles || ['A'];
+
+    if (fasesDisp.length === 1 || formData.tipoCarga === 'monofasica') {
+      return fasesDisp.map(f => (
         <option key={f} value={f} className="bg-slate-900 text-white">
           Fase {f}
         </option>
@@ -280,10 +296,11 @@ export default function AparatoForm({
     }
 
     if (formData.tipoCarga === 'bifasica') {
-      if (projectedAcometida.id === 'bifasico') {
-        return <option value="A-B" className="bg-slate-900 text-white">Fases A-B (220V)</option>;
+      if (fasesDisp.length === 2) {
+        const par = `${fasesDisp[0]}-${fasesDisp[1]}`;
+        return <option value={par} className="bg-slate-900 text-white">Fases {par} (220V)</option>;
       }
-      if (projectedAcometida.id === 'trifasico') {
+      if (fasesDisp.length >= 3) {
         return (
           <>
             <option value="A-B" className="bg-slate-900 text-white">Fases A-B (220V)</option>
@@ -294,13 +311,11 @@ export default function AparatoForm({
       }
     }
 
-    if (formData.tipoCarga === 'trifasica') {
-      if (projectedAcometida.id === 'trifasico') {
-        return <option value="A-B-C" className="bg-slate-900 text-white">Fases A-B-C (220V Trifásico)</option>;
-      }
+    if (formData.tipoCarga === 'trifasica' && fasesDisp.length >= 3) {
+      return <option value="A-B-C" className="bg-slate-900 text-white">Fases A-B-C (220V Trifásico)</option>;
     }
 
-    return <option value="A" className="bg-slate-900 text-white">Fase A (Forzado 127V)</option>;
+    return <option value={fasesDisp[0]} className="bg-slate-900 text-white">Fase {fasesDisp[0]}</option>;
   };
 
   const isCritical = esEquipoCritico(formData.tipo);
@@ -358,20 +373,8 @@ export default function AparatoForm({
             className="w-full px-3 py-2 rounded-lg glass-input text-xs font-bold text-slate-200 border-slate-800"
           >
             <option value="monofasica" className="bg-slate-900 text-white">Monofásica (127 V CA)</option>
-            <option 
-              value="bifasica" 
-              className="bg-slate-900 text-white"
-              disabled={projectedAcometida.id === 'monofasico'}
-            >
-              Bifásica (220 V CA) {projectedAcometida.id === 'monofasico' ? '[Requiere >5kW]' : ''}
-            </option>
-            <option 
-              value="trifasica" 
-              className="bg-slate-900 text-white"
-              disabled={projectedAcometida.id !== 'trifasico'}
-            >
-              Trifásica (220 V CA) {projectedAcometida.id !== 'trifasico' ? '[Requiere >10kW]' : ''}
-            </option>
+            <option value="bifasica" className="bg-slate-900 text-white">Bifásica (220 V CA · 2 Fases)</option>
+            <option value="trifasica" className="bg-slate-900 text-white">Trifásica (220 V CA · 3 Fases)</option>
           </select>
         </div>
 
@@ -767,7 +770,7 @@ export default function AparatoForm({
             </select>
           </div>
           <p className="text-[10px] text-slate-500 mt-2">
-            * Carga proyectada: {(aparatos.reduce((sum, ap) => sum + ap.watts, 0) + (parseFloat(formData.watts) || 0)).toLocaleString()} W ({projectedAcometida.tipo})
+            * Carga proyectada en medidor: {projectedMedidorWatts.toLocaleString('es-MX')} W ({projectedAcometida.tipo})
           </p>
         </div>
 
