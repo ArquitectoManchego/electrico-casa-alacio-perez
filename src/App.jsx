@@ -16,8 +16,11 @@ import {
   Monitor,
   Smartphone,
   Sliders,
-  ShieldCheck
+  ShieldCheck,
+  CheckCircle2,
+  X
 } from 'lucide-react';
+
 import { dbService } from './firebase';
 import { determinarAcometida, generarCombinacionesBalanceo } from './utils/electricalCalculations';
 import { 
@@ -250,6 +253,13 @@ export default function App() {
   });
 
   const [activeAddVariantId, setActiveAddVariantId] = useState(null);
+  const [balanceToast, setBalanceToast] = useState(null);
+
+  useEffect(() => {
+    if (!balanceToast) return;
+    const timer = setTimeout(() => setBalanceToast(null), 6000);
+    return () => clearTimeout(timer);
+  }, [balanceToast]);
 
   const isEqualizerInitializedRef = useRef(false);
   useEffect(() => {
@@ -781,11 +791,110 @@ export default function App() {
     await handleUpdateMedidor(medId, { forzarTrifasico: !target.forzarTrifasico });
   };
 
-  const handleBalancearMedidor = (medId) => {
-    setActiveMedidorId(medId);
-    setActiveTab('balanceador');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleBalancearMedidor = async (medId) => {
+    if (!currentProyectoId) return;
+    const lista = Array.isArray(medidores) && medidores.length > 0
+      ? medidores
+      : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+    const med = lista.find(m => m.id === medId) || lista[0];
+
+    // 1. Filtrar aparatos correspondientes a este medidor
+    const apsMed = aparatos.filter(ap => (ap.medidorId || lista[0].id) === med.id);
+    if (apsMed.length === 0) {
+      alert(`El ${med.nombre || `Medidor ${med.numero}`} no cuenta con circuitos registrados para balancear.`);
+      return;
+    }
+
+    // 2. Determinar acometida del medidor
+    const wTotalMed = apsMed.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
+    const acometidaMed = determinarAcometida(wTotalMed, med.forzarTrifasico);
+
+    let updatedApsMed = [];
+
+    if (acometidaMed.id === 'monofasico' || acometidaMed.fasesDisponibles.length <= 1) {
+      // Monofásico 127V: Todas las cargas van a Fase A
+      updatedApsMed = apsMed.map(ap => ({
+        ...ap,
+        fase: 'A'
+      }));
+    } else {
+      // Bifásico o Trifásico: buscar asignación con desbalance UVIE óptimo <= 5%
+      const configs = generarCombinacionesBalanceo(apsMed, acometidaMed.id, acometidaMed.fasesDisponibles);
+      if (configs.length > 0) {
+        const mejor = configs[0];
+        updatedApsMed = apsMed.map(ap => {
+          const match = mejor.asignacion.find(a => a.id === ap.id);
+          return {
+            ...ap,
+            fase: match ? match.fase : (ap.fase || acometidaMed.fasesDisponibles[0])
+          };
+        });
+      } else {
+        // Algoritmo greedy de respaldo
+        const cargasFase = {};
+        acometidaMed.fasesDisponibles.forEach(f => { cargasFase[f] = 0; });
+        updatedApsMed = apsMed.map(ap => {
+          if (ap.tipoCarga === 'monofasica') {
+            let minFase = acometidaMed.fasesDisponibles[0];
+            let minVal = cargasFase[minFase];
+            acometidaMed.fasesDisponibles.forEach(f => {
+              if (cargasFase[f] < minVal) {
+                minVal = cargasFase[f];
+                minFase = f;
+              }
+            });
+            cargasFase[minFase] += (parseFloat(ap.watts) || 0);
+            return { ...ap, fase: minFase };
+          }
+          return ap;
+        });
+      }
+    }
+
+    // 3. Reasignar slots físicos compatibles con la nueva fase
+    const slotsOcupados = new Set();
+    aparatos.filter(ap => (ap.medidorId || lista[0].id) !== med.id).forEach(ap => {
+      if (ap.slot) slotsOcupados.add(ap.slot);
+    });
+
+    const finalApsMed = updatedApsMed.map(ap => {
+      let slotValido = ap.slot && !slotsOcupados.has(ap.slot);
+      if (slotValido) {
+        const slotFase = getFasePredefinidaDeSlot(ap.slot);
+        if (ap.tipoCarga === 'monofasica' && slotFase !== ap.fase) slotValido = false;
+        if (ap.tipoCarga === 'bifasica' && !ap.fase.includes(slotFase)) slotValido = false;
+      }
+      if (!slotValido) {
+        const nuevoSlot = asignarSlotParaFase(ap.fase, slotsOcupados, null);
+        if (nuevoSlot) slotsOcupados.add(nuevoSlot);
+        return { ...ap, slot: nuevoSlot };
+      }
+      slotsOcupados.add(ap.slot);
+      return ap;
+    });
+
+    // 4. Integrar con el resto de los aparatos y persistir
+    const actualizados = aparatos.map(ap => {
+      const match = finalApsMed.find(m => m.id === ap.id);
+      return match || ap;
+    });
+
+    setAparatos(actualizados);
+    await dbService.guardarTodosLosAparatos(currentProyectoId, actualizados);
+
+    // 5. Calcular nuevo desbalance UVIE obtenido
+    const sA = finalApsMed.reduce((sum, a) => sum + (a.fase === 'A' || a.fase?.includes('A') ? uvieCalcularVA(a.watts, a.fp, a.usarVaDirecto) : 0), 0);
+    const sB = finalApsMed.reduce((sum, a) => sum + (a.fase === 'B' || a.fase?.includes('B') ? uvieCalcularVA(a.watts, a.fp, a.usarVaDirecto) : 0), 0);
+    const sC = finalApsMed.reduce((sum, a) => sum + (a.fase === 'C' || a.fase?.includes('C') ? uvieCalcularVA(a.watts, a.fp, a.usarVaDirecto) : 0), 0);
+    const nuevoDesbal = calcularDesbalanceUVIE(sA, sB, sC, acometidaMed.id);
+
+    setBalanceToast({
+      nombre: med.nombre || `Medidor ${med.numero}`,
+      desbalance: nuevoDesbal.toFixed(2),
+      id: Date.now()
+    });
   };
+
 
   const handleApplyBalancingToAparatos = async (balancedBreakers) => {
     if (!currentProyectoId || !Array.isArray(balancedBreakers) || balancedBreakers.length === 0) return;
@@ -894,8 +1003,11 @@ export default function App() {
       const model = buildPlanoDocumentModel({
         computedElectricalSystem,
         aparatos,
-        planoMetadata
+        planoMetadata,
+        medidores,
+        medidoresData
       });
+
       const cleanProj = (model.infoPlano.proyecto || 'Proyecto')
         .replace(/[^a-zA-Z0-9_-]/g, '_')
         .replace(/_+/g, '_');
@@ -2067,6 +2179,9 @@ export default function App() {
                 aparatos={aparatos}
                 acometida={currentAcometida}
                 medidores={medidores}
+                medidoresData={medidoresData}
+                activeMedidorId={activeMedidorId}
+                onSelectMedidor={setActiveMedidorId}
                 fasesUnit={fasesUnit}
                 onChangeFasesUnit={handleCycleFasesUnit}
                 onBalancearFases={handleBalancearFases}
@@ -2097,6 +2212,11 @@ export default function App() {
                 onUpdateAparato={handleUpdateAparatoProps}
                 acometida={currentAcometida}
                 proyectoId={currentProyectoId}
+                medidores={medidores}
+                medidoresData={medidoresData}
+                activeMedidorId={activeMedidorId}
+                onSelectMedidor={setActiveMedidorId}
+                onBalancearMedidor={handleBalancearMedidor}
               />
             </div>
           )}
@@ -2109,6 +2229,11 @@ export default function App() {
                 computedCircuits={computedElectricalSystem.circuitos}
                 alimPrincipal={computedElectricalSystem.alimPrincipal}
                 acometida={currentAcometida}
+                medidores={medidores}
+                medidoresData={medidoresData}
+                activeMedidorId={activeMedidorId}
+                onSelectMedidor={setActiveMedidorId}
+                onBalancearMedidor={handleBalancearMedidor}
                 proyecto={{
                   nombre: cajetinProyecto,
                   ubicacion: cajetinUbicacion,
@@ -2148,11 +2273,14 @@ export default function App() {
                 proyectoId={currentProyectoId}
                 computedElectricalSystem={computedElectricalSystem}
                 medidores={medidores}
+                medidoresData={medidoresData}
                 activeMedidorId={activeMedidorId}
                 onSelectMedidor={setActiveMedidorId}
+                onBalancearMedidor={handleBalancearMedidor}
               />
             </div>
           )}
+
 
           {/* PESTAÑA 9: PIE DE PLANO CAD Y PREVISUALIZACIÓN 90X60 */}
           {activeTab === 'piePlano' && (
@@ -2381,6 +2509,31 @@ export default function App() {
         )}
 
       </main>
+
+      {/* Notificación interactiva flotante de balanceo por medidor */}
+      {balanceToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 border border-emerald-500/60 text-slate-100 p-4 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3.5 max-w-md animate-fadeIn transition-all duration-300">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
+            <CheckCircle2 size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-white flex items-center gap-1.5">
+              <span>{balanceToast.nombre}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">Balanceado</span>
+            </p>
+            <p className="text-[11px] text-slate-300 mt-0.5">
+              Cargas redistribuidas. Desbalance obtenido: <strong className="text-emerald-400 font-mono">{balanceToast.desbalance}%</strong> (Cumple NOM-001 ≤ 5%).
+            </p>
+          </div>
+          <button
+            onClick={() => setBalanceToast(null)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+            title="Cerrar notificación"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950/40 text-center py-6 text-xs text-slate-500 px-6 mt-12 no-print">

@@ -95,6 +95,8 @@ export default function CuadroCargasTabla({
   const totalPrecio = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.precio) || 0), 0);
   const totalMantenimiento = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.mantenimiento) || 0), 0);
 
+  const [medidorFiltro, setMedidorFiltro] = React.useState('todos');
+
   // Agrupar aparatos por medidor
   const gruposPorMedidor = listaMedidores.map(med => {
     const aps = aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id);
@@ -107,6 +109,10 @@ export default function CuadroCargasTabla({
   if (huerfanos.length > 0 && gruposPorMedidor.length > 0) {
     gruposPorMedidor[0].aparatos.push(...huerfanos);
   }
+
+  const gruposFiltrados = medidorFiltro === 'todos' 
+    ? gruposPorMedidor 
+    : gruposPorMedidor.filter(g => g.medidor.id === medidorFiltro);
 
   let runningGlobalIndex = 0;
 
@@ -169,6 +175,49 @@ export default function CuadroCargasTabla({
             <p className="text-xs mt-1 leading-relaxed text-rose-300 font-sans">
               El desbalanceo entre fases excede el **5.0%** permitido por la NOM-001-SEDE. Las unidades de verificación (UVIE) **rechazarán** este cuadro de cargas. Por favor, haz clic en el botón de **"Balancear Fases"** abajo a la derecha para resolverlo automáticamente.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Selector de Medidor para Cuadro de Cargas */}
+      {listaMedidores.length > 1 && (
+        <div className="glass-panel p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 border border-slate-800 bg-slate-900/40 no-print">
+          <div className="flex items-center gap-2">
+            <Gauge size={16} className="text-teal-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+              Filtrar Instalación por Medidor:
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setMedidorFiltro('todos')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                medidorFiltro === 'todos'
+                  ? 'bg-teal-500 text-slate-950 font-black shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              <span>Todos los Medidores ({aparatos.length} cargas)</span>
+            </button>
+
+            {listaMedidores.map(med => {
+              const count = aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id).length;
+              return (
+                <button
+                  key={med.id}
+                  onClick={() => setMedidorFiltro(med.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    medidorFiltro === med.id
+                      ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <span>{med.nombre || `Medidor ${med.numero}`}</span>
+                  <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -322,7 +371,7 @@ export default function CuadroCargasTabla({
             </thead>
 
             <tbody className="divide-y divide-slate-800/40 text-xs text-slate-300 font-mono">
-              {gruposPorMedidor.map(({ medidor, aparatos: apsGrupo }) => {
+              {gruposFiltrados.map(({ medidor, aparatos: apsGrupo }) => {
                 // Calcular subtotales para este medidor
                 let subTotalW = 0;
                 let subTotalVA = 0;

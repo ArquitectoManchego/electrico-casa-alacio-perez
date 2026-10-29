@@ -44,6 +44,7 @@ export const DXF_LAYERS = {
 export class DxfBuilder {
   constructor() {
     this.modelEntities = [];
+    this.layouts = [];
     this.layout1Entities = [];
     this.layout2Entities = [];
   }
@@ -77,9 +78,27 @@ export class DxfBuilder {
       .replace(/\r?\n/g, ' ');
   }
 
+  addLayout({ name, title, targetX = 1280.0, targetY = 955.0, viewH = 1550.0 }) {
+    const layout = {
+      name: this.escapeText(name),
+      title: this.escapeText(title || name),
+      targetX,
+      targetY,
+      viewH,
+      entities: []
+    };
+    this.layouts.push(layout);
+    return layout;
+  }
+
   getTargetArray(target = 'model') {
     if (target === 'layout1') return this.layout1Entities;
     if (target === 'layout2') return this.layout2Entities;
+    if (target !== 'model') {
+      const cleanTarget = this.escapeText(target);
+      const found = this.layouts.find(l => l.name === cleanTarget || l.title === cleanTarget || l.name === target);
+      if (found) return found.entities;
+    }
     return this.modelEntities;
   }
 
@@ -165,7 +184,6 @@ export class DxfBuilder {
   }
 
   buildDxf(opcion = 'ambas', infoPlano = {}) {
-    const hasLayout2 = opcion === 'ambas' && this.layout2Entities.length > 0;
     let handleCounter = 1;
     const getHandle = () => {
       const h = handleCounter.toString(16).toUpperCase();
@@ -274,11 +292,62 @@ export class DxfBuilder {
       ];
     };
 
+    // Colección unificada de layouts a generar
+    let rawLayouts = [];
+    if (this.layouts && this.layouts.length > 0) {
+      rawLayouts = this.layouts;
+    } else {
+      const l1Title = opcion === 'cuadro'
+        ? (infoPlano.numeroPlanoCuadro || 'IE-02_CUADRO_CARGAS')
+        : (infoPlano.numeroPlano || 'IE-01_UNIFILAR');
+      const l2Title = infoPlano.numeroPlanoCuadro || 'IE-02_CUADRO_CARGAS';
+
+      const unifilarTargetX = 1280.0;
+      const unifilarTargetY = 955.0;
+      const cuadroTargetX = (opcion === 'cuadro') ? 1280.0 : 4280.0;
+      const cuadroTargetY = 955.0;
+
+      rawLayouts.push({
+        name: l1Title,
+        title: l1Title,
+        targetX: (opcion === 'cuadro') ? cuadroTargetX : unifilarTargetX,
+        targetY: (opcion === 'cuadro') ? cuadroTargetY : unifilarTargetY,
+        viewH: 1550.0,
+        entities: this.layout1Entities
+      });
+
+      if (opcion === 'ambas' && this.layout2Entities.length > 0) {
+        rawLayouts.push({
+          name: l2Title,
+          title: l2Title,
+          targetX: cuadroTargetX,
+          targetY: cuadroTargetY,
+          viewH: 1550.0,
+          entities: this.layout2Entities
+        });
+      }
+    }
+
+    const layoutMeta = rawLayouts.map((lay, i) => {
+      const blockName = (i === 0) ? '*Paper_Space' : `*Paper_Space${i - 1}`;
+      return {
+        ...lay,
+        index: i,
+        blockName,
+        hBlockRecord: getHandle(),
+        hBlockBegin: getHandle(),
+        hBlockEnd: getHandle(),
+        hVpOverall: getHandle(),
+        hVpModel: getHandle(),
+        hLayout: getHandle(),
+        tabOrder: i + 1,
+        title: lay.title || lay.name || `LAYOUT_${i + 1}`
+      };
+    });
+
     // Handles clave para la estructura AC1015
     const hTableBlockRecord = getHandle();
     const hBlockRecordModel = getHandle();
-    const hBlockRecordPaper = getHandle();
-    const hBlockRecordPaper0 = hasLayout2 ? getHandle() : null;
 
     const hTableVport = getHandle();
     const hVportRecord = getHandle();
@@ -307,36 +376,12 @@ export class DxfBuilder {
     const hBlockBeginModel = getHandle();
     const hBlockEndModel = getHandle();
 
-    const hBlockBeginPaper = getHandle();
-    const hBlockEndPaper = getHandle();
-
-    const hBlockBeginPaper0 = hasLayout2 ? getHandle() : null;
-    const hBlockEndPaper0 = hasLayout2 ? getHandle() : null;
-
-    const hVp1Overall = getHandle();
-    const hVp1Model = getHandle();
-    const hVp2Overall = hasLayout2 ? getHandle() : null;
-    const hVp2Model = hasLayout2 ? getHandle() : null;
-
     const hRootDict = getHandle();
     const hLayoutDict = getHandle();
     const hLayoutModel = getHandle();
-    const hLayout1 = getHandle();
-    const hLayout2 = hasLayout2 ? getHandle() : null;
 
     const hPlotStyleDict = getHandle();
     const hPlotStyleNormal = getHandle();
-
-    const l1Title = opcion === 'cuadro'
-      ? (infoPlano.numeroPlanoCuadro || 'IE-02_CUADRO_CARGAS')
-      : (infoPlano.numeroPlano || 'IE-01_UNIFILAR');
-    const l2Title = infoPlano.numeroPlanoCuadro || 'IE-02_CUADRO_CARGAS';
-
-    // Centros en Model Space para cada Viewport
-    const unifilarTargetX = 1280.0;
-    const unifilarTargetY = 955.0;
-    const cuadroTargetX = (opcion === 'cuadro') ? 1280.0 : 4280.0;
-    const cuadroTargetY = 955.0;
 
     const out = [];
 
@@ -438,19 +483,15 @@ export class DxfBuilder {
     out.push('  0', 'ENDTAB');
 
     // BLOCK_RECORD Table
-    const numRecords = hasLayout2 ? 3 : 2;
-    out.push('  0', 'TABLE', '  2', 'BLOCK_RECORD', '  5', hTableBlockRecord, '330', '0', '100', 'AcDbSymbolTable', ' 70', String(numRecords));
+    out.push('  0', 'TABLE', '  2', 'BLOCK_RECORD', '  5', hTableBlockRecord, '330', '0', '100', 'AcDbSymbolTable', ' 70', String(1 + layoutMeta.length));
 
     // Record Model
     out.push('  0', 'BLOCK_RECORD', '  5', hBlockRecordModel, '330', hTableBlockRecord, '100', 'AcDbSymbolTableRecord', '100', 'AcDbBlockTableRecord', '  2', '*Model_Space', '340', hLayoutModel);
 
-    // Record Paper_Space (Layout 1)
-    out.push('  0', 'BLOCK_RECORD', '  5', hBlockRecordPaper, '330', hTableBlockRecord, '100', 'AcDbSymbolTableRecord', '100', 'AcDbBlockTableRecord', '  2', '*Paper_Space', '340', hLayout1);
-
-    // Record Paper_Space0 (Layout 2)
-    if (hasLayout2) {
-      out.push('  0', 'BLOCK_RECORD', '  5', hBlockRecordPaper0, '330', hTableBlockRecord, '100', 'AcDbSymbolTableRecord', '100', 'AcDbBlockTableRecord', '  2', '*Paper_Space0', '340', hLayout2);
-    }
+    // Records Paper Space para cada layout
+    layoutMeta.forEach(lm => {
+      out.push('  0', 'BLOCK_RECORD', '  5', lm.hBlockRecord, '330', hTableBlockRecord, '100', 'AcDbSymbolTableRecord', '100', 'AcDbBlockTableRecord', '  2', lm.blockName, '340', lm.hLayout);
+    });
     out.push('  0', 'ENDTAB');
 
     out.push('  0', 'ENDSEC');
@@ -463,44 +504,47 @@ export class DxfBuilder {
     out.push('  0', 'ENDBLK', '  5', hBlockEndModel, '330', hBlockRecordModel, '100', 'AcDbEntity', '  8', '0', '100', 'AcDbBlockEnd');
 
     // Block *Paper_Space (Layout 1)
-    out.push('  0', 'BLOCK', '  5', hBlockBeginPaper, '330', hBlockRecordPaper, '100', 'AcDbEntity', '  8', '0', '100', 'AcDbBlockBegin', '  2', '*Paper_Space', ' 70', '0', ' 10', '0.0', ' 20', '0.0', ' 30', '0.0', '  3', '*Paper_Space', '  1', '');
-    out.push('  0', 'ENDBLK', '  5', hBlockEndPaper, '330', hBlockRecordPaper, '100', 'AcDbEntity', '  8', '0', '100', 'AcDbBlockEnd');
+    if (layoutMeta.length > 0) {
+      const lm0 = layoutMeta[0];
+      out.push('  0', 'BLOCK', '  5', lm0.hBlockBegin, '330', lm0.hBlockRecord, '100', 'AcDbEntity', '  8', '0', '100', 'AcDbBlockBegin', '  2', '*Paper_Space', ' 70', '0', ' 10', '0.0', ' 20', '0.0', ' 30', '0.0', '  3', '*Paper_Space', '  1', '');
+      out.push('  0', 'ENDBLK', '  5', lm0.hBlockEnd, '330', lm0.hBlockRecord, '100', 'AcDbEntity', '  8', '0', '100', 'AcDbBlockEnd');
+    }
 
-    // Block *Paper_Space0 (Layout 2) con sus Viewports y Entidades
-    if (hasLayout2) {
-      out.push('  0', 'BLOCK', '  5', hBlockBeginPaper0, '330', hBlockRecordPaper0, '100', 'AcDbEntity', ' 67', '1', '  8', '0', '100', 'AcDbBlockBegin', '  2', '*Paper_Space0', ' 70', '0', ' 10', '0.0', ' 20', '0.0', ' 30', '0.0', '  3', '*Paper_Space0', '  1', '');
+    // Bloques subsecuentes (*Paper_Space0, *Paper_Space1, ...)
+    layoutMeta.slice(1).forEach(lm => {
+      out.push('  0', 'BLOCK', '  5', lm.hBlockBegin, '330', lm.hBlockRecord, '100', 'AcDbEntity', ' 67', '1', '  8', '0', '100', 'AcDbBlockBegin', '  2', lm.blockName, ' 70', '0', ' 10', '0.0', ' 20', '0.0', ' 30', '0.0', '  3', lm.blockName, '  1', '');
 
       // Viewport 1 (overall)
       out.push(...serializeViewport({
-        handle: hVp2Overall,
-        ownerHandle: hBlockRecordPaper0,
+        handle: lm.hVpOverall,
+        ownerHandle: lm.hBlockRecord,
         vpId: 1,
         status: 1,
         cx: 450.0, cy: 300.0, w: 990.0, h: 660.0,
         viewCx: 450.0, viewCy: 300.0, viewH: 660.0
       }));
 
-      // Viewport 2 (floating model viewport centrado en Cuadro de Cargas)
+      // Viewport 2 (floating model viewport)
       out.push(...serializeViewport({
-        handle: hVp2Model,
-        ownerHandle: hBlockRecordPaper0,
+        handle: lm.hVpModel,
+        ownerHandle: lm.hBlockRecord,
         vpId: 3,
         status: 2,
         cx: 450.0, cy: 337.5, w: 860.0, h: 490.0,
-        viewCx: cuadroTargetX, viewCy: cuadroTargetY, viewH: 1550.0
+        viewCx: lm.targetX, viewCy: lm.targetY, viewH: lm.viewH || 1550.0
       }));
 
-      // Entidades de Paper Space de Layout 2 (Marco y Cajetín)
-      this.layout2Entities.forEach(ent => {
-        out.push(...serializeEntity(ent, hBlockRecordPaper0, true));
+      // Entidades de Paper Space de Layout lm
+      lm.entities.forEach(ent => {
+        out.push(...serializeEntity(ent, lm.hBlockRecord, true));
       });
 
-      out.push('  0', 'ENDBLK', '  5', hBlockEndPaper0, '330', hBlockRecordPaper0, '100', 'AcDbEntity', ' 67', '1', '  8', '0', '100', 'AcDbBlockEnd');
-    }
+      out.push('  0', 'ENDBLK', '  5', lm.hBlockEnd, '330', lm.hBlockRecord, '100', 'AcDbEntity', ' 67', '1', '  8', '0', '100', 'AcDbBlockEnd');
+    });
 
     out.push('  0', 'ENDSEC');
 
-    // 5. ENTITIES SECTION (Contiene entidades de Model Space y de Layout 1)
+    // 5. ENTITIES SECTION
     out.push('  0', 'SECTION', '  2', 'ENTITIES');
 
     // Entidades de Model Space
@@ -508,32 +552,31 @@ export class DxfBuilder {
       out.push(...serializeEntity(ent, hBlockRecordModel, false));
     });
 
-    // Viewports de Layout 1 (*Paper_Space)
-    out.push(...serializeViewport({
-      handle: hVp1Overall,
-      ownerHandle: hBlockRecordPaper,
-      vpId: 1,
-      status: 1,
-      cx: 450.0, cy: 300.0, w: 990.0, h: 660.0,
-      viewCx: 450.0, viewCy: 300.0, viewH: 660.0
-    }));
+    // Viewports y entidades de Layout 1 (*Paper_Space)
+    if (layoutMeta.length > 0) {
+      const lm0 = layoutMeta[0];
+      out.push(...serializeViewport({
+        handle: lm0.hVpOverall,
+        ownerHandle: lm0.hBlockRecord,
+        vpId: 1,
+        status: 1,
+        cx: 450.0, cy: 300.0, w: 990.0, h: 660.0,
+        viewCx: 450.0, viewCy: 300.0, viewH: 660.0
+      }));
 
-    const l1TargetX = (opcion === 'cuadro') ? cuadroTargetX : unifilarTargetX;
-    const l1TargetY = (opcion === 'cuadro') ? cuadroTargetY : unifilarTargetY;
+      out.push(...serializeViewport({
+        handle: lm0.hVpModel,
+        ownerHandle: lm0.hBlockRecord,
+        vpId: 3,
+        status: 2,
+        cx: 450.0, cy: 337.5, w: 860.0, h: 490.0,
+        viewCx: lm0.targetX, viewCy: lm0.targetY, viewH: lm0.viewH || 1550.0
+      }));
 
-    out.push(...serializeViewport({
-      handle: hVp1Model,
-      ownerHandle: hBlockRecordPaper,
-      vpId: 3,
-      status: 2,
-      cx: 450.0, cy: 337.5, w: 860.0, h: 490.0,
-      viewCx: l1TargetX, viewCy: l1TargetY, viewH: 1550.0
-    }));
-
-    // Entidades de Paper Space de Layout 1
-    this.layout1Entities.forEach(ent => {
-      out.push(...serializeEntity(ent, hBlockRecordPaper, true));
-    });
+      lm0.entities.forEach(ent => {
+        out.push(...serializeEntity(ent, lm0.hBlockRecord, true));
+      });
+    }
 
     out.push('  0', 'ENDSEC');
 
@@ -548,10 +591,9 @@ export class DxfBuilder {
     // ACAD_LAYOUT DICTIONARY
     out.push('  0', 'DICTIONARY', '  5', hLayoutDict, '330', hRootDict, '100', 'AcDbDictionary', '281', '1');
     out.push('  3', 'Model', '350', hLayoutModel);
-    out.push('  3', l1Title, '350', hLayout1);
-    if (hasLayout2) {
-      out.push('  3', l2Title, '350', hLayout2);
-    }
+    layoutMeta.forEach(lm => {
+      out.push('  3', lm.title, '350', lm.hLayout);
+    });
 
     // ACAD_PLOTSTYLENAME DICTIONARY
     out.push('  0', 'ACDBDICTIONARYWDFLT', '  5', hPlotStyleDict, '330', hRootDict, '100', 'AcDbDictionary', '281', '1');
@@ -566,17 +608,12 @@ export class DxfBuilder {
     out.push(' 40', '0.0', ' 41', '0.0', ' 42', '0.0', ' 43', '0.0', ' 44', '0.0', ' 45', '0.0', ' 46', '0.0', ' 47', '0.0', ' 48', '0.0', ' 49', '0.0', '140', '0.0', '141', '0.0', '142', '1.0', '143', '1.0', ' 70', '0', ' 72', '0', ' 73', '0', ' 74', '0', '  7', '', ' 75', '0', ' 76', '0', ' 77', '2', ' 78', '300', '147', '1.0', '148', '0.0', '149', '0.0');
     out.push('100', 'AcDbLayout', '  1', 'Model', ' 70', '1', ' 71', '0', ' 10', '0.0', ' 20', '0.0', ' 11', '12.0', ' 21', '9.0', ' 12', '0.0', ' 22', '0.0', ' 32', '0.0', ' 14', '0.0', ' 24', '0.0', ' 34', '0.0', ' 15', '0.0', ' 25', '0.0', ' 35', '0.0', '146', '0.0', ' 13', '0.0', ' 23', '0.0', ' 33', '0.0', ' 16', '1.0', ' 26', '0.0', ' 36', '0.0', ' 17', '0.0', ' 27', '1.0', ' 37', '0.0', ' 76', '0', '330', hBlockRecordModel);
 
-    // LAYOUT 1 (900 x 600 mm)
-    out.push('  0', 'LAYOUT', '  5', hLayout1, '330', hLayoutDict, '100', 'AcDbPlotSettings', '  1', '', '  2', 'DWG to PDF.pc3', '  4', 'Arch_D_(900.00_x_600.00_MM)', '  6', '');
-    out.push(' 40', '0.0', ' 41', '0.0', ' 42', '0.0', ' 43', '0.0', ' 44', '900.0', ' 45', '600.0', ' 46', '0.0', ' 47', '0.0', ' 48', '0.0', ' 49', '0.0', '140', '0.0', '141', '0.0', '142', '1.0', '143', '1.0', ' 70', '672', ' 72', '1', ' 73', '0', ' 74', '5', '  7', '', ' 75', '16', ' 76', '0', ' 77', '2', ' 78', '300', '147', '1.0', '148', '0.0', '149', '0.0');
-    out.push('100', 'AcDbLayout', '  1', l1Title, ' 70', '1', ' 71', '1', ' 10', '0.0', ' 20', '0.0', ' 11', '900.0', ' 21', '600.0', ' 12', '0.0', ' 22', '0.0', ' 32', '0.0', ' 14', '0.0', ' 24', '0.0', ' 34', '0.0', ' 15', '900.0', ' 25', '600.0', ' 35', '0.0', '146', '0.0', ' 13', '0.0', ' 23', '0.0', ' 33', '0.0', ' 16', '1.0', ' 26', '0.0', ' 36', '0.0', ' 17', '0.0', ' 27', '1.0', ' 37', '0.0', ' 76', '0', '330', hBlockRecordPaper, '331', hVp1Model);
-
-    // LAYOUT 2 (900 x 600 mm)
-    if (hasLayout2) {
-      out.push('  0', 'LAYOUT', '  5', hLayout2, '330', hLayoutDict, '100', 'AcDbPlotSettings', '  1', '', '  2', 'DWG to PDF.pc3', '  4', 'Arch_D_(900.00_x_600.00_MM)', '  6', '');
+    // LAYOUTS (900 x 600 mm)
+    layoutMeta.forEach(lm => {
+      out.push('  0', 'LAYOUT', '  5', lm.hLayout, '330', hLayoutDict, '100', 'AcDbPlotSettings', '  1', '', '  2', 'DWG to PDF.pc3', '  4', 'Arch_D_(900.00_x_600.00_MM)', '  6', '');
       out.push(' 40', '0.0', ' 41', '0.0', ' 42', '0.0', ' 43', '0.0', ' 44', '900.0', ' 45', '600.0', ' 46', '0.0', ' 47', '0.0', ' 48', '0.0', ' 49', '0.0', '140', '0.0', '141', '0.0', '142', '1.0', '143', '1.0', ' 70', '672', ' 72', '1', ' 73', '0', ' 74', '5', '  7', '', ' 75', '16', ' 76', '0', ' 77', '2', ' 78', '300', '147', '1.0', '148', '0.0', '149', '0.0');
-      out.push('100', 'AcDbLayout', '  1', l2Title, ' 70', '1', ' 71', '2', ' 10', '0.0', ' 20', '0.0', ' 11', '900.0', ' 21', '600.0', ' 12', '0.0', ' 22', '0.0', ' 32', '0.0', ' 14', '0.0', ' 24', '0.0', ' 34', '0.0', ' 15', '900.0', ' 25', '600.0', ' 35', '0.0', '146', '0.0', ' 13', '0.0', ' 23', '0.0', ' 33', '0.0', ' 16', '1.0', ' 26', '0.0', ' 36', '0.0', ' 17', '0.0', ' 27', '1.0', ' 37', '0.0', ' 76', '0', '330', hBlockRecordPaper0, '331', hVp2Model);
-    }
+      out.push('100', 'AcDbLayout', '  1', lm.title, ' 70', '1', ' 71', String(lm.tabOrder), ' 10', '0.0', ' 20', '0.0', ' 11', '900.0', ' 21', '600.0', ' 12', '0.0', ' 22', '0.0', ' 32', '0.0', ' 14', '0.0', ' 24', '0.0', ' 34', '0.0', ' 15', '900.0', ' 25', '600.0', ' 35', '0.0', '146', '0.0', ' 13', '0.0', ' 23', '0.0', ' 33', '0.0', ' 16', '1.0', ' 26', '0.0', ' 36', '0.0', ' 17', '0.0', ' 27', '1.0', ' 37', '0.0', ' 76', '0', '330', lm.hBlockRecord, '331', lm.hVpModel);
+    });
 
     out.push('  0', 'ENDSEC');
 
@@ -1097,11 +1134,120 @@ export function generarDxfProyecto(model, opcion = 'ambas') {
   const builder = new DxfBuilder();
   const infoPlano = model.infoPlano || {};
 
-  if (opcion === 'unifilar') {
-    // 1. En Model Space: Diagrama Unifilar
-    generarDxfLamino1Unifilar(builder, model, 0, 0, false);
+  const medidores = model.medidoresModelos;
+  const isMultiMedidor = Array.isArray(medidores) && medidores.length > 1;
 
-    // 2. En Paper Space (Layout 1: 900x600 mm): Marco y Cajetín
+  if (isMultiMedidor) {
+    medidores.forEach((medModel, idx) => {
+      const medNum = medModel.medidor?.numero || (idx + 1);
+      const medNom = medModel.medidor?.nombre || `Medidor ${medNum}`;
+      const infoMed = medModel.infoPlano || infoPlano;
+      const offsetY = -idx * 2400;
+
+      // Encabezado visual en Model Space para delimitar cada medidor
+      builder.addRect({
+        target: 'model',
+        layer: DXF_LAYERS.TITULOS,
+        x: -50,
+        y: offsetY + 1880,
+        w: (opcion === 'unifilar' || opcion === 'cuadro') ? 2600 : 5700,
+        h: 60,
+        weight: 50
+      });
+      builder.addText({
+        target: 'model',
+        layer: DXF_LAYERS.TITULOS,
+        x: 20,
+        y: offsetY + 1900,
+        height: 24,
+        text: `SISTEMA ELÉCTRICO MEDIDOR ${medNum}: ${medNom.toUpperCase()} (${medModel.acometida?.nombre || medModel.acometida?.tipo || ''})`
+      });
+
+      if (opcion === 'unifilar') {
+        generarDxfLamino1Unifilar(builder, medModel, 0, offsetY, false);
+
+        const lName = `M${medNum}_${infoMed.numeroPlano || `IE-0${(idx * 2) + 1}`}_UNIFILAR`;
+        const lTitle = `M${medNum}_${infoMed.numeroPlano || `IE-0${(idx * 2) + 1}`}`;
+        builder.addLayout({
+          name: lName,
+          title: lTitle,
+          targetX: 1280.0,
+          targetY: offsetY + 955.0,
+          viewH: 1550.0
+        });
+        dibujarCajetinPaperSpace(
+          builder,
+          lName,
+          infoMed,
+          `DIAG. UNIFILAR - ${medNom.toUpperCase()}`,
+          infoMed.numeroPlano || `IE-0${(idx * 2) + 1}`
+        );
+      } else if (opcion === 'cuadro') {
+        generarDxfLamino2Cuadro(builder, medModel, 0, offsetY, false);
+
+        const lName = `M${medNum}_${infoMed.numeroPlanoCuadro || `IE-0${(idx * 2) + 2}`}_CUADRO`;
+        const lTitle = `M${medNum}_${infoMed.numeroPlanoCuadro || `IE-0${(idx * 2) + 2}`}`;
+        builder.addLayout({
+          name: lName,
+          title: lTitle,
+          targetX: 1280.0,
+          targetY: offsetY + 955.0,
+          viewH: 1550.0
+        });
+        dibujarCajetinPaperSpace(
+          builder,
+          lName,
+          infoMed,
+          `CUADRO CARGAS - ${medNom.toUpperCase()}`,
+          infoMed.numeroPlanoCuadro || `IE-0${(idx * 2) + 2}`
+        );
+      } else {
+        // Ambas láminas para este medidor
+        generarDxfLamino1Unifilar(builder, medModel, 0, offsetY, false);
+        generarDxfLamino2Cuadro(builder, medModel, 3000, offsetY, false);
+
+        const l1Name = `M${medNum}_${infoMed.numeroPlano || `IE-0${(idx * 2) + 1}`}_UNIF`;
+        const l1Title = `M${medNum}_${infoMed.numeroPlano || `IE-0${(idx * 2) + 1}`}`;
+        builder.addLayout({
+          name: l1Name,
+          title: l1Title,
+          targetX: 1280.0,
+          targetY: offsetY + 955.0,
+          viewH: 1550.0
+        });
+        dibujarCajetinPaperSpace(
+          builder,
+          l1Name,
+          infoMed,
+          `DIAG. UNIFILAR - ${medNom.toUpperCase()}`,
+          infoMed.numeroPlano || `IE-0${(idx * 2) + 1}`
+        );
+
+        const l2Name = `M${medNum}_${infoMed.numeroPlanoCuadro || `IE-0${(idx * 2) + 2}`}_CUADRO`;
+        const l2Title = `M${medNum}_${infoMed.numeroPlanoCuadro || `IE-0${(idx * 2) + 2}`}`;
+        builder.addLayout({
+          name: l2Name,
+          title: l2Title,
+          targetX: 4280.0,
+          targetY: offsetY + 955.0,
+          viewH: 1550.0
+        });
+        dibujarCajetinPaperSpace(
+          builder,
+          l2Name,
+          infoMed,
+          `CUADRO CARGAS - ${medNom.toUpperCase()}`,
+          infoMed.numeroPlanoCuadro || `IE-0${(idx * 2) + 2}`
+        );
+      }
+    });
+
+    return builder.buildDxf(opcion, infoPlano);
+  }
+
+  // Proyecto monofásico / medidor único
+  if (opcion === 'unifilar') {
+    generarDxfLamino1Unifilar(builder, model, 0, 0, false);
     dibujarCajetinPaperSpace(
       builder,
       'layout1',
@@ -1110,10 +1256,7 @@ export function generarDxfProyecto(model, opcion = 'ambas') {
       infoPlano.numeroPlano || "IE-01"
     );
   } else if (opcion === 'cuadro') {
-    // 1. En Model Space: Cuadro de Cargas
     generarDxfLamino2Cuadro(builder, model, 0, 0, false);
-
-    // 2. En Paper Space (Layout 1: 900x600 mm): Marco y Cajetín
     dibujarCajetinPaperSpace(
       builder,
       'layout1',
@@ -1122,11 +1265,9 @@ export function generarDxfProyecto(model, opcion = 'ambas') {
       infoPlano.numeroPlanoCuadro || "IE-02"
     );
   } else {
-    // Opción 'ambas': Diagrama Unifilar en [0, 2500] y Cuadro de Cargas en [3000, 5500] en Model Space
     generarDxfLamino1Unifilar(builder, model, 0, 0, false);
     generarDxfLamino2Cuadro(builder, model, 3000, 0, false);
 
-    // Layout 1: IE-01_UNIFILAR (Marco + Cajetín en Paper Space)
     dibujarCajetinPaperSpace(
       builder,
       'layout1',
@@ -1135,7 +1276,6 @@ export function generarDxfProyecto(model, opcion = 'ambas') {
       infoPlano.numeroPlano || "IE-01"
     );
 
-    // Layout 2: IE-02_CUADRO_CARGAS (Marco + Cajetín en Paper Space)
     dibujarCajetinPaperSpace(
       builder,
       'layout2',

@@ -119,8 +119,14 @@ export function aplicarDistribucion(aparatos,breakers,fases) {
   const evaluation=evaluarDistribucion(breakers,aparatos,fases);
   if(evaluation.errores.length) throw new Error(evaluation.errores.join(' '));
   const active=evaluation.breakers.filter(b=>b.aparatos.length);
-  return aparatos.map(a=>{const i=active.findIndex(b=>b.aparatos.includes(a.id));const b=active[i];return {...a,circuitoId:b.id,circuitoOrden:i,circuitoCapacidad:b.capacidad,fase:b.fase,overrideBreaker:String(b.capacidad),slot:null};});
+  return aparatos.map(a=>{
+    const i=active.findIndex(b=>b.aparatos.includes(a.id));
+    if (i === -1 || !active[i]) return a;
+    const b=active[i];
+    return {...a,circuitoId:b.id,circuitoOrden:i,circuitoCapacidad:b.capacidad,fase:b.fase,overrideBreaker:String(b.capacidad),slot:null};
+  });
 }
+
 
 // Shared branch model: aggregate once, retain individual calculated loads for labels/editing.
 export function agruparCircuitos(cargas,alimPrincipal,fases=['A','B']) {

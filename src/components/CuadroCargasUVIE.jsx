@@ -14,6 +14,9 @@ export default function CuadroCargasUVIE({
   aparatos = [], 
   acometida = { id: 'monofasico', tipo: 'Monofásico 1F-1N', fasesDisponibles: ['A'] }, 
   medidores = [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }],
+  medidoresData = {},
+  activeMedidorId,
+  onSelectMedidor,
   fasesUnit = 'VA', 
   onChangeFasesUnit, 
   onBalancearFases,
@@ -24,6 +27,8 @@ export default function CuadroCargasUVIE({
   const listaMedidores = Array.isArray(medidores) && medidores.length > 0 
     ? medidores 
     : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+
+  const [selectedMedFilter, setSelectedMedFilter] = React.useState('todos');
 
   // Helper para mapa de nombres de medidores
   const medidoresNombresMap = new Map();
@@ -198,6 +203,11 @@ export default function CuadroCargasUVIE({
     };
   });
 
+  const gruposMedidoresFiltrados = React.useMemo(() => {
+    if (selectedMedFilter === 'todos') return gruposMedidores;
+    return gruposMedidores.filter(g => g.medidor.id === selectedMedFilter);
+  }, [gruposMedidores, selectedMedFilter]);
+
   // Exportar Excel
   const handleExportExcel = () => {
     let html = `
@@ -341,6 +351,49 @@ export default function CuadroCargasUVIE({
         </div>
       </div>
 
+      {/* Selector de Medidor para Cuadro de Cargas */}
+      {listaMedidores.length > 1 && (
+        <div className="glass-panel p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 border border-slate-800 bg-slate-900/40 no-print">
+          <div className="flex items-center gap-2">
+            <Gauge size={16} className="text-teal-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+              Filtrar Cuadro de Cargas:
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setSelectedMedFilter('todos')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedMedFilter === 'todos'
+                  ? 'bg-teal-500 text-slate-950 font-black shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              <span>Todos los Medidores ({circuitosProcesados.length} cargas)</span>
+            </button>
+
+            {listaMedidores.map(med => {
+              const count = circuitosProcesados.filter(c => c.medidorId === med.id).length;
+              return (
+                <button
+                  key={med.id}
+                  onClick={() => setSelectedMedFilter(med.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    selectedMedFilter === med.id
+                      ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <span>{med.nombre || `Medidor ${med.numero}`}</span>
+                  <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Tabla Oficial */}
       <div className="glass-panel p-6 rounded-2xl border border-slate-850 overflow-x-auto shadow-xl relative bg-slate-950/20 print-no-border print-p-0">
         <div className="print-landscape-page">
@@ -366,7 +419,7 @@ export default function CuadroCargasUVIE({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900/50 font-mono">
-              {gruposMedidores.map((grupo, gIdx) => (
+              {gruposMedidoresFiltrados.map((grupo, gIdx) => (
                 <React.Fragment key={grupo.medidor.id}>
                   {/* Encabezado del Grupo de Medidor */}
                   <tr className="bg-slate-900/80 border-t-2 border-teal-500/40 text-teal-300 font-sans font-bold">

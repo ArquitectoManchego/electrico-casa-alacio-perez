@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Download, Printer, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, X, Settings } from 'lucide-react';
+import { Download, Printer, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, X, Settings, Zap, RefreshCw } from 'lucide-react';
 import { 
   calcularVA, 
   calcularCorrienteNominal, 
@@ -12,12 +12,46 @@ import {
 
 export default function DiagramaUnifilarCAD({ 
   aparatos, 
+  computedCircuits: externalComputedCircuits,
+  alimPrincipal: externalAlimPrincipal,
   acometida, 
+  medidores = [],
+  medidoresData = {},
+  activeMedidorId,
+  onSelectMedidor,
+  onBalancearMedidor,
   proyecto, 
   onUpdateProyectoProps,
   fasesUnit = 'VA' 
 }) {
   const [jsonError, setJsonError] = useState("");
+
+  const listaMedidores = useMemo(() => (
+    Array.isArray(medidores) && medidores.length > 0
+      ? medidores
+      : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }]
+  ), [medidores]);
+
+  const [selectedMedId, setSelectedMedId] = useState(activeMedidorId || listaMedidores[0].id);
+
+  useEffect(() => {
+    if (activeMedidorId) {
+      setSelectedMedId(activeMedidorId);
+    }
+  }, [activeMedidorId]);
+
+  // Aparatos activos del medidor seleccionado
+  const aparatosActivos = useMemo(() => {
+    if (listaMedidores.length <= 1 || selectedMedId === 'todos') return aparatos;
+    return aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === selectedMedId);
+  }, [aparatos, listaMedidores, selectedMedId]);
+
+  const acometidaActiva = useMemo(() => {
+    if (selectedMedId !== 'todos' && medidoresData && medidoresData[selectedMedId]?.acometida) {
+      return medidoresData[selectedMedId].acometida;
+    }
+    return acometida;
+  }, [selectedMedId, medidoresData, acometida]);
   
   // Modal de trazado (AutoCAD style)
   const [showPlotModal, setShowPlotModal] = useState(false);
@@ -38,19 +72,19 @@ export default function DiagramaUnifilarCAD({
     return Math.round((2300 / viewBox.w) * 100);
   }, [viewBox.w]);
 
-  // Calcular la carga total para dimensionar el alimentador
+  // Calcular la carga total para dimensionar el alimentador del medidor seleccionado
   const totalVA = useMemo(() => {
-    return aparatos.reduce((sum, ap) => sum + calcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
-  }, [aparatos]);
+    return aparatosActivos.reduce((sum, ap) => sum + calcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
+  }, [aparatosActivos]);
 
-  // Dimensionamiento del Alimentador Principal
+  // Dimensionamiento del Alimentador para este medidor
   const alimPrincipal = useMemo(() => {
-    return calcularAlimentadorGeneral(totalVA, acometida.id, proyecto.alimentadorLongitud);
-  }, [totalVA, acometida.id, proyecto.alimentadorLongitud]);
+    return calcularAlimentadorGeneral(totalVA, acometidaActiva.id, proyecto.alimentadorLongitud);
+  }, [totalVA, acometidaActiva.id, proyecto.alimentadorLongitud]);
 
-  // Procesar circuitos con calibres y caídas de tensión individuales
+  // Procesar circuitos con calibres y caídas de tensión individuales para este medidor
   const computedCircuits = useMemo(() => {
-    return aparatos.map((ap, index) => {
+    return aparatosActivos.map((ap, index) => {
       const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
       const inAmps = calcularCorrienteNominal(va, ap.tipoCarga);
       const icAmps = calcularCorrienteCorregida(inAmps);
@@ -91,7 +125,7 @@ export default function DiagramaUnifilarCAD({
         isVdCritical: caidaTotal > 5.0 // NOM-001-SEDE: Caída de tensión total max 5%
       };
     });
-  }, [aparatos, alimPrincipal, acometida.id]);
+  }, [aparatosActivos, alimPrincipal, acometidaActiva.id]);
 
   // Controles de Pan & Zoom
   const handleMouseDown = (e) => {
@@ -312,11 +346,11 @@ export default function DiagramaUnifilarCAD({
 
   // Coordenadas de las barras colectoras del tablero
   const getFaseCoordinates = (faseStr) => {
-    if (acometida.id === 'monofasico') {
+    if (acometidaActiva.id === 'monofasico') {
       return { startX: 0, pathD: "M 0,0 L 100,0" };
     }
     const r = 6;
-    if (acometida.id === 'bifasico') {
+    if (acometidaActiva.id === 'bifasico') {
       if (faseStr.includes('A')) {
         return { startX: -15, pathD: `M -15,0 L ${15 - r},0 A ${r} ${r} 0 0 1 ${15 + r},0 L 100,0` };
       }
@@ -333,9 +367,71 @@ export default function DiagramaUnifilarCAD({
   };
 
   const totalHeight = 100 + (Math.max(6, computedCircuits.length) * 120) + 200;
+  const medidorActualObj = listaMedidores.find(m => m.id === selectedMedId) || listaMedidores[0];
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 bg-slate-950/20 rounded-2xl border border-slate-900 overflow-hidden font-sans">
+    <div className="space-y-4">
+      {/* Pestañas de Selección de Medidor (cuando hay múltiples medidores) */}
+      {listaMedidores.length > 1 && (
+        <div className="glass-panel p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 border border-slate-800 bg-slate-900/40 no-print">
+          <div className="flex items-center gap-2">
+            <Zap size={16} className="text-teal-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+              Diagrama Unifilar por Medidor:
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                setSelectedMedId('todos');
+                if (onSelectMedidor) onSelectMedidor(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedMedId === 'todos'
+                  ? 'bg-teal-500 text-slate-950 font-black shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              <span>Ver Todos ({aparatos.length} circuitos)</span>
+            </button>
+
+            {listaMedidores.map(med => {
+              const count = aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id).length;
+              return (
+                <button
+                  key={med.id}
+                  onClick={() => {
+                    setSelectedMedId(med.id);
+                    if (onSelectMedidor) onSelectMedidor(med.id);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    selectedMedId === med.id
+                      ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <span>{med.nombre || `Medidor ${med.numero}`}</span>
+                  <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                </button>
+              );
+            })}
+
+            {onBalancearMedidor && selectedMedId !== 'todos' && (
+              <button
+                onClick={() => onBalancearMedidor(selectedMedId)}
+                className="ml-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-95"
+                title={`Balancear matemáticamente las cargas de ${medidorActualObj.nombre}`}
+              >
+                <RefreshCw size={12} />
+                <span>⚡ Balancear {medidorActualObj.nombre}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col lg:flex-row gap-6 bg-slate-950/20 rounded-2xl border border-slate-900 overflow-hidden font-sans">
       
       {/* SIDEBAR: Configuración de Alimentador y Cajetín (no-print) */}
       <div className="w-full lg:w-80 flex-shrink-0 bg-slate-950/50 border-r border-slate-900 p-5 flex flex-col gap-5 no-print">
@@ -488,7 +584,7 @@ export default function DiagramaUnifilarCAD({
               <polygon points="0,0 -15,-25 15,-25" className="cad-stroke" fill="none" strokeWidth="2.5" />
               <text x="25" y="-12" className="text-[20px] font-bold fill-current">ACOMETIDA CFE</text>
               <text x="25" y="8" className="text-[14px] fill-current opacity-70">
-                {acometida.id === 'monofasico' ? '1Ф - 2 Hilos (127V)' : (acometida.id === 'bifasico' ? '2Ф - 3 Hilos (220V)' : '3Ф - 4 Hilos (220V)')}
+                {acometidaActiva.id === 'monofasico' ? '1Ф - 2 Hilos (127V)' : (acometidaActiva.id === 'bifasico' ? '2Ф - 3 Hilos (220V)' : '3Ф - 4 Hilos (220V)')}
               </text>
               <text x="25" y="24" className="text-[12px] fill-current opacity-60">Voltaje Nominal: {alimPrincipal?.voltaje}V | 60 Hz</text>
 
@@ -496,7 +592,9 @@ export default function DiagramaUnifilarCAD({
               <g transform="translate(0, 140)">
                 <circle cx="0" cy="0" r="30" className="cad-stroke" fill="#0b0f19" strokeWidth="3" />
                 <text x="0" y="6" textAnchor="middle" className="text-[20px] font-bold fill-current">Wh</text>
-                <text x="45" y="5" className="text-[14px] font-bold fill-current">MEDIDOR</text>
+                <text x="45" y="5" className="text-[14px] font-bold fill-current">
+                  {selectedMedId !== 'todos' ? `MEDIDOR CFE #${medidorActualObj.numero} (${medidorActualObj.nombre})` : 'MEDIDOR CFE'}
+                </text>
               </g>
 
               {/* Interruptor Principal */}
@@ -526,12 +624,14 @@ export default function DiagramaUnifilarCAD({
             <g transform="translate(450, 480)">
               {/* Caja del Tablero */}
               <rect x="-90" y="0" width="1650" height={100 + (computedCircuits.length * 120)} className="cad-stroke" fill="none" strokeWidth="1.5" strokeDasharray="8 4" opacity="0.4" />
-              <text x="-70" y="35" className="text-[20px] font-bold fill-current">CENTRO DE CARGA 'T-1'</text>
+              <text x="-70" y="35" className="text-[20px] font-bold fill-current">
+                {selectedMedId !== 'todos' ? `TABLERO DE DISTRIBUCIÓN · ${medidorActualObj.nombre.toUpperCase()}` : "CENTRO DE CARGA GENERAL 'T-1'"}
+              </text>
               
               {/* Sistema de Barras dinámico */}
               <g transform="translate(0, 70)">
                 {/* Monofásico */}
-                {acometida.id === 'monofasico' && (
+                {acometidaActiva.id === 'monofasico' && (
                   <>
                     <line x1="0" y1="0" x2="0" y2={computedCircuits.length * 120} className="cad-busbar-bg" />
                     <line x1="0" y1="0" x2="0" y2={computedCircuits.length * 120} className="cad-busbar" />
@@ -540,7 +640,7 @@ export default function DiagramaUnifilarCAD({
                 )}
                 
                 {/* Bifásico */}
-                {acometida.id === 'bifasico' && (
+                {acometidaActiva.id === 'bifasico' && (
                   <>
                     <line x1="-15" y1="0" x2="-15" y2={computedCircuits.length * 120} className="cad-busbar-bg" />
                     <line x1="-15" y1="0" x2="-15" y2={computedCircuits.length * 120} className="cad-busbar" />
@@ -552,7 +652,7 @@ export default function DiagramaUnifilarCAD({
                 )}
 
                 {/* Trifásico */}
-                {acometida.id === 'trifasico' && (
+                {acometidaActiva.id === 'trifasico' && (
                   <>
                     <line x1="-30" y1="0" x2="-30" y2={computedCircuits.length * 120} className="cad-busbar-bg" />
                     <line x1="-30" y1="0" x2="-30" y2={computedCircuits.length * 120} className="cad-busbar" />
@@ -905,7 +1005,7 @@ export default function DiagramaUnifilarCAD({
                           <polygon points="0,0 -15,-25 15,-25" className="print-prev-stroke" fill="none" strokeWidth="2.5" />
                           <text x="25" y="-12" className="text-[20px] font-bold fill-current">ACOMETIDA CFE</text>
                           <text x="25" y="8" className="text-[14px] fill-current opacity-70">
-                            {acometida.id === 'monofasico' ? '1Ф - 2 Hilos (127V)' : (acometida.id === 'bifasico' ? '2Ф - 3 Hilos (220V)' : '3Ф - 4 Hilos (220V)')}
+                            {acometidaActiva.id === 'monofasico' ? '1Ф - 2 Hilos (127V)' : (acometidaActiva.id === 'bifasico' ? '2Ф - 3 Hilos (220V)' : '3Ф - 4 Hilos (220V)')}
                           </text>
                           <text x="25" y="24" className="text-[12px] fill-current opacity-60">Voltaje Nominal: {alimPrincipal?.voltaje}V | 60 Hz</text>
 
@@ -939,16 +1039,18 @@ export default function DiagramaUnifilarCAD({
                         {/* Tablero y derivaciones */}
                         <g transform="translate(450, 480)">
                           <rect x="-90" y="0" width="1650" height={100 + (computedCircuits.length * 120)} className="print-prev-stroke" fill="none" strokeWidth="1.5" strokeDasharray="8 4" opacity="0.4" />
-                          <text x="-70" y="35" className="text-[20px] font-bold fill-current">CENTRO DE CARGA 'T-1'</text>
+                          <text x="-70" y="35" className="text-[20px] font-bold fill-current">
+                            {selectedMedId !== 'todos' ? `TABLERO DE DISTRIBUCIÓN · ${medidorActualObj.nombre.toUpperCase()}` : "CENTRO DE CARGA GENERAL 'T-1'"}
+                          </text>
                           
                           <g transform="translate(0, 70)">
-                            {acometida.id === 'monofasico' && (
+                            {acometidaActiva.id === 'monofasico' && (
                               <>
                                 <line x1="0" y1="0" x2="0" y2={computedCircuits.length * 120} className="print-prev-busbar-bg" />
                                 <line x1="0" y1="0" x2="0" y2={computedCircuits.length * 120} className="print-prev-busbar" />
                               </>
                             )}
-                            {acometida.id === 'bifasico' && (
+                            {acometidaActiva.id === 'bifasico' && (
                               <>
                                 <line x1="-15" y1="0" x2="-15" y2={computedCircuits.length * 120} className="print-prev-busbar-bg" />
                                 <line x1="-15" y1="0" x2="-15" y2={computedCircuits.length * 120} className="print-prev-busbar" />
@@ -956,7 +1058,7 @@ export default function DiagramaUnifilarCAD({
                                 <line x1="15" y1="0" x2="15" y2={computedCircuits.length * 120} className="print-prev-busbar" />
                               </>
                             )}
-                            {acometida.id === 'trifasico' && (
+                            {acometidaActiva.id === 'trifasico' && (
                               <>
                                 <line x1="-30" y1="0" x2="-30" y2={computedCircuits.length * 120} className="print-prev-busbar-bg" />
                                 <line x1="-30" y1="0" x2="-30" y2={computedCircuits.length * 120} className="print-prev-busbar" />
@@ -1078,6 +1180,7 @@ export default function DiagramaUnifilarCAD({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

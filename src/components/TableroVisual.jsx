@@ -44,9 +44,41 @@ export default function TableroVisual({
   aparatos, 
   onUpdateAparato, 
   acometida, 
-  proyectoId 
+  proyectoId,
+  medidores = [],
+  medidoresData = {},
+  activeMedidorId,
+  onSelectMedidor,
+  onBalancearMedidor
 }) {
-  const [viewMode, setViewMode] = useState('unifilar'); // 'unifilar' | 'gabinete'
+  const listaMedidores = React.useMemo(() => (
+    Array.isArray(medidores) && medidores.length > 0
+      ? medidores
+      : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }]
+  ), [medidores]);
+
+  const [selectedMedId, setSelectedMedId] = useState(activeMedidorId || listaMedidores[0].id);
+
+  useEffect(() => {
+    if (activeMedidorId) {
+      setSelectedMedId(activeMedidorId);
+    }
+  }, [activeMedidorId]);
+
+  // Aparatos activos correspondientes al medidor seleccionado
+  const aparatosActivos = React.useMemo(() => {
+    if (listaMedidores.length <= 1 || selectedMedId === 'todos') return aparatos;
+    return aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === selectedMedId);
+  }, [aparatos, listaMedidores, selectedMedId]);
+
+  const acometidaActiva = React.useMemo(() => {
+    if (selectedMedId !== 'todos' && medidoresData && medidoresData[selectedMedId]?.acometida) {
+      return medidoresData[selectedMedId].acometida;
+    }
+    return acometida;
+  }, [selectedMedId, medidoresData, acometida]);
+
+  const [viewMode, setViewMode] = useState('gabinete'); // 'gabinete' | 'unifilar'
   const [selectedAppId, setSelectedAppId] = useState(null);
   
   // Estados para edición interactiva sobre el plano
@@ -92,11 +124,11 @@ export default function TableroVisual({
     }
   };
 
-  const fasesDisponibles = acometida.fasesDisponibles;
+  const fasesDisponibles = acometidaActiva.fasesDisponibles || ['A'];
 
-  // Obtener aparato asignado a un slot
+  // Obtener aparato asignado a un slot dentro de los aparatos de este medidor
   const getAparatoEnSlot = (slotNum) => {
-    return aparatos.find(ap => ap.slot === slotNum);
+    return aparatosActivos.find(ap => ap.slot === slotNum);
   };
 
   // Manejar colocación o movimiento de aparato
@@ -163,12 +195,12 @@ export default function TableroVisual({
     onUpdateAparato(appId, { fase: nextFase });
   };
 
-  // 1. Calcular Carga Total y Corrientes del Alimentador
-  const totalVA = aparatos.reduce((sum, ap) => sum + calcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
+  // 1. Calcular Carga Total y Corrientes del Alimentador para este medidor
+  const totalVA = aparatosActivos.reduce((sum, ap) => sum + calcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
   let mainCurrentNominal = 0;
-  if (acometida.id === 'trifasico') {
+  if (acometidaActiva.id === 'trifasico') {
     mainCurrentNominal = totalVA / (220 * 1.7320508);
-  } else if (acometida.id === 'bifasico') {
+  } else if (acometidaActiva.id === 'bifasico') {
     mainCurrentNominal = totalVA / 220;
   } else {
     mainCurrentNominal = totalVA / 127;
@@ -186,7 +218,7 @@ export default function TableroVisual({
     ? autoMainConductor
     : projectSettings.mainConductorOverride;
 
-  const cablesCount = acometida.id === 'trifasico' ? 5 : acometida.id === 'bifasico' ? 4 : 3;
+  const cablesCount = acometidaActiva.id === 'trifasico' ? 5 : acometidaActiva.id === 'bifasico' ? 4 : 3;
   const autoMainConduit = seleccionarTubo(activeMainConductor, cablesCount);
   const activeMainConduit = projectSettings.mainConduitOverride === 'Auto'
     ? autoMainConduit
@@ -194,14 +226,14 @@ export default function TableroVisual({
 
   // 3. Cargar fasesVA del tablero (sincronizada)
   const fasesVA = { A: 0, B: 0, C: 0 };
-  aparatos.forEach(ap => {
+  aparatosActivos.forEach(ap => {
     const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
     if (ap.slot) {
-      if (ap.tipoCarga === 'trifasica' && acometida.id === 'trifasico') {
+      if (ap.tipoCarga === 'trifasica' && acometidaActiva.id === 'trifasico') {
         fasesVA.A += va / 3;
         fasesVA.B += va / 3;
         fasesVA.C += va / 3;
-      } else if (ap.tipoCarga === 'bifasica' && (acometida.id === 'bifasico' || acometida.id === 'trifasico')) {
+      } else if (ap.tipoCarga === 'bifasica' && (acometidaActiva.id === 'bifasico' || acometidaActiva.id === 'trifasico')) {
         const fasePar = ap.fase || 'A-B';
         const partes = fasePar.split('-');
         partes.forEach(f => {
@@ -221,11 +253,13 @@ export default function TableroVisual({
     }
   });
 
-  const desbalance = calcularDesbalanceUVIE(fasesVA.A, fasesVA.B, fasesVA.C, acometida.id);
+  const desbalance = calcularDesbalanceUVIE(fasesVA.A, fasesVA.B, fasesVA.C, acometidaActiva.id);
 
-  // Lista de aparatos sin ranura en el panel
-  const aparatosSinSlot = aparatos.filter(ap => !ap.slot);
+  // Lista de aparatos sin ranura en el panel de este medidor
+  const aparatosSinSlot = aparatosActivos.filter(ap => !ap.slot);
   const slotsPanel = Array.from({ length: 24 }, (_, i) => i + 1);
+
+  const medidorActualObj = listaMedidores.find(m => m.id === selectedMedId) || listaMedidores[0];
 
   return (
     <div className="space-y-6">
@@ -237,6 +271,66 @@ export default function TableroVisual({
           r: 6.5px;
         }
       `}</style>
+
+      {/* Pestañas de Selección de Medidor (cuando hay múltiples medidores) */}
+      {listaMedidores.length > 1 && (
+        <div className="glass-panel p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 border border-slate-800 bg-slate-900/40 no-print">
+          <div className="flex items-center gap-2">
+            <Zap size={16} className="text-teal-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+              Tablero por Medidor:
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                setSelectedMedId('todos');
+                if (onSelectMedidor) onSelectMedidor(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedMedId === 'todos'
+                  ? 'bg-teal-500 text-slate-950 font-black shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              <span>Ver Todos ({aparatos.length} cargas)</span>
+            </button>
+
+            {listaMedidores.map(med => {
+              const count = aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id).length;
+              return (
+                <button
+                  key={med.id}
+                  onClick={() => {
+                    setSelectedMedId(med.id);
+                    if (onSelectMedidor) onSelectMedidor(med.id);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    selectedMedId === med.id
+                      ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <span>{med.nombre || `Medidor ${med.numero}`}</span>
+                  <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                </button>
+              );
+            })}
+
+            {onBalancearMedidor && selectedMedId !== 'todos' && (
+              <button
+                onClick={() => onBalancearMedidor(selectedMedId)}
+                className="ml-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-95"
+                title={`Balancear matemáticamente las cargas de ${medidorActualObj.nombre}`}
+              >
+                <RefreshCw size={12} />
+                <span>⚡ Balancear {medidorActualObj.nombre}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* Barra de Controles superiores */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/30 p-4 border border-slate-850 rounded-2xl no-print">
@@ -244,23 +338,22 @@ export default function TableroVisual({
           <div className="flex items-center gap-2">
             <LayoutGrid className="text-teal-400" size={20} />
             <div>
-              <h3 className="text-sm font-bold text-white font-display">Maquetador de Control de Distribución</h3>
-              <p className="text-[10px] text-slate-500 font-sans">Simulación física y diagrama unifilar CAD del Centro de Cargas.</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white font-display">Maquetador de Control de Distribución</h3>
+                {selectedMedId !== 'todos' && (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 font-mono font-bold border border-teal-500/30">
+                    {medidorActualObj.nombre}
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-500 font-sans">
+                {aparatosActivos.length} cargas registradas · Desbalance: {desbalance.toFixed(2)}% {desbalance <= 5 ? '✅ (NOM ≤ 5%)' : '⚠️ (> 5%)'}
+              </p>
             </div>
           </div>
 
           {/* Toggle View Mode */}
           <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800">
-            <button
-              onClick={() => setViewMode('unifilar')}
-              className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                viewMode === 'unifilar'
-                  ? 'bg-teal-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Diagrama Unifilar
-            </button>
             <button
               onClick={() => setViewMode('gabinete')}
               className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
@@ -271,10 +364,30 @@ export default function TableroVisual({
             >
               Gabinete Físico
             </button>
+            <button
+              onClick={() => setViewMode('unifilar')}
+              className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                viewMode === 'unifilar'
+                  ? 'bg-teal-500 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Diagrama Unifilar
+            </button>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {onBalancearMedidor && selectedMedId !== 'todos' && (
+            <button
+              onClick={() => onBalancearMedidor(selectedMedId)}
+              className="px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 text-[11px] font-black transition-all flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95"
+            >
+              <RefreshCw size={12} />
+              Balancear Matemático
+            </button>
+          )}
+
           <button
             onClick={handleAutoDistribuir}
             className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer"

@@ -97,8 +97,11 @@ export function buildPlanoDocumentModel({
   computedElectricalSystem,
   aparatos,
   planoMetadata = {},
-  projectSettings = {}
+  projectSettings = {},
+  medidores = [],
+  medidoresData = {}
 }) {
+
   const {
     totalWatts = 0,
     totalVA = 0,
@@ -488,6 +491,93 @@ export function buildPlanoDocumentModel({
   // Sanidad y validación
   const sanidad = validarSanidadPlano(computedElectricalSystem);
 
+  // Construcción de sub-modelos por medidor independiente
+  const medidoresModelos = (Array.isArray(medidores) && medidores.length > 0 ? medidores : []).map((med, idx) => {
+    const dataMed = medidoresData[med.id] || {
+      totalWatts: 0,
+      totalVA: 0,
+      acometida: { id: 'monofasico', tipo: 'Monofásico 1F-1N', fasesDisponibles: ['A'] },
+      fasesLoad: { A: 0, B: 0, C: 0 },
+      fasesVA: { A: 0, B: 0, C: 0 },
+      desbalanceUVIE: 0
+    };
+
+    const ctosMed = circuitosEnriquecidos.filter(c => (c.medidorId || medidores[0]?.id) === med.id);
+    const ctosFinales = ctosMed.length > 0 ? ctosMed : circuitosEnriquecidos;
+    const isMedTrifasico = dataMed.acometida.id === 'trifasico';
+    const isMedBifasico = dataMed.acometida.id === 'bifasico';
+    const fasesNombresMed = isMedTrifasico ? ['L1', 'L2', 'L3'] : (isMedBifasico ? ['L1', 'L2'] : ['L1']);
+
+    const numUnifilar = `IE-0${(idx * 2) + 1}`;
+    const numCuadro = `IE-0${(idx * 2) + 2}`;
+
+    const infoPlanoMed = {
+      ...infoPlano,
+      proyecto: `${infoPlano.proyecto} - ${med.nombre || `Medidor ${med.numero}`}`,
+      numeroPlano: numUnifilar,
+      numeroPlanoCuadro: numCuadro,
+      tipoPlano: `INST. ELÉCTRICA - ${med.nombre.toUpperCase()}`
+    };
+
+    const inMedVal = isMedTrifasico ? (dataMed.totalVA / (220 * 1.732)) : (isMedBifasico ? dataMed.totalVA / 220 : dataMed.totalVA / 127);
+    const icMedVal = inMedVal * 1.25;
+
+    const alimMed = {
+      ...alimentador,
+      inominal: parseFloat(inMedVal.toFixed(2)),
+      icorregida: parseFloat(icMedVal.toFixed(2)),
+      potenciaTotalVA: dataMed.totalVA,
+      potenciaTotalWatts: dataMed.totalWatts,
+      fases: dataMed.fasesLoad,
+      fasesVA: dataMed.fasesVA,
+      desbalancePct: dataMed.desbalanceUVIE
+    };
+
+    const factorDemandaMed = factorDemanda || 0.70;
+    const cargaDemandadaWattsMed = Math.round(dataMed.totalWatts * factorDemandaMed);
+    const iL1Med = (dataMed.fasesVA.A || 0) / 127;
+    const iL2Med = (dataMed.fasesVA.B || 0) / 127;
+    const iNMed = Math.abs(iL1Med - iL2Med);
+
+    const totalesMed = {
+      totalWatts: dataMed.totalWatts,
+      totalVA: dataMed.totalVA,
+      faseA_W: dataMed.fasesLoad.A,
+      faseB_W: dataMed.fasesLoad.B,
+      faseC_W: dataMed.fasesLoad.C,
+      faseA_VA: dataMed.fasesVA.A,
+      faseB_VA: dataMed.fasesVA.B,
+      faseC_VA: dataMed.fasesVA.C,
+      faseL1_VA: Math.round(dataMed.fasesVA.A || 0),
+      faseL2_VA: Math.round(dataMed.fasesVA.B || 0),
+      faseL3_VA: Math.round(dataMed.fasesVA.C || 0),
+      desbalancePct: parseFloat((dataMed.desbalanceUVIE || 0).toFixed(2)),
+      desbalance: dataMed.desbalanceUVIE,
+      desbalanceValido: dataMed.desbalanceUVIE <= 5.0,
+      factorDemandaPct: Math.round(factorDemandaMed * 100),
+      cargaDemandadaWatts: cargaDemandadaWattsMed,
+      corrienteNominalAlimentador: inMedVal.toFixed(2),
+      corrienteDisenoAlimentador: icMedVal.toFixed(2),
+      corrienteL1: iL1Med.toFixed(2),
+      corrienteL2: iL2Med.toFixed(2),
+      corrienteNeutro: iNMed.toFixed(2)
+    };
+
+    return {
+      medidor: med,
+      acometida: dataMed.acometida,
+      alimentador: alimMed,
+      fasesNombres: fasesNombresMed,
+      circuitos: ctosFinales,
+      circuitosImpares: ctosFinales.filter((_, i) => i % 2 === 0),
+      circuitosPares: ctosFinales.filter((_, i) => i % 2 === 1),
+      totalEspaciosTablero: Math.max(12, Math.ceil(ctosFinales.length / 2) * 2),
+      totales: totalesMed,
+      infoPlano: infoPlanoMed,
+      resumenCaidas
+    };
+  });
+
   return {
     acometida,
     alimentador,
@@ -499,6 +589,8 @@ export function buildPlanoDocumentModel({
     totales,
     infoPlano,
     resumenCaidas,
-    sanidad
+    sanidad,
+    medidoresModelos
   };
 }
+
