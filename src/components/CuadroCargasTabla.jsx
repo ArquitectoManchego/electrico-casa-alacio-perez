@@ -16,14 +16,17 @@ export default function CuadroCargasTabla({
   fasesDisponibles = ['A'], 
   desbalance = 0, 
   onUpdateFase, 
+  onToggleFaseCircuito,
   onDeleteAparato,
   onUpdateAparatoProps,
   onBalancearFases,
   onBalancearMedidor,
+  onToggleFaseMedidor,
   balancingConfigsCount = 0,
   fasesUnit = 'VA',
   onChangeFasesUnit,
-  medidores = []
+  medidores = [],
+  medidoresData = {}
 }) {
   // Asegurar lista válida de medidores
   const listaMedidores = Array.isArray(medidores) && medidores.length > 0
@@ -372,6 +375,14 @@ export default function CuadroCargasTabla({
 
             <tbody className="divide-y divide-slate-800/40 text-xs text-slate-300 font-mono">
               {gruposFiltrados.map(({ medidor, aparatos: apsGrupo }) => {
+                const dataMed = medidoresData?.[medidor.id];
+                const tieneBifasicoGrupo = apsGrupo.some(a => a.tipoCarga === 'bifasica');
+                const tieneTrifasicoGrupo = apsGrupo.some(a => a.tipoCarga === 'trifasica');
+                const acometidaMed = dataMed?.acometida || {
+                  id: (tieneTrifasicoGrupo ? 'trifasico' : (tieneBifasicoGrupo ? 'bifasico' : 'monofasico')),
+                  fasesDisponibles: (tieneTrifasicoGrupo ? ['A', 'B', 'C'] : (tieneBifasicoGrupo ? ['A', 'B'] : ['A']))
+                };
+
                 // Calcular subtotales para este medidor
                 let subTotalW = 0;
                 let subTotalVA = 0;
@@ -392,19 +403,19 @@ export default function CuadroCargasTabla({
                   subSumaVida += (parseFloat(ap.vidaUtil) || 0);
 
                   const vaFila = { A: 0, B: 0, C: 0 };
-                  if (ap.tipoCarga === 'trifasica' && acometidaId === 'trifasico') {
+                  if (ap.tipoCarga === 'trifasica' && acometidaMed.id === 'trifasico') {
                     vaFila.A = va / 3;
                     vaFila.B = va / 3;
                     vaFila.C = va / 3;
-                  } else if (ap.tipoCarga === 'bifasica' && (acometidaId === 'bifasico' || acometidaId === 'trifasico')) {
-                    const combo = ap.fase || 'A-B';
+                  } else if (ap.tipoCarga === 'bifasica') {
+                    const combo = ap.fase || (acometidaMed.fasesDisponibles.length >= 2 ? `${acometidaMed.fasesDisponibles[0]}-${acometidaMed.fasesDisponibles[1]}` : 'A-B');
                     const partes = combo.split('-');
                     partes.forEach(f => {
                       if (vaFila[f] !== undefined) vaFila[f] = va / partes.length;
                     });
                   } else {
                     let f = ap.fase;
-                    if (!fasesDisponibles.includes(f)) f = 'A';
+                    if (!acometidaMed.fasesDisponibles.includes(f)) f = acometidaMed.fasesDisponibles[0] || 'A';
                     vaFila[f] = va;
                   }
 
@@ -417,7 +428,7 @@ export default function CuadroCargasTabla({
                       } else if (fasesUnit === 'W') {
                         subFasesDisplay[f] += vf * fp;
                       } else if (fasesUnit === 'A') {
-                        if (ap.tipoCarga === 'trifasica' && acometidaId === 'trifasico') {
+                        if (ap.tipoCarga === 'trifasica') {
                           subFasesDisplay[f] += vf / 127.017;
                         } else if (ap.tipoCarga === 'bifasica') {
                           subFasesDisplay[f] += vf / 110;
@@ -429,7 +440,7 @@ export default function CuadroCargasTabla({
                   });
                 });
 
-                const subDesbalance = calcularDesbalanceUVIE(subFasesBaseVA.A, subFasesBaseVA.B, subFasesBaseVA.C);
+                const subDesbalance = calcularDesbalanceUVIE(subFasesBaseVA.A, subFasesBaseVA.B, subFasesBaseVA.C, acometidaMed.id);
                 const subPromedioVida = apsGrupo.length > 0 ? (subSumaVida / apsGrupo.length).toFixed(1) : '0';
 
                 return (
@@ -487,19 +498,19 @@ export default function CuadroCargasTabla({
 
                       // Calcular desglose de VA por fase
                       const vaFila = { A: 0, B: 0, C: 0 };
-                      if (ap.tipoCarga === 'trifasica' && acometidaId === 'trifasico') {
+                      if (ap.tipoCarga === 'trifasica' && acometidaMed.id === 'trifasico') {
                         vaFila.A = va / 3;
                         vaFila.B = va / 3;
                         vaFila.C = va / 3;
-                      } else if (ap.tipoCarga === 'bifasica' && (acometidaId === 'bifasico' || acometidaId === 'trifasico')) {
-                        const fasePar = ap.fase || 'A-B';
+                      } else if (ap.tipoCarga === 'bifasica') {
+                        const fasePar = ap.fase || (acometidaMed.fasesDisponibles.length >= 2 ? `${acometidaMed.fasesDisponibles[0]}-${acometidaMed.fasesDisponibles[1]}` : 'A-B');
                         const partes = fasePar.split('-');
                         partes.forEach(f => {
                           if (vaFila[f] !== undefined) vaFila[f] = va / partes.length;
                         });
                       } else {
                         let f = ap.fase;
-                        if (!fasesDisponibles.includes(f)) f = 'A';
+                        if (!acometidaMed.fasesDisponibles.includes(f)) f = acometidaMed.fasesDisponibles[0] || 'A';
                         vaFila[f] = va;
                       }
 
@@ -512,7 +523,7 @@ export default function CuadroCargasTabla({
                           } else if (fasesUnit === 'W') {
                             displayFila[f] = vf * fp;
                           } else if (fasesUnit === 'A') {
-                            if (ap.tipoCarga === 'trifasica' && acometidaId === 'trifasico') {
+                            if (ap.tipoCarga === 'trifasica') {
                               displayFila[f] = vf / 127.017;
                             } else if (ap.tipoCarga === 'bifasica') {
                               displayFila[f] = vf / 110;
@@ -665,18 +676,52 @@ export default function CuadroCargasTabla({
                             />
                           </td>
 
-                          {/* Desglose por Fases */}
-                          <td className="p-3 border-x border-slate-800/40 bg-slate-950/10 text-center">
+                          {/* Desglose por Fases Interactivo (Clic para activar/desactivar fases) */}
+                          <td className="p-2 border-x border-slate-800/40 bg-slate-950/10 text-center select-none">
                             <div className="grid grid-cols-3 gap-1">
-                              <span className={displayFila.A > 0 ? 'text-red-400 font-semibold' : 'text-slate-700'}>
-                                {displayFila.A > 0 ? (fasesUnit === 'A' ? displayFila.A.toFixed(2) : Math.round(displayFila.A)) : '-'}
-                              </span>
-                              <span className={displayFila.B > 0 ? 'text-amber-400 font-semibold' : 'text-slate-700'}>
-                                {displayFila.B > 0 ? (fasesUnit === 'A' ? displayFila.B.toFixed(2) : Math.round(displayFila.B)) : '-'}
-                              </span>
-                              <span className={displayFila.C > 0 ? 'text-blue-400 font-semibold' : 'text-slate-700'}>
-                                {displayFila.C > 0 ? (fasesUnit === 'A' ? displayFila.C.toFixed(2) : Math.round(displayFila.C)) : '-'}
-                              </span>
+                              {['A', 'B', 'C'].map((fase) => {
+                                const val = displayFila[fase] || 0;
+                                const isActive = val > 0 || (ap.fase && ap.fase.includes(fase));
+                                const isAvailableInMed = acometidaMed.fasesDisponibles.includes(fase);
+
+                                const colorStyles = fase === 'A'
+                                  ? (isActive ? 'bg-red-500/25 text-red-300 border-red-500/50 shadow-xs shadow-red-500/10' : 'text-slate-600 hover:text-red-400 hover:border-red-500/30')
+                                  : fase === 'B'
+                                    ? (isActive ? 'bg-amber-500/25 text-amber-300 border-amber-500/50 shadow-xs shadow-amber-500/10' : 'text-slate-600 hover:text-amber-400 hover:border-amber-500/30')
+                                    : (isActive ? 'bg-blue-500/25 text-blue-300 border-blue-500/50 shadow-xs shadow-blue-500/10' : 'text-slate-600 hover:text-blue-400 hover:border-blue-500/30');
+
+                                return (
+                                  <button
+                                    key={fase}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (onToggleFaseCircuito) {
+                                        onToggleFaseCircuito(ap.id, fase);
+                                      } else if (onUpdateFase) {
+                                        onUpdateFase(ap.id, fase);
+                                      }
+                                    }}
+                                    className={`py-1 px-0.5 rounded text-[10px] font-mono border transition-all cursor-pointer flex flex-col items-center justify-center min-h-[30px] ${
+                                      isActive 
+                                        ? `${colorStyles} font-bold` 
+                                        : 'bg-slate-900/40 border-slate-800 hover:bg-slate-850 hover:border-slate-700'
+                                    }`}
+                                    title={
+                                      isActive 
+                                        ? `Fase ${fase} activa (${Math.round(val)} ${fasesUnit}). Clic para alternar.` 
+                                        : `Fase ${fase} inactiva. Clic para conectar esta carga a Fase ${fase}.`
+                                    }
+                                  >
+                                    <span className="text-[9px] opacity-75 font-sans leading-none">{fase}</span>
+                                    <span className="font-semibold leading-tight text-[9.5px]">
+                                      {val > 0 
+                                        ? (fasesUnit === 'A' ? val.toFixed(1) : Math.round(val)) 
+                                        : '-'}
+                                    </span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </td>
 

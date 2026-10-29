@@ -14,6 +14,7 @@ export default function AcometidaCard({
   onRemoveMedidor,
   onUpdateMedidor,
   onToggleForzarTrifasicoMedidor,
+  onToggleFaseMedidor,
   // Backward compatibility props
   tipoSystem,
   fasesLoad,
@@ -266,25 +267,26 @@ export default function AcometidaCard({
 
               {/* Fases del Medidor */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <h4 className="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center gap-1.5">
                     <Activity size={13} className="text-cyan-400" />
                     Distribución de Carga por Fase · Medidor {med.numero || (idx + 1)}
                   </h4>
-                  {acometida.fasesDisponibles.length > 1 && (
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${desbalanceColorClass}`}>
-                      Desbalance: {desbalanceMed.toFixed(2)}% ({desbalanceLabel})
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-500 font-sans italic">
+                      (Clic en las fases para activar/desactivar)
                     </span>
-                  )}
+                    {acometida.fasesDisponibles.length > 1 && (
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${desbalanceColorClass}`}>
+                        Desbalance: {desbalanceMed.toFixed(2)}% ({desbalanceLabel})
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className={`grid grid-cols-1 ${acometida.fasesDisponibles.length === 1 ? 'md:grid-cols-1' : acometida.fasesDisponibles.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-3`}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {['A', 'B', 'C'].map((fase) => {
                     const isAvailable = acometida.fasesDisponibles.includes(fase);
-                    if (!isAvailable && acometida.id !== 'bifasico' && fase === 'C') {
-                      if (acometida.id === 'monofasico') return null;
-                    }
-
                     const loadW = fasesLoadMed[fase] || 0;
                     const loadVA = fasesVAMed[fase] || 0;
                     const corriente = calcularCorriente(loadVA);
@@ -299,40 +301,46 @@ export default function AcometidaCard({
                     const maxFaseWatts = 5000;
                     const pct = Math.min((loadW / maxFaseWatts) * 100, 100);
 
-                    const canToggle3F = fase === 'C' && acometida.id === 'bifasico';
-
                     return (
                       <div
                         key={fase}
                         onClick={() => {
-                          if (canToggle3F && onToggleForzarTrifasicoMedidor) {
+                          if (onToggleFaseMedidor) {
+                            onToggleFaseMedidor(med.id, fase);
+                          } else if (fase === 'C' && onToggleForzarTrifasicoMedidor) {
                             onToggleForzarTrifasicoMedidor(med.id);
                           }
                         }}
-                        className={`p-3.5 rounded-xl border transition-all duration-300 ${
+                        className={`p-3.5 rounded-xl border transition-all duration-300 cursor-pointer select-none group relative ${
                           isAvailable
-                            ? 'bg-slate-900/40 border-slate-800'
-                            : 'bg-slate-950/20 border-slate-900/50 opacity-40 select-none'
-                        } ${canToggle3F ? 'cursor-pointer hover:border-blue-500/80 hover:bg-slate-900/60' : ''}`}
+                            ? 'bg-slate-900/60 border-slate-750 hover:border-teal-400/80 hover:shadow-lg hover:shadow-teal-500/10'
+                            : 'bg-slate-950/30 border-dashed border-slate-800 opacity-55 hover:opacity-100 hover:border-slate-600 hover:bg-slate-900/40'
+                        }`}
+                        title={isAvailable ? `Clic para desactivar Fase ${fase}` : `Clic para activar Fase ${fase}`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition-transform group-hover:scale-110 ${
                               !isAvailable 
-                                ? 'bg-slate-800 text-slate-600' 
+                                ? 'bg-slate-800 text-slate-500 border border-slate-700/60' 
                                 : fase === 'A' 
-                                  ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
+                                  ? 'bg-red-500/20 text-red-400 border border-red-500/40 shadow-xs shadow-red-500/20' 
                                   : fase === 'B' 
-                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-xs shadow-amber-500/20'
+                                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow-xs shadow-blue-500/20'
                             }`}>
                               {fase}
                             </span>
-                            <span className="text-xs font-bold text-slate-200">Fase {fase}</span>
+                            <div>
+                              <span className="text-xs font-bold text-slate-200">Fase {fase}</span>
+                              <span className={`block text-[9px] font-mono leading-none ${isAvailable ? 'text-teal-400' : 'text-slate-500'}`}>
+                                {isAvailable ? '● Activa' : '○ Inactiva'}
+                              </span>
+                            </div>
                           </div>
 
-                          <span className="text-xs font-bold font-mono text-white">
-                            {isAvailable ? displayVal : 'Inactiva'}
+                          <span className={`text-xs font-bold font-mono ${isAvailable ? 'text-white' : 'text-slate-600'}`}>
+                            {isAvailable ? displayVal : '0 VA'}
                           </span>
                         </div>
 
@@ -352,10 +360,13 @@ export default function AcometidaCard({
                               <span>W: <strong className="text-slate-200 font-mono">{loadW.toLocaleString()} W</strong></span>
                               <span>Corriente: <strong className={`font-mono ${corriente > 30 ? 'text-rose-400' : 'text-slate-300'}`}>{corriente.toFixed(2)} A</strong></span>
                             </div>
+                            <div className="text-[9px] text-slate-500 text-center pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              Clic para desactivar
+                            </div>
                           </div>
                         ) : (
-                          <div className="py-2 text-center text-[10px] text-slate-500 font-medium">
-                            {canToggle3F ? 'Clic para forzar modo 3F en este medidor' : 'Sin asignación'}
+                          <div className="py-2.5 text-center text-[10px] text-teal-400/80 font-bold flex items-center justify-center gap-1 group-hover:text-teal-300">
+                            <span>+ Clic para activar Fase {fase}</span>
                           </div>
                         )}
                       </div>

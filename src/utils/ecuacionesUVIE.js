@@ -115,8 +115,15 @@ export function calcularDesbalanceUVIE(vaA, vaB, vaC, acometidaId) {
     return 0;
   }
 
+  let tipo = acometidaId;
+  if (!tipo) {
+    if (sC === 0 && sB === 0) return 0;
+    if (sC === 0) tipo = 'bifasico';
+    else tipo = 'trifasico';
+  }
+
   let valores = [];
-  if (acometidaId === 'bifasico') {
+  if (tipo === 'bifasico') {
     valores = [sA, sB];
   } else {
     valores = [sA, sB, sC];

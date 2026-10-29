@@ -8,41 +8,102 @@
  * @param {number} watts - Carga activa total instalada en Watts.
  * @returns {object} Configuración de la acometida.
  */
-export function determinarAcometida(watts, forzarTrifasico = false) {
-  if (forzarTrifasico) {
+export function determinarAcometida(watts, forzarTrifasico = false, tieneBifasico = false, tieneTrifasico = false) {
+  if (forzarTrifasico || tieneTrifasico || watts > 10000) {
     return {
       id: 'trifasico',
-      tipo: 'Sistema Trifásico (3F-1N) [Forzado]',
-      descripcion: 'Bajo Demanda',
+      tipo: forzarTrifasico ? 'Sistema Trifásico (3F-1N) [Forzado]' : 'Sistema Trifásico (3F-1N)',
+      descripcion: tieneTrifasico ? 'Carga Trifásica 220V' : 'Más de 10kW',
       fasesDisponibles: ['A', 'B', 'C'],
       limiteWatts: Infinity
     };
   }
-  if (watts <= 5000) {
-    return {
-      id: 'monofasico',
-      tipo: 'Sistema Monofásico (1F-1N)',
-      descripcion: 'Hasta 5kW',
-      fasesDisponibles: ['A'],
-      limiteWatts: 5000
-    };
-  } else if (watts <= 10000) {
+  if (tieneBifasico || watts > 5000) {
     return {
       id: 'bifasico',
       tipo: 'Sistema Bifásico (2F-1N)',
-      descripcion: '5kW a 10kW',
+      descripcion: tieneBifasico ? 'Cargas Bifásicas 220V' : '5kW a 10kW',
       fasesDisponibles: ['A', 'B'],
       limiteWatts: 10000
     };
-  } else {
+  }
+  return {
+    id: 'monofasico',
+    tipo: 'Sistema Monofásico (1F-1N)',
+    descripcion: 'Hasta 5kW',
+    fasesDisponibles: ['A'],
+    limiteWatts: 5000
+  };
+}
+
+/**
+ * Determina el tipo de acometida CFE para un medidor individual considerando
+ * sus cargas conectadas (220V bifásicas o trifásicas) y configuración manual del usuario.
+ */
+export function determinarAcometidaMedidor(med, aparatosMed = []) {
+  const tieneTrifasico = aparatosMed.some(ap => ap.tipoCarga === 'trifasica');
+  const tieneBifasico = aparatosMed.some(ap => ap.tipoCarga === 'bifasica');
+  const watts = aparatosMed.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
+
+  // Si el usuario configuró fases específicas manualmente en el medidor
+  if (Array.isArray(med?.fasesHabilitadas) && med.fasesHabilitadas.length > 0) {
+    const fh = [...med.fasesHabilitadas].sort();
+    if (fh.length >= 3) {
+      return {
+        id: 'trifasico',
+        tipo: 'Sistema Trifásico (3F-1N) [Manual]',
+        descripcion: '220/127V (Fases A, B, C)',
+        fasesDisponibles: ['A', 'B', 'C'],
+        limiteWatts: Infinity
+      };
+    }
+    if (fh.length === 2) {
+      return {
+        id: 'bifasico',
+        tipo: `Sistema Bifásico (2F-1N) [Fases ${fh.join('-')}]`,
+        descripcion: '220/127V 2 Fases',
+        fasesDisponibles: fh,
+        limiteWatts: 10000
+      };
+    }
+    if (fh.length === 1 && !tieneBifasico && !tieneTrifasico) {
+      return {
+        id: 'monofasico',
+        tipo: `Sistema Monofásico (1F-1N) [Fase ${fh[0]}]`,
+        descripcion: '127V 1 Fase',
+        fasesDisponibles: fh,
+        limiteWatts: 5000
+      };
+    }
+  }
+
+  if (med?.forzarTrifasico || med?.tipoAcometida === 'trifasico' || tieneTrifasico || watts > 10000) {
     return {
       id: 'trifasico',
-      tipo: 'Sistema Trifásico (3F-1N)',
-      descripcion: 'Más de 10kW',
+      tipo: med?.forzarTrifasico ? 'Sistema Trifásico (3F-1N) [Forzado]' : 'Sistema Trifásico (3F-1N)',
+      descripcion: tieneTrifasico ? 'Carga Trifásica 220V' : 'Más de 10kW',
       fasesDisponibles: ['A', 'B', 'C'],
       limiteWatts: Infinity
     };
   }
+
+  if (med?.tipoAcometida === 'bifasico' || tieneBifasico || watts > 5000) {
+    return {
+      id: 'bifasico',
+      tipo: 'Sistema Bifásico (2F-1N)',
+      descripcion: tieneBifasico ? 'Carga Bifásica 220V (Minisplit/Equipos)' : '5kW a 10kW',
+      fasesDisponibles: ['A', 'B'],
+      limiteWatts: 10000
+    };
+  }
+
+  return {
+    id: 'monofasico',
+    tipo: 'Sistema Monofásico (1F-1N)',
+    descripcion: 'Hasta 5kW (127V)',
+    fasesDisponibles: ['A'],
+    limiteWatts: 5000
+  };
 }
 
 /**
@@ -280,12 +341,10 @@ export function generarCombinacionesBalanceo(aparatos, acometidaId, fasesDisponi
     });
 
     // Calcular desbalanceo UVIE
-    let valores = [];
-    if (acometidaId === 'bifasico') {
-      valores = [fasesVA.A, fasesVA.B];
-    } else {
-      valores = [fasesVA.A, fasesVA.B, fasesVA.C];
-    }
+    const fActivas = (Array.isArray(fasesDisponibles) && fasesDisponibles.length > 0)
+      ? fasesDisponibles
+      : (acometidaId === 'bifasico' ? ['A', 'B'] : ['A', 'B', 'C']);
+    const valores = fActivas.map(f => fasesVA[f] || 0);
     const maxVal = Math.max(...valores);
     const minVal = Math.min(...valores);
     const desbalance = maxVal === 0 ? 0 : ((maxVal - minVal) / maxVal) * 100;

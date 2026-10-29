@@ -189,7 +189,11 @@ export default function CuadroCargasUVIE({
     });
 
     // Desbalance propio de este medidor
-    const acometidaMedId = subtotalW > 10000 || med.forzarTrifasico ? 'trifasico' : subtotalW > 5000 ? 'bifasico' : 'monofasico';
+    const tieneBif = circuitosDelMedidor.some(c => c.tipoCarga === 'bifasica');
+    const tieneTri = circuitosDelMedidor.some(c => c.tipoCarga === 'trifasica');
+    const acometidaMedId = med.forzarTrifasico || med.tipoAcometida === 'trifasico' || tieneTri || subtotalW > 10000 
+      ? 'trifasico' 
+      : (med.tipoAcometida === 'bifasico' || tieneBif || subtotalW > 5000 ? 'bifasico' : 'monofasico');
     const desbalanceMedidor = calcularDesbalanceUVIE(subtotalFasesBase.A, subtotalFasesBase.B, subtotalFasesBase.C, acometidaMedId);
 
     return {
