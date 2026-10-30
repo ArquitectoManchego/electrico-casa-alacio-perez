@@ -18,6 +18,8 @@ import {
   Sliders,
   ShieldCheck,
   CheckCircle2,
+  TrendingUp,
+  DollarSign,
   X
 } from 'lucide-react';
 
@@ -61,6 +63,7 @@ import DiagramaUnifilarCAD from './components/DiagramaUnifilarCAD';
 import BalanceadorTablero from './components/BalanceadorTablero';
 import PoliticasEficiencia from './components/PoliticasEficiencia';
 import ModuloPieDePlano from './components/ModuloPieDePlano';
+import ModuloFinanzasNegocios from './components/ModuloFinanzasNegocios';
 
 function AddVariantForm({ onSave, onCancel }) {
   const [vData, setVData] = useState({
@@ -1893,6 +1896,18 @@ export default function App() {
       </button>
 
       <button
+        onClick={() => setActiveTab('finanzas')}
+        className={`py-3.5 px-1 text-xs uppercase tracking-wider font-bold border-b-2 transition-all flex items-center gap-2 ${
+          activeTab === 'finanzas'
+            ? 'border-teal-400 text-teal-400'
+            : 'border-transparent text-slate-400 hover:text-slate-200'
+        }`}
+      >
+        <TrendingUp size={14} />
+        Finanzas y Rentabilidad
+      </button>
+
+      <button
         onClick={() => setActiveTab('politicas')}
         className={`py-3.5 px-1 text-xs uppercase tracking-wider font-bold border-b-2 transition-all flex items-center gap-2 ${
           activeTab === 'politicas'
@@ -2316,6 +2331,19 @@ export default function App() {
                 proyectoId={currentProyectoId}
                 onKwhDiarioChange={setSalesKwhDiario}
                 medidores={medidores}
+              />
+            </div>
+          )}
+
+          {/* PESTAÑA: FINANZAS Y RENTABILIDAD POR NEGOCIO */}
+          {activeTab === 'finanzas' && (
+            <div className="space-y-6 animate-fadeIn">
+              <ModuloFinanzasNegocios 
+                aparatos={aparatos}
+                tarifas={tarifas}
+                costosMEM={costosMEM}
+                medidores={medidores}
+                proyectoId={currentProyectoId}
               />
             </div>
           )}
