@@ -162,7 +162,7 @@ export default function ModuloFinanzasNegocios({
     }
 
     if (tipo === 'equilibrio') {
-      const peDia = Math.ceil(calibracionActiva.puntoEquilibrio.puntoEquilibrio.unidadesDia);
+      const peDia = Math.ceil(calibracionActiva?.puntoEquilibrio?.puntoEquilibrio?.unidadesDia || calibracionActiva?.puntoEquilibrio?.unidadesDia || 0);
       const nuevo = {};
       const pesoTotal = productosNegocioActivo.reduce((s, p) => s + (p.pesoEnMix || 1), 0);
       productosNegocioActivo.forEach(p => {
@@ -357,7 +357,7 @@ export default function ModuloFinanzasNegocios({
       <SelectorNegocioFinanzas
         negocioSeleccionado={negocioSeleccionado}
         onSelectNegocio={setNegocioSeleccionado}
-        gastosFijosTotales={calibracionActiva?.costosFijos.gastosFijosTotales}
+        gastosFijosTotales={calibracionActiva?.costosFijos?.gastosFijosTotales || calibracionActiva?.puntoEquilibrio?.costosFijos?.gastosFijosTotales || 0}
         reciboLuzMonto={reciboLuzNegocio}
       />
 
@@ -377,7 +377,7 @@ export default function ModuloFinanzasNegocios({
             productos={productosNegocioActivo}
             negocioId={negocioSeleccionado}
             diasLaborales={diasLaborales}
-            gastosFijosMensuales={calibracionActiva?.costosFijos.gastosFijosTotales || 0}
+            gastosFijosMensuales={calibracionActiva?.costosFijos?.gastosFijosTotales || calibracionActiva?.puntoEquilibrio?.costosFijos?.gastosFijosTotales || 0}
             articulosVendidosMap={articulosVendidosMap}
             onChangeArticulo={handleChangeArticulo}
             onResetDia={handleResetDia}
@@ -391,7 +391,7 @@ export default function ModuloFinanzasNegocios({
               escenarioActivo={escenarioActivo}
               onSelectEscenario={setEscenarioActivo}
               pnlActual={calibracionActiva.escenarios[escenarioActivo]?.pnl}
-              costosFijosDetalle={calibracionActiva.costosFijos}
+              costosFijosDetalle={calibracionActiva.costosFijos || calibracionActiva.puntoEquilibrio?.costosFijos || {}}
               negocioNombre={NEGOCIOS_METADATA.find(n => n.id === negocioSeleccionado)?.nombre}
             />
           )}

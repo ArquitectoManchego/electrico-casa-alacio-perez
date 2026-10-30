@@ -163,6 +163,8 @@ export function calibrarNivelesVentaFinancieros({
 
   return {
     puntoEquilibrio: pe,
+    costosFijos: pe.costosFijos,
+    metricasUnitarias: pe.metricasUnitarias,
     escenarios: {
       bajo: {
         id: 'bajo',
