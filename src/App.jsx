@@ -2292,10 +2292,10 @@ export default function App() {
                 </div>
                 <h2 className="text-xl font-bold font-display text-white flex items-center gap-2">
                   <ShoppingCart className="text-teal-400" size={22} />
-                  Simulador de Consumo y Hábitos Residenciales (Perfiles Horarios)
+                  Simulador Multi-Negocio de Consumo por Ventas y Procesos Productivos
                 </h2>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed font-sans">
-                  Simula la demanda eléctrica real del hogar modelando el encendido y ciclos de uso de tus minisplits, electrodomésticos, bombas y centro de entretenimiento según tus rutinas familiares.
+                  Modela el consumo eléctrico real de cada unidad de negocio a partir de sus recetas de producción paso a paso (precalentamiento, ciclos por lote, pausas operativas y cargas continuas) en escenarios de Mes Bajo, Mes Medio y Mes Alto (80% de capacidad laboral).
                 </p>
               </div>
 
@@ -2315,6 +2315,7 @@ export default function App() {
                 setEfficientPolicies={setEfficientPolicies}
                 proyectoId={currentProyectoId}
                 onKwhDiarioChange={setSalesKwhDiario}
+                medidores={medidores}
               />
             </div>
           )}

@@ -70,7 +70,7 @@ export const DEFAULT_MEDIDORES_CONSORCIO = [
 ];
 
 // Generador de semillas de inventario para cada negocio
-function generarSeedAparatos(proyectoId) {
+export function generarSeedAparatos(proyectoId) {
   const formatearAp = (item) => {
     const baseVariant = {
       id: 'default',
@@ -105,42 +105,46 @@ function generarSeedAparatos(proyectoId) {
 
   const imperiaList = [
     { id: 'imp_1', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'imp_2', tipo: 'Computadora de Mostrador y Pantalla (POS)', modelo: 'PC Mostrador TPV', watts: 300, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 14000, mantenimiento: 400, vidaUtil: 6 },
-    { id: 'imp_3', tipo: 'Sistema CCTV 16 Cámaras + Grabadora DVR/NVR', modelo: 'DVR 16CH + 16 Domos', watts: 150, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 24, precio: 19000, mantenimiento: 800, vidaUtil: 6 },
+    { id: 'imp_2', tipo: 'Computadora de Mostrador y Pantalla (POS)', modelo: 'PC Mostrador TPV', watts: 250, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 14000, mantenimiento: 400, vidaUtil: 6 },
+    { id: 'imp_3', tipo: 'Terminal Bancaria Mercado Pago', modelo: 'Smart POS WiFi/4G', watts: 15, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 2500, mantenimiento: 100, vidaUtil: 4 },
     { id: 'imp_4', tipo: 'Alumbrado LED Showroom Imperia (10 Luminarias)', modelo: '10x Paneles LED 18W', watts: 180, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 4500, mantenimiento: 250, vidaUtil: 10 },
-    { id: 'imp_5', tipo: 'Terminal Bancaria Mercado Pago', modelo: 'Smart POS WiFi/4G', watts: 15, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 2500, mantenimiento: 100, vidaUtil: 4 }
+    { id: 'imp_5', tipo: 'Sistema CCTV 16 Cámaras + Grabadora DVR/NVR', modelo: 'DVR 16CH + 16 Domos', watts: 150, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 24, precio: 19000, mantenimiento: 800, vidaUtil: 6 }
   ];
 
   const papeleriaList = [
-    { id: 'pap_1', tipo: 'Computadora AIO TPV (All-in-One)', modelo: 'AIO 21.5" TPV', watts: 180, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 15000, mantenimiento: 350, vidaUtil: 6 },
-    { id: 'pap_2', tipo: 'Minisplit Inverter (Área 2x6 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'pap_3', tipo: 'Alumbrado LED Papelería (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 1900, mantenimiento: 100, vidaUtil: 10 }
+    { id: 'pap_1', tipo: 'Fotocopiadora / Impresora Xerox DocuColor', modelo: 'DocuColor Láser Color', watts: 1500, fp: 0.92, tipoCarga: 'monofasica', fase: 'A', horasAlta: 5, precio: 55000, mantenimiento: 4500, vidaUtil: 8 },
+    { id: 'pap_2', tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)', modelo: '1.5 TR (18,000 BTU)', watts: 1700, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 13500, mantenimiento: 950, vidaUtil: 8 },
+    { id: 'pap_3', tipo: 'Computadora AIO TPV (All-in-One)', modelo: 'AIO 21.5" TPV', watts: 180, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 15000, mantenimiento: 350, vidaUtil: 6 },
+    { id: 'pap_4', tipo: 'Alumbrado LED Papelería (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 1900, mantenimiento: 100, vidaUtil: 10 }
   ];
 
   const hawaiianList = [
-    { id: 'hp_1', tipo: 'Computadora TPV', modelo: 'Touch POS Comandas', watts: 150, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 12000, mantenimiento: 350, vidaUtil: 6 },
-    { id: 'hp_2', tipo: 'Licuadora Ninja Profesional (1200W)', modelo: 'Ninja Auto-iQ 1200W', watts: 1200, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 4500, mantenimiento: 500, vidaUtil: 5 },
-    { id: 'hp_3', tipo: 'Máquina de Raspados Hawaiian Paradise', modelo: 'Raspadora Hielo Industrial', watts: 600, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 12000, mantenimiento: 900, vidaUtil: 7 },
-    { id: 'hp_4', tipo: 'Crepera Eléctrica Profesional (1500W)', modelo: 'Plato 40cm Krampouz', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 6, precio: 13500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'hp_5', tipo: 'Olla Calentadora de Esquites (7 Litros)', modelo: 'Baño María Eléctrico 7L', watts: 1200, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 6800, mantenimiento: 400, vidaUtil: 6 },
-    { id: 'hp_6', tipo: 'Pantalla LCD / LED 42 Pulgadas', modelo: 'Menú Digital 42"', watts: 110, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 7500, mantenimiento: 200, vidaUtil: 7 },
-    { id: 'hp_7', tipo: 'Congeladora Horizontal (11 Pies Cúbicos)', modelo: 'Congelador 11 ft³ Mabe', watts: 300, fp: 0.85, tipoCarga: 'monofasica', fase: 'A', horasAlta: 24, precio: 9500, mantenimiento: 600, vidaUtil: 10 },
-    { id: 'hp_8', tipo: 'Refrigerador Vertical (11 Pies Cúbicos)', modelo: 'Refrigerador 11 ft³ Inverter', watts: 350, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 24, precio: 11000, mantenimiento: 600, vidaUtil: 10 },
-    { id: 'hp_9', tipo: 'Alumbrado LED Hawaiian Paradise (16 Luminarias)', modelo: '16x Lámparas LED 18W', watts: 288, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 6800, mantenimiento: 350, vidaUtil: 10 },
-    { id: 'hp_10', tipo: 'Cafetera Espresso de 1 Servicio', modelo: 'Bomba 15 Bar Espresso', watts: 1200, fp: 0.98, tipoCarga: 'monofasica', fase: 'A', horasAlta: 5, precio: 6500, mantenimiento: 600, vidaUtil: 5 }
+    { id: 'hp_1', tipo: 'Crepera Eléctrica Profesional (1500W)', modelo: 'Plato 40cm Krampouz', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 6, precio: 13500, mantenimiento: 800, vidaUtil: 8 },
+    { id: 'hp_2', tipo: 'Máquina de Marquesitas Eléctrica', modelo: 'Marquesitera Profesional 1500W', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 5, precio: 14500, mantenimiento: 850, vidaUtil: 7 },
+    { id: 'hp_3', tipo: 'Licuadora Ninja Profesional (1200W)', modelo: 'Ninja Auto-iQ 1200W', watts: 1200, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 4500, mantenimiento: 500, vidaUtil: 5 },
+    { id: 'hp_4', tipo: 'Cafetera Breville Barista (Molino + Vaporizador)', modelo: 'Breville Barista Touch 1650W', watts: 1650, fp: 0.98, tipoCarga: 'monofasica', fase: 'A', horasAlta: 6, precio: 18500, mantenimiento: 1200, vidaUtil: 6 },
+    { id: 'hp_5', tipo: 'Máquina de Raspados Hawaiian Paradise', modelo: 'Raspadora Hielo Industrial', watts: 600, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 12000, mantenimiento: 900, vidaUtil: 7 },
+    { id: 'hp_6', tipo: 'Tetera Calentadora de Agua Eléctrica', modelo: 'Hervidor Rápido 1.7L 1500W', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 3, precio: 1200, mantenimiento: 150, vidaUtil: 4 },
+    { id: 'hp_7', tipo: 'Máquina Baño María Eléctrica (2 Ollas)', modelo: 'Baño María 2 Ollas 1500W', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 6, precio: 8500, mantenimiento: 500, vidaUtil: 7 },
+    { id: 'hp_8', tipo: 'Minisplit Inverter 2 TR (24,000 BTU - 220V)', modelo: '2 TR (24,000 BTU)', watts: 2250, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 17500, mantenimiento: 1200, vidaUtil: 8 },
+    { id: 'hp_9', tipo: 'Computadora TPV', modelo: 'Touch POS Comandas', watts: 150, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 12000, mantenimiento: 350, vidaUtil: 6 },
+    { id: 'hp_10', tipo: 'Terminal Bancaria Mercado Pago', modelo: 'Smart POS WiFi/4G', watts: 15, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 2500, mantenimiento: 100, vidaUtil: 4 },
+    { id: 'hp_11', tipo: 'Televisión Smart LED 70 Pulgadas', modelo: 'Smart TV 70" 4K Menú', watts: 210, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 14500, mantenimiento: 300, vidaUtil: 7 },
+    { id: 'hp_12', tipo: 'Refrigerador Vertical (11 Pies Cúbicos)', modelo: 'Refrigerador 11 ft³ Inverter', watts: 350, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 24, precio: 11000, mantenimiento: 600, vidaUtil: 10 },
+    { id: 'hp_13', tipo: 'Congeladora Horizontal (11 Pies Cúbicos)', modelo: 'Congelador 11 ft³ Mabe', watts: 300, fp: 0.85, tipoCarga: 'monofasica', fase: 'A', horasAlta: 24, precio: 9500, mantenimiento: 600, vidaUtil: 10 },
+    { id: 'hp_14', tipo: 'Alumbrado LED Hawaiian Paradise (16 Luminarias)', modelo: '16x Lámparas LED 18W', watts: 288, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 6800, mantenimiento: 350, vidaUtil: 10 }
   ];
 
   const bordadosList = [
-    { id: 'bv_1', tipo: 'Bordadora Industrial 4 Cabezas (110V - Años 90)', modelo: '4 Cabezas Tajima/Barudan 110V', watts: 1500, fp: 0.82, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 75000, mantenimiento: 4500, vidaUtil: 15 },
-    { id: 'bv_2', tipo: 'Bordadora Industrial 4 Cabezas (220V - Años 90)', modelo: '4 Cabezas Tajima/Barudan 220V', watts: 1800, fp: 0.85, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 85000, mantenimiento: 5000, vidaUtil: 15 },
-    { id: 'bv_3', tipo: '2 Bordadoras Caseras Brother (1 Hilo)', modelo: '2x Brother PE800 (150W)', watts: 150, fp: 0.80, tipoCarga: 'monofasica', fase: 'B', horasAlta: 6, precio: 28000, mantenimiento: 1600, vidaUtil: 7 },
-    { id: 'bv_4', tipo: 'Alumbrado LED Bordados (4 Luminarias)', modelo: '4x Lámparas LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 1900, mantenimiento: 100, vidaUtil: 10 }
+    { id: 'bv_1', tipo: 'Bordadora Industrial AEMCO 220V Dahao (4 Cabezas)', modelo: 'AEMCO Cama Plana 4 Cabezas 220V', watts: 1800, fp: 0.85, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 95000, mantenimiento: 5500, vidaUtil: 15 },
+    { id: 'bv_2', tipo: 'Bordadora Industrial Melco EMC 6/4 (4 Cabezas, 6 Hilos)', modelo: 'Melco EMC 6/4 (4 Cabezas)', watts: 1500, fp: 0.82, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 85000, mantenimiento: 4800, vidaUtil: 15 },
+    { id: 'bv_3', tipo: 'Alumbrado LED Bordados (4 Luminarias)', modelo: '4x Lámparas LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 1900, mantenimiento: 100, vidaUtil: 10 }
   ];
 
   const costuraList = [
-    { id: 'tc_1', tipo: '2 Máquinas de Coser Recta Industrial', modelo: '2x Juki DDL-8700 (1100W)', watts: 1100, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 32000, mantenimiento: 2400, vidaUtil: 12 },
+    { id: 'tc_1', tipo: '2 Máquinas de Coser Recta Industrial Singer', modelo: '2x Singer Recta Industrial (550W c/u)', watts: 1100, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 33000, mantenimiento: 2400, vidaUtil: 12 },
     { id: 'tc_2', tipo: 'Máquina Overlock Industrial (5 Hilos)', modelo: 'Overlock 5 Hilos (550W)', watts: 550, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 18500, mantenimiento: 1400, vidaUtil: 12 },
-    { id: 'tc_3', tipo: 'Máquina Collaretera Industrial (5 Hilos)', modelo: 'Collaretera 5 Hilos (550W)', watts: 550, fp: 0.80, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 21000, mantenimiento: 1500, vidaUtil: 12 },
+    { id: 'tc_3', tipo: 'Máquina Collaretera Industrial Singer', modelo: 'Collaretera Singer Industrial (550W)', watts: 550, fp: 0.80, tipoCarga: 'monofasica', fase: 'B', horasAlta: 3, precio: 22500, mantenimiento: 1600, vidaUtil: 12 },
     { id: 'tc_4', tipo: 'Cortadora de Tela Industrial de Disco', modelo: 'Cortadora Octagonal 4"', watts: 300, fp: 0.75, tipoCarga: 'monofasica', fase: 'A', horasAlta: 3, precio: 4800, mantenimiento: 600, vidaUtil: 8 },
     { id: 'tc_5', tipo: 'Plancha de Vapor Industrial con Caldera', modelo: 'Caldera de Vapor 1.6kW', watts: 1600, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 6, precio: 11000, mantenimiento: 1000, vidaUtil: 8 },
     { id: 'tc_6', tipo: 'Minisplit Inverter (Área 4x3.5 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
@@ -148,23 +152,25 @@ function generarSeedAparatos(proyectoId) {
   ];
 
   const publiList = [
-    { id: 'pi_1', tipo: 'Plancha de Sublimación Plana (30x30 cm - 1000W)', modelo: 'Prensa Térmica 30x30', watts: 1000, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 5, precio: 7500, mantenimiento: 500, vidaUtil: 6 },
-    { id: 'pi_2', tipo: 'Plancha Manual de Sublimación (10 cm)', modelo: 'Mini Prensa 10cm', watts: 400, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 2200, mantenimiento: 250, vidaUtil: 5 },
-    { id: 'pi_3', tipo: 'Cortadora de Vinil Brother ScanNCut', modelo: 'ScanNCut SDX125', watts: 50, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 12500, mantenimiento: 400, vidaUtil: 6 },
-    { id: 'pi_4', tipo: 'Grabadora Láser de Diodo (20W Óptico)', modelo: 'Láser Diodo CNC 20W', watts: 75, fp: 0.85, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 18000, mantenimiento: 800, vidaUtil: 5 },
-    { id: 'pi_5', tipo: 'Impresora de Sublimación Epson L310', modelo: 'Epson L310 Sublimación', watts: 25, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 5, precio: 6500, mantenimiento: 500, vidaUtil: 5 },
-    { id: 'pi_6', tipo: 'PC Diseño Gráfico + Monitor de Alta Gama', modelo: 'Workstation i7 + GPU', watts: 450, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 26000, mantenimiento: 600, vidaUtil: 6 },
-    { id: 'pi_7', tipo: 'Alumbrado LED Taller Publi-Imperia (7 Luminarias)', modelo: '7x Lámparas LED 18W', watts: 126, fp: 0.95, tipoCarga: 'monofasica', fase: 'A', horasAlta: 10, precio: 3200, mantenimiento: 180, vidaUtil: 10 },
-    { id: 'pi_8', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'pi_9', tipo: 'Pistola de Calor Manual (Decapador)', modelo: 'Pistola Térmica 1500W', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 2, precio: 1400, mantenimiento: 200, vidaUtil: 4 },
-    { id: 'pi_10', tipo: 'Panel de Revelado de Serigrafía (8 Tubos)', modelo: 'Mesa Insoladora 8 Tubos', watts: 240, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 2, precio: 8000, mantenimiento: 400, vidaUtil: 8 }
+    { id: 'pi_1', tipo: 'Impresora de Sublimación Epson L120', modelo: 'Epson L120 Sublimación', watts: 20, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 5, precio: 4500, mantenimiento: 400, vidaUtil: 5 },
+    { id: 'pi_2', tipo: 'Plancha de Sublimación de Tazas (350W)', modelo: 'Prensa Cilíndrica 11/15oz', watts: 350, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 3500, mantenimiento: 250, vidaUtil: 5 },
+    { id: 'pi_3', tipo: 'Plancha de Sublimación Plana (30x30 cm - 1000W)', modelo: 'Prensa Térmica Plana 1000W', watts: 1000, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 5, precio: 7500, mantenimiento: 500, vidaUtil: 6 },
+    { id: 'pi_4', tipo: 'Plancha de Sublimación para Gorras (400W)', modelo: 'Prensa Curva Gorras 400W', watts: 400, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 4200, mantenimiento: 250, vidaUtil: 5 },
+    { id: 'pi_5', tipo: 'Bordadora Computarizada Brother PE770', modelo: 'Brother PE770 1 Cabeza', watts: 75, fp: 0.80, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 16000, mantenimiento: 900, vidaUtil: 7 },
+    { id: 'pi_6', tipo: 'Cortadora de Vinil Brother ScanNCut', modelo: 'ScanNCut SDX125', watts: 50, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 12500, mantenimiento: 400, vidaUtil: 6 },
+    { id: 'pi_7', tipo: 'Cortadora y Grabadora Láser Atomstack A20', modelo: 'Atomstack A20 Pro 20W Óptico', watts: 120, fp: 0.88, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 21000, mantenimiento: 850, vidaUtil: 5 },
+    { id: 'pi_8', tipo: 'Reveladora de Serigrafía (8 Tubos Fluorescentes 32W)', modelo: 'Mesa Insoladora 8x32W (256W)', watts: 256, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 2, precio: 8500, mantenimiento: 400, vidaUtil: 8 },
+    { id: 'pi_9', tipo: 'Plancha de Calor Serigrafía 80x100 cm (220V)', modelo: 'Prensa Gran Formato 80x100 3.6kW', watts: 3600, fp: 1.0, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 3, precio: 48000, mantenimiento: 2200, vidaUtil: 10 },
+    { id: 'pi_10', tipo: 'PC Diseño Gráfico + Monitor de Alta Gama', modelo: 'Workstation i7 + GPU', watts: 450, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 26000, mantenimiento: 600, vidaUtil: 6 },
+    { id: 'pi_11', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
+    { id: 'pi_12', tipo: 'Alumbrado LED Taller Publi-Imperia (7 Luminarias)', modelo: '7x Lámparas LED 18W', watts: 126, fp: 0.95, tipoCarga: 'monofasica', fase: 'A', horasAlta: 10, precio: 3200, mantenimiento: 180, vidaUtil: 10 }
   ];
 
   const oficinasList = [
-    { id: 'oc_1', tipo: 'Computadora Portátil (Laptop)', modelo: 'Laptop Directiva', watts: 65, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 16000, mantenimiento: 300, vidaUtil: 5 },
-    { id: 'oc_2', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'oc_3', tipo: 'Cafetera Casera (10 Tazas)', modelo: 'Cafetera Goteo 10 Tazas', watts: 900, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 2, precio: 850, mantenimiento: 100, vidaUtil: 4 },
-    { id: 'oc_4', tipo: 'Televisión LCD / LED 42 Pulgadas', modelo: 'Smart TV Juntas 42"', watts: 110, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 200, vidaUtil: 7 },
+    { id: 'oc_1', tipo: 'Computadora Portátil (Laptop)', modelo: 'Laptop Directiva', watts: 65, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 16000, mantenimiento: 300, vidaUtil: 5 },
+    { id: 'oc_2', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 3, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
+    { id: 'oc_3', tipo: 'Televisión Smart LED 32 Pulgadas', modelo: 'Smart TV 32" Juntas', watts: 55, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 2, precio: 4200, mantenimiento: 150, vidaUtil: 7 },
+    { id: 'oc_4', tipo: 'Alumbrado LED Oficina Consorcio (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 1900, mantenimiento: 100, vidaUtil: 10 },
     { id: 'oc_5', tipo: 'Módem de Internet & Router WiFi', modelo: 'Router WiFi Dual-Band', watts: 25, fp: 0.85, tipoCarga: 'monofasica', fase: 'A', horasAlta: 24, precio: 2500, mantenimiento: 150, vidaUtil: 6 }
   ];
 

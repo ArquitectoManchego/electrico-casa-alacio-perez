@@ -472,6 +472,228 @@ export const CATALOGO_RESIDENCIAL = [
     vidaUtil: 15,
     criteriosDurabilidad: 'Protección salvavidas diferencial contra fallas a tierra en áreas húmedas.',
     criteriosMantenimiento: 'Prueba bimestral de botón de disparo diferencial TEST/RESET.'
+  },
+
+  // --- EQUIPOS REALES ADICIONALES (HOMOLOGADOS CON SIMULADOR MULTI-NEGOCIO) ---
+  {
+    tipo: 'Impresora de Sublimación Epson L120',
+    watts: 20,
+    fp: 0.85,
+    tipoCarga: 'monofasica',
+    precio: 4500,
+    mantenimiento: 400,
+    vidaUtil: 5,
+    criteriosDurabilidad: 'Impresora compacta de inyección continua adaptada para tinta de sublimación.',
+    criteriosMantenimiento: 'Purga y prueba de inyectores para evitar obstrucción en cabezal piezoeléctrico.'
+  },
+  {
+    tipo: 'Plancha de Sublimación de Tazas (350W)',
+    watts: 350,
+    fp: 1.0,
+    tipoCarga: 'monofasica',
+    precio: 3500,
+    mantenimiento: 250,
+    vidaUtil: 5,
+    criteriosDurabilidad: 'Resistencia cilíndrica de silicona con control digital de temperatura a 200°C.',
+    criteriosMantenimiento: 'Inspección de resistencia y ajuste de abrazadera de presión.'
+  },
+  {
+    tipo: 'Plancha de Sublimación para Gorras (400W)',
+    watts: 400,
+    fp: 1.0,
+    tipoCarga: 'monofasica',
+    precio: 4200,
+    mantenimiento: 250,
+    vidaUtil: 5,
+    criteriosDurabilidad: 'Prensa curva térmica para gorras y mangas.',
+    criteriosMantenimiento: 'Comprobación de teflón y tensión del brazo curvo.'
+  },
+  {
+    tipo: 'Bordadora Computarizada Brother PE770',
+    watts: 75,
+    fp: 0.80,
+    tipoCarga: 'monofasica',
+    precio: 16000,
+    mantenimiento: 900,
+    vidaUtil: 7,
+    criteriosDurabilidad: 'Bordadora personal de 1 cabeza con lector USB.',
+    criteriosMantenimiento: 'Lubricación de garfio rotativo y limpieza de sensores de hilo.'
+  },
+  {
+    tipo: 'Cortadora y Grabadora Láser Atomstack A20',
+    watts: 120,
+    fp: 0.88,
+    tipoCarga: 'monofasica',
+    precio: 21000,
+    mantenimiento: 850,
+    vidaUtil: 5,
+    criteriosDurabilidad: 'Módulo láser diodo cuádruple de 20W óptico con bomba de asistencia de aire.',
+    criteriosMantenimiento: 'Limpieza con alcohol isopropílico de lente y filtros de aire.'
+  },
+  {
+    tipo: 'Reveladora de Serigrafía (8 Tubos Fluorescentes 32W)',
+    watts: 256,
+    fp: 0.90,
+    tipoCarga: 'monofasica',
+    precio: 8500,
+    mantenimiento: 400,
+    vidaUtil: 8,
+    criteriosDurabilidad: 'Mesa de insolación UV con 8 tubos de 32W (256W totales) para fotograbado de marcos.',
+    criteriosMantenimiento: 'Revisión de balastros y limpieza de vidrio templado.'
+  },
+  {
+    tipo: 'Plancha de Calor Serigrafía 80x100 cm (220V)',
+    watts: 3600,
+    fp: 1.0,
+    tipoCarga: 'bifasica',
+    precio: 48000,
+    mantenimiento: 2200,
+    vidaUtil: 10,
+    criteriosDurabilidad: 'Plancha de gran formato neumática/manual a 220V para curado y termofijado de serigrafía.',
+    criteriosMantenimiento: 'Reapriete de terminales de potencia de 220V y calibración de relevador de estado sólido (SSR).'
+  },
+  {
+    tipo: 'Bordadora Industrial AEMCO 220V Dahao (4 Cabezas)',
+    watts: 1800,
+    fp: 0.85,
+    tipoCarga: 'bifasica',
+    precio: 95000,
+    mantenimiento: 5500,
+    vidaUtil: 15,
+    criteriosDurabilidad: 'Bordadora industrial de cama plana 4 cabezas a 220V con computadora Dahao.',
+    criteriosMantenimiento: 'Lubricación semanal de garfios y revisión de sincronía de cabezales.'
+  },
+  {
+    tipo: 'Bordadora Industrial Melco EMC 6/4 (4 Cabezas, 6 Hilos)',
+    watts: 1500,
+    fp: 0.82,
+    tipoCarga: 'monofasica',
+    precio: 85000,
+    mantenimiento: 4800,
+    vidaUtil: 15,
+    criteriosDurabilidad: 'Bordadora industrial electromecánica Melco 4 cabezas y 6 hilos a 127V.',
+    criteriosMantenimiento: 'Ajuste de solenoides de corte y engrase de levas principales.'
+  },
+  {
+    tipo: 'Máquina Recta Industrial Singer',
+    watts: 550,
+    fp: 0.80,
+    tipoCarga: 'monofasica',
+    precio: 16500,
+    mantenimiento: 1200,
+    vidaUtil: 12,
+    criteriosDurabilidad: 'Máquina recta con servomotor ahorrador silencioso directo de alta aceleración.',
+    criteriosMantenimiento: 'Cambio de aceite sumergido y afilado/cambio de aguja.'
+  },
+  {
+    tipo: 'Máquina Collaretera Industrial Singer',
+    watts: 550,
+    fp: 0.80,
+    tipoCarga: 'monofasica',
+    precio: 22500,
+    mantenimiento: 1600,
+    vidaUtil: 12,
+    criteriosDurabilidad: 'Máquina collaretera/tapa costura industrial para prendas stretch y dobladillos.',
+    criteriosMantenimiento: 'Sincronización de áncoras y soplado de pelusa textil.'
+  },
+  {
+    tipo: 'Fotocopiadora / Impresora Xerox DocuColor',
+    watts: 1500,
+    fp: 0.92,
+    tipoCarga: 'monofasica',
+    precio: 55000,
+    mantenimiento: 4500,
+    vidaUtil: 8,
+    criteriosDurabilidad: 'Equipo multifuncional láser color de alto rendimiento para tirajes y copiado.',
+    criteriosMantenimiento: 'Reemplazo de cilindros OPC, rodillo fusor y limpieza de ópticas.'
+  },
+  {
+    tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)',
+    watts: 1700,
+    fp: 0.95,
+    tipoCarga: 'bifasica',
+    precio: 13500,
+    mantenimiento: 950,
+    vidaUtil: 8,
+    criteriosDurabilidad: 'Aire acondicionado inverter a 220V para locales comerciales medianos.',
+    criteriosMantenimiento: 'Limpieza periódica de filtros y lavado químico de condensadora.'
+  },
+  {
+    tipo: 'Minisplit Inverter 2 TR (24,000 BTU - 220V)',
+    watts: 2250,
+    fp: 0.95,
+    tipoCarga: 'bifasica',
+    precio: 17500,
+    mantenimiento: 1200,
+    vidaUtil: 8,
+    criteriosDurabilidad: 'Climatizador de alta capacidad a 220V para carga térmica comercial gastronómica.',
+    criteriosMantenimiento: 'Monitoreo de presión de gas R410A y desobstrucción de drenaje.'
+  },
+  {
+    tipo: 'Máquina de Marquesitas Eléctrica',
+    watts: 1500,
+    fp: 1.0,
+    tipoCarga: 'monofasica',
+    precio: 14500,
+    mantenimiento: 850,
+    vidaUtil: 7,
+    criteriosDurabilidad: 'Planchas dobles de hierro acanalado para marquesitas y barquillos yucatecos.',
+    criteriosMantenimiento: 'Limpieza mecánica de ranuras de fundición y verificación de cableado térmico.'
+  },
+  {
+    tipo: 'Cafetera Breville Barista (Molino + Vaporizador)',
+    watts: 1650,
+    fp: 0.98,
+    tipoCarga: 'monofasica',
+    precio: 18500,
+    mantenimiento: 1200,
+    vidaUtil: 6,
+    criteriosDurabilidad: 'Máquina espresso profesional con molino cónico de muelas integrado y termobloque de 15 bar.',
+    criteriosMantenimiento: 'Descalcificación periódica y purga de lanceta de vapor.'
+  },
+  {
+    tipo: 'Tetera Calentadora de Agua Eléctrica',
+    watts: 1500,
+    fp: 1.0,
+    tipoCarga: 'monofasica',
+    precio: 1200,
+    mantenimiento: 150,
+    vidaUtil: 4,
+    criteriosDurabilidad: 'Hervidor eléctrico rápido con desconexión automática al hervir.',
+    criteriosMantenimiento: 'Eliminación de sarro mineral con solución vinagre/ácido cítrico.'
+  },
+  {
+    tipo: 'Máquina Baño María Eléctrica (2 Ollas)',
+    watts: 1500,
+    fp: 1.0,
+    tipoCarga: 'monofasica',
+    precio: 8500,
+    mantenimiento: 500,
+    vidaUtil: 7,
+    criteriosDurabilidad: 'Calentador gastronómico con dos recipientes circulares de acero para esquites y caldos.',
+    criteriosMantenimiento: 'Inspección de resistencia sumergida y sello termostático.'
+  },
+  {
+    tipo: 'Televisión Smart LED 70 Pulgadas',
+    watts: 210,
+    fp: 0.95,
+    tipoCarga: 'monofasica',
+    precio: 14500,
+    mantenimiento: 300,
+    vidaUtil: 7,
+    criteriosDurabilidad: 'Pantalla 4K de gran formato para entretenimiento y menú dinámico en Hawaiian Paradise.',
+    criteriosMantenimiento: 'Verificación de soporte y ventilación trasera.'
+  },
+  {
+    tipo: 'Televisión Smart LED 32 Pulgadas',
+    watts: 55,
+    fp: 0.95,
+    tipoCarga: 'monofasica',
+    precio: 4200,
+    mantenimiento: 150,
+    vidaUtil: 7,
+    criteriosDurabilidad: 'Pantalla compacta de bajo consumo para oficina de consorcio.',
+    criteriosMantenimiento: 'Limpieza superficial y puertos de conexión.'
   }
 ];
 
