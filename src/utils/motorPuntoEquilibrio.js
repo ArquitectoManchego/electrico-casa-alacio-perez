@@ -13,9 +13,11 @@ import {
   calcularMargenProducto, 
   calcularMargenPromedioPonderado 
 } from './preciosYCostosProductos.js';
+import { calcularNominaNegocio } from './nominaYTurnosNegocios.js';
 
 /**
  * Calcula los gastos fijos mensuales totales y el punto de equilibrio operativo de un negocio
+ * integrando Renta con IVA, Agua, CFE, Sueldos y Cargas Patronales de Seguro Social (IMSS).
  */
 export function calcularPuntoEquilibrio({
   negocioId,
@@ -23,7 +25,9 @@ export function calcularPuntoEquilibrio({
   reciboLuzReal = null,
   sueldosFijosExtras = 0,
   otrosGastosFijos = 0,
-  productosPersonalizados = null
+  productosPersonalizados = null,
+  configNomina = null,
+  salarioMinimoMensual = null
 }) {
   const costosInmueble = obtenerCostosFijosInmueble(negocioId);
   const rentaConIva = costosInmueble.renta.rentaConIva;
@@ -34,7 +38,27 @@ export function calcularPuntoEquilibrio({
     ? parseFloat(reciboLuzReal) || 0
     : (costosInmueble.hvac.kwhMensualEstimado * 3.8); // Tarifa promedio ~3.8 MXN/kWh
 
-  const gastosFijosTotales = rentaConIva + aguaMensual + luzMensual + parseFloat(sueldosFijosExtras || 0) + parseFloat(otrosGastosFijos || 0);
+  // Nómina y Cargas Patronales de Seguro Social (IMSS + Infonavit)
+  let sueldosBrutos = 0;
+  let imssPatronal = 0;
+  let totalCostoLaboral = 0;
+  let nominaDetalle = null;
+
+  if (configNomina) {
+    nominaDetalle = calcularNominaNegocio({
+      configNegocio: configNomina,
+      negocioId,
+      salarioMinimoMensual: salarioMinimoMensual || undefined
+    });
+    sueldosBrutos = nominaDetalle.totalSueldosBrutos;
+    imssPatronal = nominaDetalle.totalImssPatronal;
+    totalCostoLaboral = nominaDetalle.totalGastoLaboral;
+  } else if (sueldosFijosExtras > 0) {
+    totalCostoLaboral = parseFloat(sueldosFijosExtras) || 0;
+    sueldosBrutos = totalCostoLaboral;
+  }
+
+  const gastosFijosTotales = rentaConIva + aguaMensual + luzMensual + totalCostoLaboral + parseFloat(otrosGastosFijos || 0);
   const cuotaFijaDiaria = diasLaborales > 0 ? (gastosFijosTotales / diasLaborales) : 0;
 
   const { mcPonderado, precioPonderado, margenPctPonderado } = calcularMargenPromedioPonderado(negocioId, productosPersonalizados);
@@ -52,10 +76,14 @@ export function calcularPuntoEquilibrio({
       rentaConIva,
       aguaMensual,
       luzMensual,
-      sueldosFijosExtras,
+      sueldosBrutos,
+      imssPatronal,
+      totalCostoLaboral,
+      sueldosFijosExtras: totalCostoLaboral,
       otrosGastosFijos,
       gastosFijosTotales,
-      cuotaFijaDiaria
+      cuotaFijaDiaria,
+      nominaDetalle
     },
     metricasUnitarias: {
       mcPonderado,
@@ -84,7 +112,9 @@ export function calibrarNivelesVentaFinancieros({
   reciboLuzReal = null,
   sueldosFijosExtras = 0,
   otrosGastosFijos = 0,
-  productosPersonalizados = null
+  productosPersonalizados = null,
+  configNomina = null,
+  salarioMinimoMensual = null
 }) {
   const pe = calcularPuntoEquilibrio({
     negocioId,
@@ -92,7 +122,9 @@ export function calibrarNivelesVentaFinancieros({
     reciboLuzReal,
     sueldosFijosExtras,
     otrosGastosFijos,
-    productosPersonalizados
+    productosPersonalizados,
+    configNomina,
+    salarioMinimoMensual
   });
 
   const { gastosFijosTotales, cuotaFijaDiaria } = pe.costosFijos;

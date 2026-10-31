@@ -9,7 +9,12 @@ import {
   Building2,
   PieChart,
   Calculator,
-  RotateCcw
+  RotateCcw,
+  Users,
+  FileSpreadsheet,
+  Coins,
+  Layers,
+  LayoutGrid
 } from 'lucide-react';
 
 import SelectorNegocioFinanzas, { NEGOCIOS_METADATA } from './finanzas/SelectorNegocioFinanzas';
@@ -17,6 +22,7 @@ import SimuladorDiaVenta from './finanzas/SimuladorDiaVenta';
 import EstadoResultadosMensual from './finanzas/EstadoResultadosMensual';
 import TablaCostosYPrecios from './finanzas/TablaCostosYPrecios';
 import ConsolidadoConsorcioFinanzas from './finanzas/ConsolidadoConsorcioFinanzas';
+import PanelNominaYTurnos from './finanzas/PanelNominaYTurnos';
 
 import { 
   SUPERFICIE_INMUEBLE, 
@@ -38,6 +44,12 @@ import {
   calcularEstadoResultados 
 } from '../utils/motorPuntoEquilibrio.js';
 
+import { 
+  PLANTILLA_DEFAULT_NEGOCIOS, 
+  SALARIO_MINIMO_CONFIG,
+  calcularNominaNegocio 
+} from '../utils/nominaYTurnosNegocios.js';
+
 export default function ModuloFinanzasNegocios({
   aparatos = [],
   tarifas = {},
@@ -51,10 +63,33 @@ export default function ModuloFinanzasNegocios({
   // Escenario mensual activo ('bajo', 'medio', 'alto', 'muy_alto')
   const [escenarioActivo, setEscenarioActivo] = useState('alto');
 
+  // Subpestaña activa en la vista de negocio ('todos' | 'simulador' | 'pnl' | 'nomina' | 'precios')
+  const [subtabNegocio, setSubtabNegocio] = useState('todos');
+
   // Días laborales al mes (default 26 días)
   const [diasLaborales, setDiasLaborales] = useState(26);
 
-  // Gastos adicionales configurables por negocio (sueldos fijos, etc.)
+  // Configuración de nómina, empleados y turnos por negocio (con persistencia en localStorage)
+  const [configNominaPorNegocio, setConfigNominaPorNegocio] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sge_finanzas_nomina_v1');
+      return saved ? JSON.parse(saved) : PLANTILLA_DEFAULT_NEGOCIOS;
+    } catch (e) {
+      return PLANTILLA_DEFAULT_NEGOCIOS;
+    }
+  });
+
+  // Salario Mínimo General Vigente de referencia
+  const [salarioMinimoMensual, setSalarioMinimoMensual] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sge_finanzas_salario_minimo');
+      return saved ? parseFloat(saved) : SALARIO_MINIMO_CONFIG.mensual;
+    } catch (e) {
+      return SALARIO_MINIMO_CONFIG.mensual;
+    }
+  });
+
+  // Gastos adicionales configurables por negocio
   const [gastosExtrasPorNegocio, setGastosExtrasPorNegocio] = useState(() => {
     try {
       const saved = localStorage.getItem('sge_finanzas_gastos_extras');
@@ -74,7 +109,19 @@ export default function ModuloFinanzasNegocios({
     }
   });
 
-  // Guardar en localStorage cuando cambian
+  // Sincronización en localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('sge_finanzas_nomina_v1', JSON.stringify(configNominaPorNegocio));
+    } catch (e) {}
+  }, [configNominaPorNegocio]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sge_finanzas_salario_minimo', salarioMinimoMensual.toString());
+    } catch (e) {}
+  }, [salarioMinimoMensual]);
+
   useEffect(() => {
     try {
       localStorage.setItem('sge_finanzas_gastos_extras', JSON.stringify(gastosExtrasPorNegocio));
@@ -112,11 +159,16 @@ export default function ModuloFinanzasNegocios({
   const reciboLuzNegocio = useMemo(() => {
     if (negocioSeleccionado === 'consolidado') return null;
     const hvac = TABLA_HVAC_INMUEBLE[negocioSeleccionado];
-    // Estimación con tarifa CFE comercial estándar ~3.8 MXN/kWh
     return hvac ? (hvac.kwhMensualEstimado * 3.8) : 800;
   }, [negocioSeleccionado]);
 
-  // Calibración de Punto de Equilibrio y Escenarios para el negocio activo
+  // Configuración de nómina activa del negocio seleccionado
+  const nominaConfigActiva = useMemo(() => {
+    if (negocioSeleccionado === 'consolidado') return null;
+    return configNominaPorNegocio[negocioSeleccionado] || PLANTILLA_DEFAULT_NEGOCIOS[negocioSeleccionado] || PLANTILLA_DEFAULT_NEGOCIOS.hawaiian_paradise;
+  }, [negocioSeleccionado, configNominaPorNegocio]);
+
+  // Calibración de Punto de Equilibrio y Escenarios para el negocio activo (incluye nómina e IMSS)
   const calibracionActiva = useMemo(() => {
     if (negocioSeleccionado === 'consolidado') return null;
     const extras = gastosExtrasPorNegocio[negocioSeleccionado] || { sueldos: 0, otros: 0 };
@@ -127,9 +179,11 @@ export default function ModuloFinanzasNegocios({
       reciboLuzReal: reciboLuzNegocio,
       sueldosFijosExtras: extras.sueldos || 0,
       otrosGastosFijos: extras.otros || 0,
-      productosPersonalizados: productosNegocioActivo
+      productosPersonalizados: productosNegocioActivo,
+      configNomina: nominaConfigActiva,
+      salarioMinimoMensual
     });
-  }, [negocioSeleccionado, diasLaborales, reciboLuzNegocio, gastosExtrasPorNegocio, productosNegocioActivo]);
+  }, [negocioSeleccionado, diasLaborales, reciboLuzNegocio, gastosExtrasPorNegocio, productosNegocioActivo, nominaConfigActiva, salarioMinimoMensual]);
 
   // Inicializar o sincronizar el simulador diario cuando se selecciona un preset o cambia de negocio
   const aplicarPresetDia = useCallback((tipo) => {
@@ -143,12 +197,10 @@ export default function ModuloFinanzasNegocios({
     }
 
     if (tipo === 'bajo') {
-      // 5 a 10 artículos en total (ej. 1 crepa, 2 cafés, 1 raspado...)
       const bajo = calibracionActiva.escenarios.bajo;
       const nuevo = {};
       let acumulado = 0;
       productosNegocioActivo.forEach((p, idx) => {
-        // Asignar entre 1 y 2 de los productos más populares, cuidando sumar <= 10
         const sugerido = Math.min(2, Math.round((bajo.cantidades[p.id] || 0) / diasLaborales));
         if (acumulado + sugerido <= 10) {
           nuevo[p.id] = Math.max(idx < 3 ? 1 : 0, sugerido);
@@ -201,6 +253,21 @@ export default function ModuloFinanzasNegocios({
     }
   }, [negocioSeleccionado]);
 
+  // Handlers para la nómina y turnos
+  const handleUpdateConfigNomina = (nuevoConfig) => {
+    setConfigNominaPorNegocio(prev => ({
+      ...prev,
+      [negocioSeleccionado]: nuevoConfig
+    }));
+  };
+
+  const handleResetNomina = () => {
+    setConfigNominaPorNegocio(prev => ({
+      ...prev,
+      [negocioSeleccionado]: PLANTILLA_DEFAULT_NEGOCIOS[negocioSeleccionado] || PLANTILLA_DEFAULT_NEGOCIOS.hawaiian_paradise
+    }));
+  };
+
   // Manejo de actualización de productos por el usuario
   const handleUpdateProducto = (prodId, fields) => {
     setProductosOverrides(prev => ({
@@ -233,13 +300,14 @@ export default function ModuloFinanzasNegocios({
   };
 
   // =========================================================================
-  // CÁLCULO DEL CONSOLIDADO GENERAL DE LOS 7 NEGOCIOS
+  // CÁLCULO DEL CONSOLIDADO GENERAL DE LOS 7 NEGOCIOS (INCLUYE NÓMINA E IMSS)
   // =========================================================================
   const { consolidadoRows, consolidadoTotales } = useMemo(() => {
     const rows = [];
     let rentaTotalConIva = 0;
     let aguaTotal = 0;
     let luzTotal = 0;
+    let nominaTotalConsorcio = 0;
     let gastosFijosTotales = 0;
     let ingresosBrutosTotales = 0;
     let utilidadBrutaTotal = 0;
@@ -253,7 +321,6 @@ export default function ModuloFinanzasNegocios({
       const hvac = TABLA_HVAC_INMUEBLE[neg.id];
       const luz = hvac ? (hvac.kwhMensualEstimado * 3.8) : 800;
 
-      // Calcular P&L en el escenario seleccionado para el consolidado
       const baseProds = CATALOGO_PRECIOS_COSTOS[neg.id] || [];
       const userOverrides = productosOverrides[neg.id] || {};
       const prods = baseProds.map(p => {
@@ -267,23 +334,29 @@ export default function ModuloFinanzasNegocios({
       });
 
       const extras = gastosExtrasPorNegocio[neg.id] || { sueldos: 0, otros: 0 };
+      const nominaConfig = configNominaPorNegocio[neg.id] || PLANTILLA_DEFAULT_NEGOCIOS[neg.id] || PLANTILLA_DEFAULT_NEGOCIOS.hawaiian_paradise;
+
       const calib = calibrarNivelesVentaFinancieros({
         negocioId: neg.id,
         diasLaborales,
         reciboLuzReal: luz,
         sueldosFijosExtras: extras.sueldos || 0,
         otrosGastosFijos: extras.otros || 0,
-        productosPersonalizados: prods
+        productosPersonalizados: prods,
+        configNomina: nominaConfig,
+        salarioMinimoMensual
       });
 
       const esc = calib.escenarios[escenarioActivo] || calib.escenarios.alto;
       const pnl = esc.pnl;
-
-      const gf = renta.rentaConIva + agua.montoMensual + luz + (extras.sueldos || 0) + (extras.otros || 0);
+      const gf = calib.costosFijos.gastosFijosTotales;
+      const nominaTotal = calib.costosFijos.totalCostoLaboral;
+      const empCount = calib.costosFijos.nominaDetalle?.totalEmpleados || 0;
 
       rentaTotalConIva += renta.rentaConIva;
       aguaTotal += agua.montoMensual;
       luzTotal += luz;
+      nominaTotalConsorcio += nominaTotal;
       gastosFijosTotales += gf;
       ingresosBrutosTotales += pnl.ingresosBrutos;
       utilidadBrutaTotal += pnl.utilidadBruta;
@@ -299,6 +372,8 @@ export default function ModuloFinanzasNegocios({
         rentaConIva: renta.rentaConIva,
         agua: agua.montoMensual,
         luz,
+        nominaTotal,
+        empleadosCount: empCount,
         gastosFijos: gf,
         ingresos: pnl.ingresosBrutos,
         utilidadBruta: pnl.utilidadBruta,
@@ -312,13 +387,14 @@ export default function ModuloFinanzasNegocios({
         rentaTotalConIva,
         aguaTotal,
         luzTotal,
+        nominaTotal: nominaTotalConsorcio,
         gastosFijosTotales,
         ingresosBrutosTotales,
         utilidadBrutaTotal,
         utilidadNetaTotal
       }
     };
-  }, [escenarioActivo, diasLaborales, productosOverrides, gastosExtrasPorNegocio]);
+  }, [escenarioActivo, diasLaborales, productosOverrides, gastosExtrasPorNegocio, configNominaPorNegocio, salarioMinimoMensual]);
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -331,10 +407,10 @@ export default function ModuloFinanzasNegocios({
           <div>
             <h2 className="text-xl font-bold font-display text-white flex items-center gap-2">
               <DollarSign className="text-teal-400" size={24} />
-              Finanzas, Costos Operativos y Rentabilidad por Unidad de Negocio
+              Finanzas, Nómina, Costos y Rentabilidad por Unidad de Negocio
             </h2>
             <p className="text-xs text-slate-400 mt-1 leading-relaxed font-sans max-w-4xl">
-              Modelo financiero integral para la Casa Alacio Pérez: prorrateo milimétrico de Renta con IVA ($10,440.00 MXN), Agua ($1,000.00 MXN), Climatización (3.80 m de altura) y Facturación CFE. Simula ventas diarias reales (de 0 a 10 artículos), evalúa el punto de equilibrio y calibra la meta de $20,000 MXN en ganancia neta libre.
+              Modelo financiero integral para la Casa Alacio Pérez: prorrateo milimétrico de Renta con IVA ($10,440.00 MXN), Agua ($1,000.00 MXN), Climatización (3.80 m de altura), CFE y Nómina con Seguro Social IMSS. Simula ventas diarias reales (de 0 a 10 artículos), evalúa el punto de equilibrio y calibra la meta de $20,000 MXN en ganancia neta libre.
             </p>
           </div>
 
@@ -359,6 +435,8 @@ export default function ModuloFinanzasNegocios({
         onSelectNegocio={setNegocioSeleccionado}
         gastosFijosTotales={calibracionActiva?.costosFijos?.gastosFijosTotales || calibracionActiva?.puntoEquilibrio?.costosFijos?.gastosFijosTotales || 0}
         reciboLuzMonto={reciboLuzNegocio}
+        costoNominaTotal={calibracionActiva?.costosFijos?.totalCostoLaboral || 0}
+        totalEmpleados={calibracionActiva?.costosFijos?.nominaDetalle?.totalEmpleados || 0}
       />
 
       {/* VISTA CONSOLIDADA GENERAL O VISTA POR NEGOCIO ESPECÍFICO */}
@@ -372,20 +450,50 @@ export default function ModuloFinanzasNegocios({
         />
       ) : (
         <div className="space-y-6">
+          {/* Navegación por Subsecciones del Negocio */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-800">
+            {[
+              { id: 'todos', label: 'Ver Todo (Completo)', icon: LayoutGrid },
+              { id: 'simulador', label: 'Simulador Diario', icon: Calculator },
+              { id: 'pnl', label: 'Estado de Resultados (P&L)', icon: FileSpreadsheet },
+              { id: 'nomina', label: 'Personal, Turnos e IMSS', icon: Users },
+              { id: 'precios', label: 'Precios y Costos Unitarios', icon: Coins }
+            ].map(tab => {
+              const TabIcon = tab.icon;
+              const isTabActive = subtabNegocio === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setSubtabNegocio(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                    isTabActive
+                      ? 'bg-teal-500 text-slate-950 shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <TabIcon size={14} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Componente 1: Simulador Interactivo de Día de Venta */}
-          <SimuladorDiaVenta
-            productos={productosNegocioActivo}
-            negocioId={negocioSeleccionado}
-            diasLaborales={diasLaborales}
-            gastosFijosMensuales={calibracionActiva?.costosFijos?.gastosFijosTotales || calibracionActiva?.puntoEquilibrio?.costosFijos?.gastosFijosTotales || 0}
-            articulosVendidosMap={articulosVendidosMap}
-            onChangeArticulo={handleChangeArticulo}
-            onResetDia={handleResetDia}
-            onApplyPreset={aplicarPresetDia}
-          />
+          {(subtabNegocio === 'todos' || subtabNegocio === 'simulador') && (
+            <SimuladorDiaVenta
+              productos={productosNegocioActivo}
+              negocioId={negocioSeleccionado}
+              diasLaborales={diasLaborales}
+              gastosFijosMensuales={calibracionActiva?.costosFijos?.gastosFijosTotales || calibracionActiva?.puntoEquilibrio?.costosFijos?.gastosFijosTotales || 0}
+              articulosVendidosMap={articulosVendidosMap}
+              onChangeArticulo={handleChangeArticulo}
+              onResetDia={handleResetDia}
+              onApplyPreset={aplicarPresetDia}
+            />
+          )}
 
           {/* Componente 2: Estado de Resultados Mensual y Comparativa */}
-          {calibracionActiva && (
+          {(subtabNegocio === 'todos' || subtabNegocio === 'pnl') && calibracionActiva && (
             <EstadoResultadosMensual
               escenarios={calibracionActiva.escenarios}
               escenarioActivo={escenarioActivo}
@@ -396,13 +504,28 @@ export default function ModuloFinanzasNegocios({
             />
           )}
 
-          {/* Componente 3: Catálogo de Costos, Precios y Márgenes */}
-          <TablaCostosYPrecios
-            productos={productosNegocioActivo}
-            negocioNombre={NEGOCIOS_METADATA.find(n => n.id === negocioSeleccionado)?.nombre}
-            onUpdateProducto={handleUpdateProducto}
-            onResetProductos={handleResetProductos}
-          />
+          {/* Componente 3: Panel de Recursos Humanos, Turnos, Salarios Mínimos e IMSS */}
+          {(subtabNegocio === 'todos' || subtabNegocio === 'nomina') && (
+            <PanelNominaYTurnos
+              configNomina={nominaConfigActiva}
+              negocioNombre={NEGOCIOS_METADATA.find(n => n.id === negocioSeleccionado)?.nombre}
+              negocioId={negocioSeleccionado}
+              salarioMinimoMensual={salarioMinimoMensual}
+              onUpdateConfigNomina={handleUpdateConfigNomina}
+              onResetNomina={handleResetNomina}
+              onUpdateSalarioMinimo={setSalarioMinimoMensual}
+            />
+          )}
+
+          {/* Componente 4: Catálogo de Costos, Precios y Márgenes */}
+          {(subtabNegocio === 'todos' || subtabNegocio === 'precios') && (
+            <TablaCostosYPrecios
+              productos={productosNegocioActivo}
+              negocioNombre={NEGOCIOS_METADATA.find(n => n.id === negocioSeleccionado)?.nombre}
+              onUpdateProducto={handleUpdateProducto}
+              onResetProductos={handleResetProductos}
+            />
+          )}
         </div>
       )}
     </div>

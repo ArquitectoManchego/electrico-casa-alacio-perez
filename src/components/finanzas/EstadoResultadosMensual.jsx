@@ -186,15 +186,36 @@ export default function EstadoResultadosMensual({
                 <td className="py-2 px-3 text-right text-slate-300 bg-teal-500/5">-${Math.round(costosFijosDetalle?.luzMensual || 0).toLocaleString()}</td>
                 <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.luzMensual || 0).toLocaleString()}</td>
               </tr>
-              {costosFijosDetalle?.sueldosFijosExtras > 0 && (
+              {costosFijosDetalle?.sueldosBrutos > 0 ? (
+                <>
+                  <tr>
+                    <td className="py-2 px-3 text-slate-400 font-sans pl-6">
+                      (-) Sueldos Base ({costosFijosDetalle?.nominaDetalle?.totalEmpleados || 0} emp. &middot; {costosFijosDetalle?.nominaDetalle?.turnosPorDia || 1} turno)
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.sueldosBrutos || 0).toLocaleString()}</td>
+                    <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.sueldosBrutos || 0).toLocaleString()}</td>
+                    <td className="py-2 px-3 text-right text-slate-300 bg-teal-500/5">-${Math.round(costosFijosDetalle?.sueldosBrutos || 0).toLocaleString()}</td>
+                    <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.sueldosBrutos || 0).toLocaleString()}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 text-slate-400 font-sans pl-6">
+                      (-) Carga Social Patronal IMSS + Infonavit (~26.5%)
+                    </td>
+                    <td className="py-2 px-3 text-right text-cyan-300">-${Math.round(costosFijosDetalle?.imssPatronal || 0).toLocaleString()}</td>
+                    <td className="py-2 px-3 text-right text-cyan-300">-${Math.round(costosFijosDetalle?.imssPatronal || 0).toLocaleString()}</td>
+                    <td className="py-2 px-3 text-right text-cyan-300 bg-teal-500/5">-${Math.round(costosFijosDetalle?.imssPatronal || 0).toLocaleString()}</td>
+                    <td className="py-2 px-3 text-right text-cyan-300">-${Math.round(costosFijosDetalle?.imssPatronal || 0).toLocaleString()}</td>
+                  </tr>
+                </>
+              ) : costosFijosDetalle?.sueldosFijosExtras > 0 ? (
                 <tr>
-                  <td className="py-2 px-3 text-slate-400 font-sans pl-6">(-) Sueldos Fijos Extras</td>
+                  <td className="py-2 px-3 text-slate-400 font-sans pl-6">(-) Sueldos y Cargas Laborales</td>
                   <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.sueldosFijosExtras).toLocaleString()}</td>
                   <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.sueldosFijosExtras).toLocaleString()}</td>
                   <td className="py-2 px-3 text-right text-slate-300 bg-teal-500/5">-${Math.round(costosFijosDetalle?.sueldosFijosExtras).toLocaleString()}</td>
                   <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.sueldosFijosExtras).toLocaleString()}</td>
                 </tr>
-              )}
+              ) : null}
               <tr className="bg-slate-950/80 font-bold text-sm">
                 <td className="py-3 px-3 text-white font-sans flex items-center gap-1.5">
                   <DollarSign size={16} className="text-teal-400" />

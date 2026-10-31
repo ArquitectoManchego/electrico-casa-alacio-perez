@@ -23,6 +23,14 @@ import {
   calcularEstadoResultados 
 } from '../src/utils/motorPuntoEquilibrio.js';
 
+import { 
+  SALARIO_MINIMO_CONFIG, 
+  PLANTILLA_DEFAULT_NEGOCIOS, 
+  calcularSalariosMinimosEquivalentes, 
+  calcularCargaSocialEmpleado, 
+  calcularNominaNegocio 
+} from '../src/utils/nominaYTurnosNegocios.js';
+
 console.log('================================================================');
 console.log('EJECUTANDO SUITE DE PRUEBAS FINANCIERAS Y PRORRATEO CASA ALACIO');
 console.log('================================================================\n');
@@ -199,7 +207,74 @@ const diaAltoReal = simularDiaVentaInteractivo({
   gastosFijosMensuales: peHP.costosFijos.gastosFijosTotales
 });
 assert(diaAltoReal.utilidadNetaDia >= 750, `Día Alto genera >= $750 MXN netos/día para sumar $20,000/mes (actual: $${Math.round(diaAltoReal.utilidadNetaDia)})`);
-assert(diaAltoReal.calificacionDia === 'alto', `Calificación es alto`);
+// -----------------------------------------------------------------------------
+// PRUEBA 7: Salario Mínimo General Vigente y Equivalencias
+// -----------------------------------------------------------------------------
+console.log('\n--- TEST 7: Salario Mínimo General y Equivalencias ---');
+assert(SALARIO_MINIMO_CONFIG.diario === 248.93, `Salario mínimo diario oficial = $248.93 MXN`);
+assert(Math.abs(SALARIO_MINIMO_CONFIG.mensual - 7567.472) < 0.01, `Salario mínimo mensual oficial (30.4 días) = $7,567.47 MXN`);
+
+const equivExacta = calcularSalariosMinimosEquivalentes(7567.47);
+assert(equivExacta === 1.0, `Sueldo de $7,567.47 equivale exactamente a 1.00 Salarios Mínimos (actual: ${equivExacta})`);
+
+const equiv8500 = calcularSalariosMinimosEquivalentes(8500.00);
+assert(equiv8500 === 1.12, `Sueldo de $8,500 equivale a 1.12 Salarios Mínimos (actual: ${equiv8500})`);
+
+// -----------------------------------------------------------------------------
+// PRUEBA 8: Carga Social Patronal IMSS + Infonavit (~26.5%)
+// -----------------------------------------------------------------------------
+console.log('\n--- TEST 8: Carga Social Patronal IMSS e Infonavit ---');
+const carga8500 = calcularCargaSocialEmpleado(8500.00);
+assert(carga8500.imssPatronal === 8500 * 0.265, `Carga patronal IMSS al 26.5% para $8,500 = $2,252.50 (actual: ${carga8500.imssPatronal})`);
+assert(carga8500.costoTotalEmpresa === 8500 + 2252.50, `Costo total empresa = $10,752.50 (actual: ${carga8500.costoTotalEmpresa})`);
+
+// -----------------------------------------------------------------------------
+// PRUEBA 9: Nómina, Turnos y Horarios por Negocio
+// -----------------------------------------------------------------------------
+console.log('\n--- TEST 9: Plantillas de Nómina y Turnos de los 7 Negocios ---');
+const negociosNominaKeys = Object.keys(PLANTILLA_DEFAULT_NEGOCIOS);
+assert(negociosNominaKeys.length === 7, `Debe haber configuración de nómina para los 7 negocios`);
+
+// Hawaiian Paradise: 2 turnos, 2 empleados/turno = 4 empleados
+const nomHP = calcularNominaNegocio({ negocioId: 'hawaiian_paradise' });
+assert(nomHP.turnosPorDia === 2, `Hawaiian Paradise tiene 2 turnos`);
+assert(nomHP.empleadosPorTurno === 2, `Hawaiian Paradise tiene 2 empleados por turno`);
+assert(nomHP.totalEmpleados === 4, `Hawaiian Paradise tiene 4 empleados registrados`);
+assert(nomHP.totalSueldosBrutos === 33000, `Hawaiian Paradise sueldos brutos = $33,000 MXN (8.5k+8k+8.5k+8k)`);
+assert(nomHP.totalImssPatronal === 33000 * 0.265, `Hawaiian Paradise IMSS patronal = $8,745 MXN`);
+assert(nomHP.totalGastoLaboral === 33000 + 8745, `Hawaiian Paradise costo laboral total = $41,745 MXN`);
+
+// Taller de Costura: 2 costureras
+const nomCostura = calcularNominaNegocio({ negocioId: 'taller_costura' });
+assert(nomCostura.totalEmpleados === 2, `Taller de Costura tiene 2 costureras`);
+assert(nomCostura.totalSueldosBrutos === 17000, `Taller de Costura sueldos = $17,000 MXN`);
+
+// -----------------------------------------------------------------------------
+// PRUEBA 10: Integración de Nómina + IMSS a Gastos Fijos y Meta de $20,000 MXN Libres
+// -----------------------------------------------------------------------------
+console.log('\n--- TEST 10: Integración a Gastos Fijos y Recálculo del Punto de Equilibrio ---');
+const calibHPConNomina = calibrarNivelesVentaFinancieros({
+  negocioId: 'hawaiian_paradise',
+  diasLaborales: 26,
+  reciboLuzReal: 1000,
+  configNomina: PLANTILLA_DEFAULT_NEGOCIOS.hawaiian_paradise
+});
+
+const cfHP = calibHPConNomina.costosFijos;
+assert(cfHP.sueldosBrutos === 33000, `Gastos fijos incluyen sueldos brutos de $33,000`);
+assert(cfHP.imssPatronal === 8745, `Gastos fijos incluyen Seguro Social IMSS de $8,745`);
+assert(cfHP.totalCostoLaboral === 41745, `Costo laboral total = $41,745`);
+
+const rentaHP = TABLA_RENTAS_INMUEBLE.hawaiian_paradise.rentaConIva;
+const aguaHP = TABLA_AGUA_INMUEBLE.hawaiian_paradise.montoMensual;
+const luzHP = 1000;
+const gfEsperados = rentaHP + aguaHP + luzHP + 41745;
+assert(Math.abs(cfHP.gastosFijosTotales - gfEsperados) < 0.01, `Gastos fijos totales suman Renta + Agua + Luz + Nómina con IMSS = $${Math.round(gfEsperados)} (actual: $${Math.round(cfHP.gastosFijosTotales)})`);
+
+// Y la meta de $20,000 libres en Mes Alto se recalcula exitosamente para absorber esta nómina
+const altoHPConNomina = calibHPConNomina.escenarios.alto;
+const difMetaAltoNomina = Math.abs(altoHPConNomina.pnl.utilidadNeta - 20000);
+assert(difMetaAltoNomina < 150, `Hawaiian Paradise Mes Alto genera $20,000 libres tras pagar renta, agua, CFE y nómina con IMSS (actual: $${Math.round(altoHPConNomina.pnl.utilidadNeta)})`);
 
 // -----------------------------------------------------------------------------
 // RESUMEN

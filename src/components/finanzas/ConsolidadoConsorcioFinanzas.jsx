@@ -142,6 +142,7 @@ export default function ConsolidadoConsorcioFinanzas({
               <th className="py-2.5 px-3 text-right">Renta con IVA</th>
               <th className="py-2.5 px-3 text-right">Agua</th>
               <th className="py-2.5 px-3 text-right">Luz CFE</th>
+              <th className="py-2.5 px-3 text-right text-cyan-300">Nómina + IMSS</th>
               <th className="py-2.5 px-3 text-right">Gastos Fijos</th>
               <th className="py-2.5 px-3 text-right text-slate-200">Ingresos</th>
               <th className="py-2.5 px-3 text-right text-emerald-300">Margen Bruto</th>
@@ -168,6 +169,10 @@ export default function ConsolidadoConsorcioFinanzas({
                 </td>
                 <td className="py-2.5 px-3 text-right text-slate-300">
                   ${Math.round(row.luz).toLocaleString()}
+                </td>
+                <td className="py-2.5 px-3 text-right text-cyan-300">
+                  ${Math.round(row.nominaTotal || 0).toLocaleString()}
+                  <div className="text-[9px] text-slate-500">{row.empleadosCount || 0} emp.</div>
                 </td>
                 <td className="py-2.5 px-3 text-right font-medium text-amber-300">
                   ${Math.round(row.gastosFijos).toLocaleString()}
@@ -202,6 +207,7 @@ export default function ConsolidadoConsorcioFinanzas({
               <td className="py-3 px-3 text-right text-teal-300">${SUPERFICIE_INMUEBLE.rentaMensualConIva.toFixed(2)}</td>
               <td className="py-3 px-3 text-right text-cyan-300">${SUPERFICIE_INMUEBLE.reciboAguaMensualTotal.toFixed(2)}</td>
               <td className="py-3 px-3 text-right text-slate-300">${Math.round(totalesConsorcio.luzTotal || 0).toLocaleString()}</td>
+              <td className="py-3 px-3 text-right text-cyan-300">${Math.round(totalesConsorcio.nominaTotal || 0).toLocaleString()}</td>
               <td className="py-3 px-3 text-right text-amber-300">${Math.round(totalesConsorcio.gastosFijosTotales || 0).toLocaleString()}</td>
               <td className="py-3 px-3 text-right text-slate-200">${Math.round(totalesConsorcio.ingresosBrutosTotales || 0).toLocaleString()}</td>
               <td className="py-3 px-3 text-right text-emerald-300">+${Math.round(totalesConsorcio.utilidadBrutaTotal || 0).toLocaleString()}</td>

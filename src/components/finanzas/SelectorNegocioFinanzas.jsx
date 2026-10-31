@@ -33,7 +33,9 @@ export default function SelectorNegocioFinanzas({
   negocioSeleccionado,
   onSelectNegocio,
   gastosFijosTotales,
-  reciboLuzMonto
+  reciboLuzMonto,
+  costoNominaTotal = 0,
+  totalEmpleados = 0
 }) {
   const meta = NEGOCIOS_METADATA.find(n => n.id === negocioSeleccionado) || NEGOCIOS_METADATA[0];
   const rentaInfo = TABLA_RENTAS_INMUEBLE[negocioSeleccionado];
@@ -64,9 +66,9 @@ export default function SelectorNegocioFinanzas({
         })}
       </div>
 
-      {/* Ficha Resumen de Costos Fijos Inmobiliarios Prorrateados */}
+      {/* Ficha Resumen de Costos Fijos Inmobiliarios Prorrateados + Nómina */}
       {negocioSeleccionado !== 'consolidado' && rentaInfo && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-950/70 border border-slate-800/80 p-4 rounded-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-slate-950/70 border border-slate-800/80 p-4 rounded-2xl">
           {/* Card 1: Renta Prorrateada */}
           <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl space-y-1">
             <div className="flex items-center justify-between text-slate-400 text-[10px] font-mono uppercase">
@@ -80,8 +82,8 @@ export default function SelectorNegocioFinanzas({
               ${rentaInfo.rentaConIva.toLocaleString('es-MX', { minimumFractionDigits: 2 })} <span className="text-[10px] text-slate-400 font-normal">con IVA</span>
             </div>
             <p className="text-[10px] text-slate-400 leading-tight">
-              Base: ${rentaInfo.rentaSinIva.toFixed(2)} + 16% IVA (${(rentaInfo.rentaConIva - rentaInfo.rentaSinIva).toFixed(2)}) &middot; {rentaInfo.areaTotalImputadaM2} m² ({rentaInfo.nivel})
-              {rentaInfo.areaComunAbsorbidaM2 > 0 && ` [Absorbe ${rentaInfo.areaComunAbsorbidaM2}m² comunes]`}
+              Base: ${rentaInfo.rentaSinIva.toFixed(2)} + 16% IVA &middot; {rentaInfo.areaTotalImputadaM2} m²
+              {rentaInfo.areaComunAbsorbidaM2 > 0 && ` [+${rentaInfo.areaComunAbsorbidaM2}m² comunes]`}
             </p>
           </div>
 
@@ -119,7 +121,24 @@ export default function SelectorNegocioFinanzas({
             </p>
           </div>
 
-          {/* Card 4: Gasto Fijo Total Mensual */}
+          {/* Card 4: Nómina y Carga IMSS Patronal */}
+          <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl space-y-1">
+            <div className="flex items-center justify-between text-slate-400 text-[10px] font-mono uppercase">
+              <span className="flex items-center gap-1.5 text-cyan-400">
+                <Receipt size={12} />
+                Nómina e IMSS
+              </span>
+              <span className="text-cyan-400 font-bold">{totalEmpleados} emp.</span>
+            </div>
+            <div className="text-base font-bold text-white font-mono">
+              ${Math.round(costoNominaTotal).toLocaleString('es-MX')} <span className="text-[10px] text-slate-400 font-normal">/mes</span>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-tight">
+              Sueldos base + cuotas patronales Seguro Social (IMSS).
+            </p>
+          </div>
+
+          {/* Card 5: Gasto Fijo Total Mensual */}
           <div className="p-3 bg-gradient-to-br from-slate-900/90 to-teal-950/40 border border-teal-500/30 rounded-xl space-y-1">
             <div className="flex items-center justify-between text-teal-400 text-[10px] font-mono uppercase">
               <span className="flex items-center gap-1.5">
@@ -132,7 +151,7 @@ export default function SelectorNegocioFinanzas({
               ${(gastosFijosTotales || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-[10px] text-slate-400 leading-tight">
-              Incluye Renta con IVA, Agua, CFE (${(reciboLuzMonto || 0).toFixed(0)}) y costos fijos.
+              Renta con IVA + Agua + CFE + Nómina con IMSS.
             </p>
           </div>
         </div>
