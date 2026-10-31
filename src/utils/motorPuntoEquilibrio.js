@@ -77,6 +77,7 @@ export function calcularPuntoEquilibrio({
       aguaMensual,
       luzMensual,
       sueldosBrutos,
+      horasExtras: nominaDetalle?.totalHorasExtras || 0,
       imssPatronal,
       totalCostoLaboral,
       sueldosFijosExtras: totalCostoLaboral,
@@ -347,34 +348,49 @@ export function simularDiaVentaInteractivo({
   const utilidadBrutaDia = ventaTotalDia - costoVariableDia;
   const utilidadNetaDia = utilidadBrutaDia - cuotaFijaDia;
 
+  const esTallerCostura = negocioId === 'taller_costura';
   let calificacionDia = 'neutro';
-  let mensaje = 'Sin ventas registradas hoy';
+  let mensaje = esTallerCostura ? 'Sin confección registrada hoy' : 'Sin ventas registradas hoy';
 
   if (totalArticulosDia === 0) {
     calificacionDia = 'cero';
-    mensaje = `Día sin ventas. Se absorbe la cuota fija diaria (-$${Math.round(cuotaFijaDia).toLocaleString()} MXN).`;
+    mensaje = esTallerCostura
+      ? `Sin confección hoy: Las costureras no produjeron prendas; el taller absorbe la cuota fija diaria (-$${Math.round(cuotaFijaDia).toLocaleString()} MXN).`
+      : `Día sin ventas. Se absorbe la cuota fija diaria (-$${Math.round(cuotaFijaDia).toLocaleString()} MXN).`;
   } else if (utilidadNetaDia < 0) {
     calificacionDia = 'bajo_deficit';
-    mensaje = `Día bajo (${totalArticulosDia} arts). No cubrió la cuota fija completa (déficit de -$${Math.round(Math.abs(utilidadNetaDia)).toLocaleString()} MXN).`;
+    mensaje = esTallerCostura
+      ? `Producción insuficiente (${totalArticulosDia} prendas): Con esta confección no se alcanza a pagar el sueldo de las costureras y los gastos del taller (déficit de -$${Math.round(Math.abs(utilidadNetaDia)).toLocaleString()} MXN).`
+      : `Día bajo (${totalArticulosDia} arts). No cubrió la cuota fija completa (déficit de -$${Math.round(Math.abs(utilidadNetaDia)).toLocaleString()} MXN).`;
   } else if (utilidadNetaDia >= 0 && utilidadNetaDia < 300) {
     calificacionDia = 'bajo_equilibrio';
-    mensaje = `Día bajo en punto de equilibrio (${totalArticulosDia} arts). Se cubrieron exactamente los gastos del día.`;
+    mensaje = esTallerCostura
+      ? `Equilibrio de Confección alcanzado (${totalArticulosDia} prendas): La producción diaria de las costureras cubre exactamente sus sueldos, la luz de las máquinas y los gastos del taller.`
+      : `Día bajo en punto de equilibrio (${totalArticulosDia} arts). Se cubrieron exactamente los gastos del día.`;
   } else if (utilidadNetaDia >= 300 && utilidadNetaDia < 770) {
     calificacionDia = 'medio';
-    mensaje = `Día medio (${totalArticulosDia} arts). Superávit positivo de +$${Math.round(utilidadNetaDia).toLocaleString()} MXN libres hoy.`;
+    mensaje = esTallerCostura
+      ? `Producción media solvente (${totalArticulosDia} prendas): Se cubren los sueldos y costos del taller, dejando +$${Math.round(utilidadNetaDia).toLocaleString()} MXN de excedente.`
+      : `Día medio (${totalArticulosDia} arts). Superávit positivo de +$${Math.round(utilidadNetaDia).toLocaleString()} MXN libres hoy.`;
   } else if (utilidadNetaDia >= 770) { // $770/día x 26 días ≈ $20,000 libres al mes
     calificacionDia = 'alto';
-    mensaje = `¡Día alto de meta! (${totalArticulosDia} arts). Ritmo para alcanzar los $20,000 MXN libres al mes (+$${Math.round(utilidadNetaDia).toLocaleString()} MXN hoy).`;
+    mensaje = esTallerCostura
+      ? `¡Producción alta y rentable! (${totalArticulosDia} prendas confeccionadas): Ritmo óptimo para cubrir la nómina de costura, luz de máquinas y aportar $20,000 MXN libres al mes abasteciendo a Imperia Uniformes.`
+      : `¡Día alto de meta! (${totalArticulosDia} arts). Ritmo para alcanzar los $20,000 MXN libres al mes (+$${Math.round(utilidadNetaDia).toLocaleString()} MXN hoy).`;
   }
 
   return {
     totalArticulosDia,
     ventaTotalDia,
+    costoMaterialesDia,
+    costoManoObraDia,
+    costoLuzDia,
     costoVariableDia,
     utilidadBrutaDia,
     cuotaFijaDia,
     utilidadNetaDia,
     calificacionDia,
-    mensaje
+    mensaje,
+    esTallerCostura
   };
 }

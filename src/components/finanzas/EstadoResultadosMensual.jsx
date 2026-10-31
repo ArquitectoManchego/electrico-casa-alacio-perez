@@ -197,6 +197,17 @@ export default function EstadoResultadosMensual({
                     <td className="py-2 px-3 text-right text-slate-300 bg-teal-500/5">-${Math.round(costosFijosDetalle?.sueldosBrutos || 0).toLocaleString()}</td>
                     <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.sueldosBrutos || 0).toLocaleString()}</td>
                   </tr>
+                  {costosFijosDetalle?.horasExtras > 0 && (
+                    <tr>
+                      <td className="py-2 px-3 text-slate-400 font-sans pl-6">
+                        (-) Horas Extras LFT (Reforma 2027 &middot; Dobles y Triples)
+                      </td>
+                      <td className="py-2 px-3 text-right text-amber-300">-${Math.round(costosFijosDetalle.horasExtras).toLocaleString()}</td>
+                      <td className="py-2 px-3 text-right text-amber-300">-${Math.round(costosFijosDetalle.horasExtras).toLocaleString()}</td>
+                      <td className="py-2 px-3 text-right text-amber-300 bg-teal-500/5">-${Math.round(costosFijosDetalle.horasExtras).toLocaleString()}</td>
+                      <td className="py-2 px-3 text-right text-amber-300">-${Math.round(costosFijosDetalle.horasExtras).toLocaleString()}</td>
+                    </tr>
+                  )}
                   <tr>
                     <td className="py-2 px-3 text-slate-400 font-sans pl-6">
                       (-) Carga Social Patronal IMSS + Infonavit (~26.5%)

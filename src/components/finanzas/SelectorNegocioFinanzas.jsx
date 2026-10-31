@@ -19,14 +19,14 @@ import {
 } from '../../utils/costosFijosInmueble.js';
 
 export const NEGOCIOS_METADATA = [
-  { id: 'hawaiian_paradise', nombre: 'Hawaiian Paradise', icon: Coffee, medidor: 'Medidor 2', color: 'from-amber-500 to-orange-500', badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  { id: 'imperia_uniformes', nombre: 'Imperia Uniformes', icon: Store, medidor: 'Medidor 1', color: 'from-blue-500 to-cyan-500', badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  { id: 'taller_publi_imperia', nombre: 'Publi-Imperia (Impresos)', icon: FileText, medidor: 'Medidor 4', color: 'from-purple-500 to-pink-500', badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
-  { id: 'bordados_veracruz', nombre: 'Bordados Veracruz', icon: Shirt, medidor: 'Medidor 3', color: 'from-emerald-500 to-teal-500', badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  { id: 'taller_costura', nombre: 'Taller de Costura', icon: Scissors, medidor: 'Medidor 5', color: 'from-rose-500 to-red-500', badgeColor: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
-  { id: 'papeleria_imperiarte', nombre: 'Papelería ImperiArte', icon: FileText, medidor: 'Medidor 6', color: 'from-indigo-500 to-violet-500', badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
-  { id: 'oficinas_consorcio', nombre: 'Oficinas Corporativo', icon: Briefcase, medidor: 'Medidor 1 (Compartido)', color: 'from-slate-500 to-zinc-400', badgeColor: 'bg-slate-500/10 text-slate-300 border-slate-500/20' },
-  { id: 'consolidado', nombre: 'Consolidado Consorcio (7 Negocios)', icon: Layers, medidor: '6 Medidores CFE', color: 'from-teal-400 to-emerald-500', badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20' }
+  { id: 'hawaiian_paradise', nombre: 'Hawaiian Paradise', subtitulo: 'Cafetería & Crepería al Público', icon: Coffee, medidor: 'Medidor 2', color: 'from-amber-500 to-orange-500', badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  { id: 'imperia_uniformes', nombre: 'Imperia Uniformes', subtitulo: 'Showroom Comercial & Venta de Mostrador', icon: Store, medidor: 'Medidor 1', color: 'from-blue-500 to-cyan-500', badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  { id: 'taller_publi_imperia', nombre: 'Publi-Imperia (Impresos)', subtitulo: 'Sublimación, DTF y Grabado Láser', icon: FileText, medidor: 'Medidor 4', color: 'from-purple-500 to-pink-500', badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+  { id: 'bordados_veracruz', nombre: 'Bordados Veracruz', subtitulo: 'Bordado Industrial 4 Cabezas', icon: Shirt, medidor: 'Medidor 3', color: 'from-emerald-500 to-teal-500', badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  { id: 'taller_costura', nombre: 'Taller de Costura', subtitulo: 'Maquila & Confección para Imperia Uniformes', icon: Scissors, medidor: 'Medidor 5', color: 'from-rose-500 to-red-500', badgeColor: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
+  { id: 'papeleria_imperiarte', nombre: 'Papelería ImperiArte', subtitulo: 'Papelería Especializada, Cartulinas Pinto & Copiado', icon: FileText, medidor: 'Medidor 6', color: 'from-indigo-500 to-violet-500', badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
+  { id: 'oficinas_consorcio', nombre: 'Oficinas Corporativo', subtitulo: 'Gestión Administrativa & Jurídica', icon: Briefcase, medidor: 'Medidor 1 (Compartido)', color: 'from-slate-500 to-zinc-400', badgeColor: 'bg-slate-500/10 text-slate-300 border-slate-500/20' },
+  { id: 'consolidado', nombre: 'Consolidado Consorcio (7 Negocios)', subtitulo: 'Visión Financiera Global Casa Alacio Pérez', icon: Layers, medidor: '6 Medidores CFE', color: 'from-teal-400 to-emerald-500', badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20' }
 ];
 
 export default function SelectorNegocioFinanzas({

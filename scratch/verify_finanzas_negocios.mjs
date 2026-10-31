@@ -13,6 +13,7 @@ import {
 import { 
   CATALOGO_PRECIOS_COSTOS, 
   obtenerProductosNegocio, 
+  calcularMargenProducto,
   calcularMargenPromedioPonderado 
 } from '../src/utils/preciosYCostosProductos.js';
 
@@ -28,6 +29,8 @@ import {
   PLANTILLA_DEFAULT_NEGOCIOS, 
   calcularSalariosMinimosEquivalentes, 
   calcularCargaSocialEmpleado, 
+  sincronizarPlantillaEmpleados,
+  calcularHorasExtrasLFT,
   calcularNominaNegocio 
 } from '../src/utils/nominaYTurnosNegocios.js';
 
@@ -277,12 +280,110 @@ const difMetaAltoNomina = Math.abs(altoHPConNomina.pnl.utilidadNeta - 20000);
 assert(difMetaAltoNomina < 150, `Hawaiian Paradise Mes Alto genera $20,000 libres tras pagar renta, agua, CFE y nómina con IMSS (actual: $${Math.round(altoHPConNomina.pnl.utilidadNeta)})`);
 
 // -----------------------------------------------------------------------------
-// RESUMEN
+// PRUEBA 11: Sincronización Reactiva de Plantilla de Empleados
 // -----------------------------------------------------------------------------
-console.log('\n================================================================');
-console.log(`TOTAL PRUEBAS EJECUTADAS: ${testsPassed + testsFailed}`);
-console.log(`PRUEBAS PASADAS: ${testsPassed}`);
-console.log(`PRUEBAS FALLADAS: ${testsFailed}`);
+console.log('\n--- TEST 11: Sincronización Reactiva de Plantilla de Empleados ---');
+
+// Caso A: Cambiar a 2 turnos con 3 empleados por turno = 6 empleados
+const plantilla6 = sincronizarPlantillaEmpleados({
+  empleadosActuales: [
+    { id: 'emp_1', nombre: 'Juan', puesto: 'Cajero', turno: 1, sueldoMensual: 8000 }
+  ],
+  turnosPorDia: 2,
+  empleadosPorTurno: 3,
+  negocioId: 'hawaiian_paradise',
+  sueldoBaseSugerido: 8000
+});
+assert(plantilla6.length === 6, `Plantilla sincronizada a 2 turnos x 3 empleados = 6 plazas (actual: ${plantilla6.length})`);
+assert(plantilla6.filter(e => e.turno === 1).length === 3, `Turno 1 tiene exactamente 3 empleados`);
+assert(plantilla6.filter(e => e.turno === 2).length === 3, `Turno 2 tiene exactamente 3 empleados`);
+
+// Caso B: Reducir a 1 turno con 1 empleado = 1 empleado
+const plantilla1 = sincronizarPlantillaEmpleados({
+  empleadosActuales: plantilla6,
+  turnosPorDia: 1,
+  empleadosPorTurno: 1,
+  negocioId: 'hawaiian_paradise'
+});
+assert(plantilla1.length === 1, `Plantilla reducida a 1 turno x 1 empleado = 1 plaza (actual: ${plantilla1.length})`);
+assert(plantilla1[0].turno === 1, `El empleado remanente queda en Turno 1`);
+
+// -----------------------------------------------------------------------------
+// PRUEBA 12: Horas Extras Reforma LFT 2027 (Jornada > 8 hrs en 1 Turno)
+// -----------------------------------------------------------------------------
+console.log('\n--- TEST 12: Horas Extras Reforma LFT 2027 ---');
+// Jornada de 10 horas continuas (ej. 09:00 a 19:00) en 1 solo turno con sueldo $8,000 MXN
+const he10h = calcularHorasExtrasLFT({
+  horasJornada: 10,
+  turnosPorDia: 1,
+  diasSemana: 6,
+  sueldoMensual: 8000
+});
+
+assert(he10h.aplicaHorasExtras === true, `Aplica horas extras para jornada de 10 horas en 1 turno`);
+assert(he10h.horasExtrasDia === 2, `Exceso de jornada legal: 10h - 8h = 2 horas extras diarias`);
+assert(he10h.horasExtrasSemana === 12, `Horas extras semanales (6 días): 2h x 6 = 12 horas/semana`);
+assert(he10h.horasDoblesSemana === 9, `Primeras 9 horas semanales al 200% (horas dobles Art. 66 y 67 LFT)`);
+assert(he10h.horasTriplesSemana === 3, `Excedente sobre 9h = 3 horas semanales al 300% (horas triples Art. 68 LFT)`);
+assert(he10h.montoTotalHorasExtrasMes > 0, `Monto total mensual de horas extras = $${he10h.montoTotalHorasExtrasMes} MXN`);
+
+// Si se divide en 2 turnos (ej. 2 turnos de 5 horas), no debe haber horas extras
+const he2Turnos = calcularHorasExtrasLFT({
+  horasJornada: 10,
+  turnosPorDia: 2,
+  diasSemana: 6,
+  sueldoMensual: 8000
+});
+assert(he2Turnos.aplicaHorasExtras === false, `Dividir en 2 turnos elimina el sobrecosto de horas extras`);
+assert(he2Turnos.montoTotalHorasExtrasMes === 0, `Monto de horas extras con 2 turnos = $0`);
+
+// Integración en calcularNominaNegocio para jornada de 10 horas en 1 turno
+const nomina10h1Turno = calcularNominaNegocio({
+  configNegocio: {
+    negocioId: 'imperia_uniformes',
+    nombreNegocio: 'Imperia Uniformes',
+    horarioApertura: '09:00',
+    horarioCierre: '19:00', // 10 horas
+    turnosPorDia: 1,
+    empleadosPorTurno: 1,
+    empleados: [
+      { id: 'iu_1', nombre: 'Encargada', puesto: 'Ventas', turno: 1, sueldoMensual: 8000 }
+    ]
+  }
+});
+assert(nomina10h1Turno.superaJornadaLegal === true, `Jornada supera legal (10h > 8h)`);
+assert(nomina10h1Turno.sugiereDosTurnos === true, `Sistema sugiere 2 turnos`);
+assert(nomina10h1Turno.totalHorasExtras > 0, `Nómina incluye sobrecosto de horas extras ($${nomina10h1Turno.totalHorasExtras})`);
+assert(nomina10h1Turno.totalPercepciones === 8000 + nomina10h1Turno.totalHorasExtras, `Percepciones totales suman sueldo base + horas extras`);
+assert(nomina10h1Turno.totalGastoLaboral > 8000 * 1.265, `Gasto laboral total integra horas extras y cuota IMSS sobre percepción`);
+
+// -----------------------------------------------------------------------------
+// PRUEBA 13: Modificación del Catálogo de Precios, Costos y Fórmulas Automáticas
+// -----------------------------------------------------------------------------
+console.log('\n--- TEST 13: Catálogo de Precios y Costos Modificables vs Automáticos ---');
+
+const prodOriginal = CATALOGO_PRECIOS_COSTOS.hawaiian_paradise[0]; // Crepa
+const prodModificado = calcularMargenProducto({
+  ...prodOriginal,
+  precioVenta: 75.00, // Usuario cambia precio a $75.00
+  costoMateriales: 22.00, // Usuario cambia materias primas a $22.00
+  costoManoObra: 6.00 // Usuario cambia mano de obra a $6.00
+  // costoLuzUnitario se conserva automáticamente de la receta
+});
+
+assert(prodModificado.precioVenta === 75.00, `Precio de venta modificado = $75.00`);
+assert(prodModificado.costoMateriales === 22.00, `Costo materiales modificado = $22.00`);
+assert(prodModificado.costoManoObra === 6.00, `Costo mano de obra modificado = $6.00`);
+assert(prodModificado.costoLuzUnitario === prodOriginal.costoLuzUnitario, `Costo luz unitario protegido automáticamente de la receta`);
+
+const costoVarEsperado = 22.00 + 6.00 + prodOriginal.costoLuzUnitario;
+assert(Math.abs(prodModificado.costoVariableTotal - costoVarEsperado) < 0.01, `Costo variable total calculado auto = Mat + MO + Luz = $${costoVarEsperado.toFixed(2)} (actual: $${prodModificado.costoVariableTotal})`);
+
+const mcEsperado = 75.00 - costoVarEsperado;
+assert(Math.abs(prodModificado.margenBruto - mcEsperado) < 0.01, `Margen bruto calculado auto = P - Cvar = $${mcEsperado.toFixed(2)} (actual: $${prodModificado.margenBruto})`);
+
+const pctEsperado = (mcEsperado / 75.00) * 100;
+assert(Math.abs(prodModificado.margenPct - pctEsperado) < 0.1, `Margen % calculado auto = ${(pctEsperado).toFixed(1)}% (actual: ${prodModificado.margenPct}%)`);
 console.log('================================================================');
 
 if (testsFailed > 0) {

@@ -270,13 +270,20 @@ export default function ModuloFinanzasNegocios({
 
   // Manejo de actualización de productos por el usuario
   const handleUpdateProducto = (prodId, fields) => {
-    setProductosOverrides(prev => ({
-      ...prev,
-      [negocioSeleccionado]: {
-        ...(prev[negocioSeleccionado] || {}),
-        [prodId]: fields
-      }
-    }));
+    setProductosOverrides(prev => {
+      const negOverrides = prev[negocioSeleccionado] || {};
+      const prodOverride = negOverrides[prodId] || {};
+      return {
+        ...prev,
+        [negocioSeleccionado]: {
+          ...negOverrides,
+          [prodId]: {
+            ...prodOverride,
+            ...fields
+          }
+        }
+      };
+    });
   };
 
   const handleResetProductos = () => {
@@ -284,6 +291,17 @@ export default function ModuloFinanzasNegocios({
       const nuevo = { ...prev };
       delete nuevo[negocioSeleccionado];
       return nuevo;
+    });
+  };
+
+  const handleResetProductoUnitario = (prodId) => {
+    setProductosOverrides(prev => {
+      const negOverrides = { ...(prev[negocioSeleccionado] || {}) };
+      delete negOverrides[prodId];
+      return {
+        ...prev,
+        [negocioSeleccionado]: negOverrides
+      };
     });
   };
 
@@ -524,6 +542,8 @@ export default function ModuloFinanzasNegocios({
               negocioNombre={NEGOCIOS_METADATA.find(n => n.id === negocioSeleccionado)?.nombre}
               onUpdateProducto={handleUpdateProducto}
               onResetProductos={handleResetProductos}
+              onResetProductoUnitario={handleResetProductoUnitario}
+              overridesActivos={productosOverrides[negocioSeleccionado] || {}}
             />
           )}
         </div>
