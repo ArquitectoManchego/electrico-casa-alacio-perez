@@ -529,47 +529,184 @@ export const CATALOGO_PRECIOS_COSTOS = {
   ],
 
   // =========================================================================
-  // 6. IMPERIA UNIFORMES (Showroom y Venta Menudeo)
+  // 6. IMPERIA UNIFORMES (Showroom, Confección Propia & Multimarca Mayorista)
   // =========================================================================
   imperia_uniformes: [
+    // -----------------------------------------------------------------------
+    // LÍNEA A: CONFECCIÓN PROPIA (Taller de Costura Imperia - Transferencia)
+    // -----------------------------------------------------------------------
     {
       id: 'imp_uniforme_clinico_completo',
       nombre: 'Uniforme Clínico Completo (Filipina + Pantalón)',
-      categoria: 'Uniformes Médicos',
+      categoria: 'Confección Propia (Taller Imperia)',
       unidad: 'juego',
       precioVenta: 650.00,
-      costoMateriales: 420.00, // Costo de transferencia/adquisición de taller
+      costoMateriales: 420.00, // Costo de transferencia interna de taller (tela + costura absorbida)
       detalleMateriales: 'Juego completo de filipina médica y pantalón con empaque y etiqueta',
-      costoManoObra: 30.00,
+      costoManoObra: 25.00,
       detalleManoObra: 'Atención y asesoría en vestidor, doblado y cobro',
       costoLuzUnitario: 0.15,
-      pesoEnMix: 50
+      pesoEnMix: 25
     },
     {
       id: 'imp_filipina_individual',
-      nombre: 'Filipina Médica / Estampada Individual',
-      categoria: 'Uniformes Médicos',
+      nombre: 'Filipina Médica / Antifluidos Individual',
+      categoria: 'Confección Propia (Taller Imperia)',
       unidad: 'pieza',
       precioVenta: 420.00,
-      costoMateriales: 280.00,
-      detalleMateriales: 'Filipina antifluidos con bolsas utilitarias',
-      costoManoObra: 20.00,
+      costoMateriales: 245.00, // Costo de transferencia interna de taller
+      detalleMateriales: 'Filipina antifluidos con bolsas utilitarias confeccionada en taller',
+      costoManoObra: 15.00,
       detalleManoObra: 'Prueba en probador y ticket',
       costoLuzUnitario: 0.10,
-      pesoEnMix: 30
+      pesoEnMix: 20
+    },
+    {
+      id: 'imp_pantalon_clinico',
+      nombre: 'Pantalón Clínico / Quirúrgico Individual',
+      categoria: 'Confección Propia (Taller Imperia)',
+      unidad: 'pieza',
+      precioVenta: 380.00,
+      costoMateriales: 220.00, // Costo de transferencia interna de taller
+      detalleMateriales: 'Pantalón antifluidos/stretch con jareta y elástico ancho',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Asesoría de talla y cobro en mostrador',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_bata_laboratorio',
+      nombre: 'Bata de Laboratorio Gabardina Pesada',
+      categoria: 'Confección Propia (Taller Imperia)',
+      unidad: 'bata',
+      precioVenta: 450.00,
+      costoMateriales: 265.00, // Costo de transferencia interna de taller
+      detalleMateriales: 'Gabardina blanca pesada, solapa reforzada y broches metálicos',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Atención y entrega en mostrador',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 10
     },
     {
       id: 'imp_calzado_accesorios',
-      nombre: 'Calzado Clínico / Accesorios',
-      categoria: 'Complementos',
+      nombre: 'Calzado Clínico / Accesorios de Protección',
+      categoria: 'Complementos Clínicos',
       unidad: 'par',
       precioVenta: 550.00,
       costoMateriales: 350.00,
       detalleMateriales: 'Zuecos médicos antiderrapantes / cofias / calcetines de compresión',
-      costoManoObra: 25.00,
+      costoManoObra: 20.00,
       detalleManoObra: 'Prueba de calce y entrega',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 10
+    },
+
+    // -----------------------------------------------------------------------
+    // LÍNEA B: DISTRIBUCIÓN MULTIMARCA MAYOREO (COTEXSA / YAZBEK / EUROCOTTON)
+    // -----------------------------------------------------------------------
+    {
+      id: 'imp_polo_50_50_blanca',
+      nombre: 'Playera Polo 50/50 Piqué Blanca (Dama / Caballero)',
+      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      unidad: 'pieza',
+      precioVenta: 185.00,
+      costoMateriales: 105.00, // Factura mayorista neta con IVA
+      detalleMateriales: 'Polo piqué 50% algodón / 50% poliéster peinado (Cotexsa 6900 / Yazbek C0501)',
+      costoManoObra: 8.00,
+      detalleManoObra: 'Atención de mostrador, doblado y empaque',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 30
+    },
+    {
+      id: 'imp_polo_50_50_color',
+      nombre: 'Playera Polo 50/50 Piqué Color (Dama / Caballero)',
+      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      unidad: 'pieza',
+      precioVenta: 215.00,
+      costoMateriales: 125.00,
+      detalleMateriales: 'Polo piqué colores de línea (marino, negro, rojo, royal, etc.)',
+      costoManoObra: 8.00,
+      detalleManoObra: 'Atención de mostrador, doblado y empaque',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 35
+    },
+    {
+      id: 'imp_polo_dryfit_blanca',
+      nombre: 'Playera Polo 100% Poliéster Dry Fit Blanca (Dama / Cab.)',
+      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      unidad: 'pieza',
+      precioVenta: 165.00,
+      costoMateriales: 82.00,
+      detalleMateriales: 'Polo deportiva microfibra transpirable Dry Fit / sublimable Eurocotton / Yazbek',
+      costoManoObra: 8.00,
+      detalleManoObra: 'Atención y mostrador',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 25
+    },
+    {
+      id: 'imp_polo_dryfit_color',
+      nombre: 'Playera Polo 100% Poliéster Dry Fit Color (Dama / Cab.)',
+      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      unidad: 'pieza',
+      precioVenta: 175.00,
+      costoMateriales: 92.00,
+      detalleMateriales: 'Polo Dry Fit deportiva colores institucionales',
+      costoManoObra: 8.00,
+      detalleManoObra: 'Atención y mostrador',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 30
+    },
+    {
+      id: 'imp_cuello_redondo_blanca',
+      nombre: 'Playera Cuello Redondo Manga Corta Blanca (Dama / Cab.)',
+      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      unidad: 'pieza',
+      precioVenta: 120.00,
+      costoMateriales: 69.00, // Factura mayorista Yazbek C0300 / Eurocotton
+      detalleMateriales: '100% algodón peinado peso completo 180-200g blanco',
+      costoManoObra: 5.00,
+      detalleManoObra: 'Despacho de mostrador y cobro',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 40
+    },
+    {
+      id: 'imp_cuello_redondo_color',
+      nombre: 'Playera Cuello Redondo Manga Corta Color (Dama / Cab.)',
+      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      unidad: 'pieza',
+      precioVenta: 135.00,
+      costoMateriales: 78.00,
+      detalleMateriales: '100% algodón colores reactivos firmes (negro, marino, rojo, gris, etc.)',
+      costoManoObra: 5.00,
+      detalleManoObra: 'Despacho de mostrador y cobro',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 45
+    },
+    {
+      id: 'imp_camisa_gabardina_blanca',
+      nombre: 'Camisa / Blusa Gabardina Manga Larga Blanca (Dama / Cab.)',
+      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      unidad: 'pieza',
+      precioVenta: 410.00,
+      costoMateriales: 235.00, // Cotexsa serie 6000CL/6000DL o Yazbek C0607
+      detalleMateriales: 'Gabardina ejecutiva 50/50 ó 60/40 algodón/poliéster blanca manga larga',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Asesoría de cuello/talla, prueba en probador y planchado ligero',
       costoLuzUnitario: 0.10,
       pesoEnMix: 20
+    },
+    {
+      id: 'imp_camisa_gabardina_color',
+      nombre: 'Camisa / Blusa Gabardina Manga Larga Color (Dama / Cab.)',
+      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      unidad: 'pieza',
+      precioVenta: 445.00,
+      costoMateriales: 255.00,
+      detalleMateriales: 'Gabardina colores corporativos (marino, azul cielo, caqui, negro, gris)',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Asesoría de cuello/talla, prueba en probador y planchado ligero',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 25
     }
   ],
 
