@@ -228,57 +228,258 @@ export const CATALOGO_PRECIOS_COSTOS = {
   // 3. TALLER DE COSTURA
   // =========================================================================
   taller_costura: [
+    // -----------------------------------------------------------------------
+    // 1. GASTRONOMÍA & CHEF (Estilo Permachef propio, alta calidad más económico)
+    // -----------------------------------------------------------------------
     {
-      id: 'tc_filipina',
-      nombre: 'Confección de Filipina Médica / Chef',
-      categoria: 'Confección Médica e Industrial',
+      id: 'tc_filipina_chef',
+      nombre: 'Confección Filipina de Chef Ejecutiva (Línea Gourmet)',
+      categoria: 'Ropa de Chef & Gastronomía',
       unidad: 'filipina',
-      precioVenta: 350.00,
-      costoMateriales: 130.00,
-      detalleMateriales: 'Tela antifluidos/gabardina (1.3m), botones, hilos, entretela de cuello',
-      costoManoObra: 90.00,
-      detalleManoObra: 'Tendido, corte de disco, armado en Overlock 5h y pespunte en Singer Recta',
-      costoLuzUnitario: 0.42,
-      pesoEnMix: 45
+      precioVenta: 480.00,
+      costoMateriales: 160.00,
+      detalleMateriales: 'Gabardina fresca de alta densidad, vivos en contraste, botones cruzados y entretela',
+      costoManoObra: 110.00,
+      detalleManoObra: 'Corte sastre, armado cuello mao en recta y pespuntes de refuerzo en overlock',
+      costoLuzUnitario: 0.48,
+      pesoEnMix: 25
     },
     {
-      id: 'tc_pantalon',
-      nombre: 'Confección de Pantalón Clínico / Quirúrgico',
-      categoria: 'Confección Médica e Industrial',
-      unidad: 'pantalón',
-      precioVenta: 320.00,
-      costoMateriales: 120.00,
-      detalleMateriales: 'Tela gabardina/stretch (1.2m), elástico ancho de cintura, jareta, hilo',
-      costoManoObra: 80.00,
-      detalleManoObra: 'Corte, Overlock 5h, ensamble de tiro/costados y dobladillos en Recta',
-      costoLuzUnitario: 0.38,
-      pesoEnMix: 43
-    },
-    {
-      id: 'tc_playera_polo_stretch',
-      nombre: 'Playera Polo Stretch Escolar (Collaretera)',
-      categoria: 'Prendas de Punto & Stretch',
-      unidad: 'playera',
-      precioVenta: 220.00,
-      costoMateriales: 90.00,
-      detalleMateriales: 'Tela piqué stretch (0.9m), cuello y puños tejidos, botones',
+      id: 'tc_mandil_chef',
+      nombre: 'Confección Mandil de Pechera Chef / Barista (Peto)',
+      categoria: 'Ropa de Chef & Gastronomía',
+      unidad: 'mandil',
+      precioVenta: 240.00,
+      costoMateriales: 85.00,
+      detalleMateriales: 'Gabardina pesada o mezclilla, cintas cruzadas ajustables y remaches metálicos',
       costoManoObra: 55.00,
-      detalleManoObra: 'Corte, unión overlock, aletilla en recta y dobladillos en Collaretera Singer',
-      costoLuzUnitario: 0.35,
-      pesoEnMix: 8
+      detalleManoObra: 'Corte de trapecio, dobladillado y colocación de ojillos/herrajes',
+      costoLuzUnitario: 0.25,
+      pesoEnMix: 30
+    },
+    {
+      id: 'tc_pantalon_cocina',
+      nombre: 'Confección Pantalón de Cocina / Chef (Cargo & Jareta)',
+      categoria: 'Ropa de Chef & Gastronomía',
+      unidad: 'pantalón',
+      precioVenta: 350.00,
+      costoMateriales: 125.00,
+      detalleMateriales: 'Gabardina de algodón transpirable, elástico ancho reforzado, jareta y bolsas cargo',
+      costoManoObra: 85.00,
+      detalleManoObra: 'Ensamble de tiro en Overlock 5h, presillas en recta y dobladillos',
+      costoLuzUnitario: 0.38,
+      pesoEnMix: 25
+    },
+    {
+      id: 'tc_gorro_chef',
+      nombre: 'Confección Gorro de Chef / Bandana de Cocina',
+      categoria: 'Ropa de Chef & Gastronomía',
+      unidad: 'pieza',
+      precioVenta: 95.00,
+      costoMateriales: 35.00,
+      detalleMateriales: 'Popelina/gabardina blanca y negra, elástico trasero y bies',
+      costoManoObra: 25.00,
+      detalleManoObra: 'Plisado circular o ensamble de bandana',
+      costoLuzUnitario: 0.15,
+      pesoEnMix: 20
+    },
+
+    // -----------------------------------------------------------------------
+    // 2. SALUD Y MEDICINA ESPECIALIZADA (Doctores, Enfermeras, Cirujanos, etc.)
+    // -----------------------------------------------------------------------
+    {
+      id: 'tc_scrub_doctor',
+      nombre: 'Confección Scrub Médico Clínico Doctor (Antifluidos Stretch)',
+      categoria: 'Salud & Medicina Especializada',
+      unidad: 'juego',
+      precioVenta: 520.00,
+      costoMateriales: 190.00,
+      detalleMateriales: 'Tela antifluidos repelente de líquidos con spandex stretch, elástico y jareta',
+      costoManoObra: 130.00,
+      detalleManoObra: 'Armado completo filipina cuello V con bolsas utilitarias y pantalón jogger',
+      costoLuzUnitario: 0.55,
+      pesoEnMix: 35
+    },
+    {
+      id: 'tc_uniforme_enfermera',
+      nombre: 'Confección Uniforme de Enfermería (Reglamentario Blanco)',
+      categoria: 'Salud & Medicina Especializada',
+      unidad: 'juego',
+      precioVenta: 490.00,
+      costoMateriales: 175.00,
+      detalleMateriales: 'Tela tergal / gabardina médica blanca de alta opacidad, vivos institucionales',
+      costoManoObra: 120.00,
+      detalleManoObra: 'Corte princesa silueta dama o recto caballero en Overlock y pespunte Singer',
+      costoLuzUnitario: 0.50,
+      pesoEnMix: 30
+    },
+    {
+      id: 'tc_pijama_quirurgica',
+      nombre: 'Confección Pijama Quirúrgica Cirujano (Autoclave)',
+      categoria: 'Salud & Medicina Especializada',
+      unidad: 'juego',
+      precioVenta: 460.00,
+      costoMateriales: 160.00,
+      detalleMateriales: 'Tela algodón/poliéster resistente a esterilización en autoclave (verde, azul plomizo, vino)',
+      costoManoObra: 110.00,
+      detalleManoObra: 'Costuras reforzadas con doble pespunte para uso rudo hospitalario',
+      costoLuzUnitario: 0.48,
+      pesoEnMix: 25
+    },
+    {
+      id: 'tc_filipina_veterinaria',
+      nombre: 'Confección Filipina Veterinaria (Repelente de Pelo y Fluidos)',
+      categoria: 'Salud & Medicina Especializada',
+      unidad: 'filipina',
+      precioVenta: 360.00,
+      costoMateriales: 135.00,
+      detalleMateriales: 'Microfibra antifluidos de alta densidad con repelente estático de pelo de mascotas',
+      costoManoObra: 90.00,
+      detalleManoObra: 'Filipina con múltiples bolsillos reforzados para instrumental veterinario',
+      costoLuzUnitario: 0.42,
+      pesoEnMix: 15
+    },
+    {
+      id: 'tc_filipina_pediatrica',
+      nombre: 'Confección Filipina Pediátrica (Estampados Infantiles)',
+      categoria: 'Salud & Medicina Especializada',
+      unidad: 'filipina',
+      precioVenta: 360.00,
+      costoMateriales: 135.00,
+      detalleMateriales: 'Tela antifluidos suave con estampados coloridos amigables para niños',
+      costoManoObra: 90.00,
+      detalleManoObra: 'Corte y confección con acabados suaves que no irritan',
+      costoLuzUnitario: 0.42,
+      pesoEnMix: 15
     },
     {
       id: 'tc_bata_laboratorio',
-      nombre: 'Confección de Bata de Laboratorio',
-      categoria: 'Confección Médica e Industrial',
+      nombre: 'Confección Bata Médica / Laboratorio Gabardina Pesada',
+      categoria: 'Salud & Medicina Especializada',
       unidad: 'bata',
       precioVenta: 390.00,
       costoMateriales: 150.00,
-      detalleMateriales: 'Gabardina blanca pesada (1.8m), broches metálicos, hilo',
+      detalleMateriales: 'Gabardina blanca pesada (1.8m), broches metálicos inoxidables, entretela solapa',
       costoManoObra: 100.00,
-      detalleManoObra: 'Corte largo, costura de solapa, bolsas profundas y cinturón trasero',
+      detalleManoObra: 'Corte largo, cuello solapa sastre, aberturas laterales y cinturón trasero',
       costoLuzUnitario: 0.48,
-      pesoEnMix: 4
+      pesoEnMix: 20
+    },
+
+    // -----------------------------------------------------------------------
+    // 3. HOSPITALIDAD: HOTELES Y RESTAURANTES
+    // -----------------------------------------------------------------------
+    {
+      id: 'tc_filipina_mesero',
+      nombre: 'Confección Filipina / Camisa de Mesero (Línea Salón)',
+      categoria: 'Hoteles & Restaurantes',
+      unidad: 'pieza',
+      precioVenta: 340.00,
+      costoMateriales: 120.00,
+      detalleMateriales: 'Gabardina liviana / popelina de gala (negra, vino, blanca), botones ocultos',
+      costoManoObra: 85.00,
+      detalleManoObra: 'Cuello mao o clásico, botonadura cubierta y puños reforzados',
+      costoLuzUnitario: 0.38,
+      pesoEnMix: 20
+    },
+    {
+      id: 'tc_bata_camarista',
+      nombre: 'Confección Bata / Uniforme de Camarista y Ama de Llaves',
+      categoria: 'Hoteles & Restaurantes',
+      unidad: 'juego',
+      precioVenta: 320.00,
+      costoMateriales: 115.00,
+      detalleMateriales: 'Tergal fácil planchado con vivos en solapa y bolsas frontales profundas',
+      costoManoObra: 80.00,
+      detalleManoObra: 'Bata abotonada al frente con mangas amplias para maniobra de limpieza',
+      costoLuzUnitario: 0.35,
+      pesoEnMix: 18
+    },
+    {
+      id: 'tc_mandil_mesero',
+      nombre: 'Confección Mandil Bistro / Cintura para Mesero',
+      categoria: 'Hoteles & Restaurantes',
+      unidad: 'mandil',
+      precioVenta: 140.00,
+      costoMateriales: 50.00,
+      detalleMateriales: 'Gabardina negra de uso rudo con 3 divisiones de bolsa para comanda y TPV',
+      costoManoObra: 35.00,
+      detalleManoObra: 'Corte rectangular, bastillas y pespuntes de refuerzo en esquinas',
+      costoLuzUnitario: 0.20,
+      pesoEnMix: 25
+    },
+
+    // -----------------------------------------------------------------------
+    // 4. UNIFORMES ESCOLARES
+    // -----------------------------------------------------------------------
+    {
+      id: 'tc_pantalon_escolar',
+      nombre: 'Confección Pantalón / Falda Escolar de Gabardina',
+      categoria: 'Uniformes Escolares',
+      unidad: 'pieza',
+      precioVenta: 290.00,
+      costoMateriales: 110.00,
+      detalleMateriales: 'Gabardina escolar resistente al desgaste (azul marino, gris, café), cierre y pretina',
+      costoManoObra: 75.00,
+      detalleManoObra: 'Corte de disco por tallas, cerrado en overlock y pretina formal en recta',
+      costoLuzUnitario: 0.35,
+      pesoEnMix: 25
+    },
+    {
+      id: 'tc_polo_escolar',
+      nombre: 'Confección Playera Polo Escolar Institucional (Collaretera)',
+      categoria: 'Uniformes Escolares',
+      unidad: 'playera',
+      precioVenta: 220.00,
+      costoMateriales: 90.00,
+      detalleMateriales: 'Piqué stretch escolar, cuello y puños tejidos con franjas a juego, botones',
+      costoManoObra: 55.00,
+      detalleManoObra: 'Aletilla en recta, ensamble en overlock y dobladillo en Collaretera Singer',
+      costoLuzUnitario: 0.35,
+      pesoEnMix: 20
+    },
+
+    // -----------------------------------------------------------------------
+    // 5. ROPA INDUSTRIAL Y TRABAJO RUDO (Camisolas & Overoles)
+    // -----------------------------------------------------------------------
+    {
+      id: 'tc_camisola_industrial',
+      nombre: 'Confección Camisola Industrial de Gabardina Pesada',
+      categoria: 'Ropa Industrial & Trabajo Rudo',
+      unidad: 'camisola',
+      precioVenta: 360.00,
+      costoMateriales: 135.00,
+      detalleMateriales: 'Gabardina 100% algodón o 60/40 de 8.5 oz uso rudo, 2 bolsas con cartera',
+      costoManoObra: 90.00,
+      detalleManoObra: 'Costuras reforzadas de doble aguja, cuello sastre y ojales industriales',
+      costoLuzUnitario: 0.45,
+      pesoEnMix: 25
+    },
+    {
+      id: 'tc_camisola_reflejante',
+      nombre: 'Confección Camisola Industrial con Cintas Reflejantes (STPS)',
+      categoria: 'Ropa Industrial & Trabajo Rudo',
+      unidad: 'camisola',
+      precioVenta: 440.00,
+      costoMateriales: 175.00,
+      detalleMateriales: 'Gabardina industrial + cintas reflejantes de alta visibilidad 2" plata/verde norma STPS',
+      costoManoObra: 105.00,
+      detalleManoObra: 'Colocación precisa de cintas en pecho, espalda y brazos antes de cerrar prenda',
+      costoLuzUnitario: 0.50,
+      pesoEnMix: 30
+    },
+    {
+      id: 'tc_overol_industrial',
+      nombre: 'Confección Overol Industrial de 1 Pieza (Uso Rudo Contratista)',
+      categoria: 'Ropa Industrial & Trabajo Rudo',
+      unidad: 'overol',
+      precioVenta: 580.00,
+      costoMateriales: 225.00,
+      detalleMateriales: 'Gabardina 100% algodón 9 oz (3.2m), cierre metálico doble acción, elástico trasero y bolsas herramientas',
+      costoManoObra: 140.00,
+      detalleManoObra: 'Ensamble de tiro largo, pegado de cierre con solapa, colocación de bolsas traseras y presillas',
+      costoLuzUnitario: 0.65,
+      pesoEnMix: 20
     }
   ],
 
@@ -529,20 +730,20 @@ export const CATALOGO_PRECIOS_COSTOS = {
   ],
 
   // =========================================================================
-  // 6. IMPERIA UNIFORMES (Showroom, Confección Propia & Multimarca Mayorista)
+  // 6. IMPERIA UNIFORMES (Showroom: Confección Propia, Marcas Premium & Mayoreo)
   // =========================================================================
   imperia_uniformes: [
     // -----------------------------------------------------------------------
-    // LÍNEA A: CONFECCIÓN PROPIA (Taller de Costura Imperia - Transferencia)
+    // LÍNEA A: CONFECCIÓN PROPIA (Taller de Costura Imperia - Transferencia Interna)
     // -----------------------------------------------------------------------
     {
       id: 'imp_uniforme_clinico_completo',
-      nombre: 'Uniforme Clínico Completo (Filipina + Pantalón)',
-      categoria: 'Confección Propia (Taller Imperia)',
+      nombre: 'Uniforme Clínico Doctor Completo (Filipina + Pantalón)',
+      categoria: 'Confección Propia: Salud & Medicina',
       unidad: 'juego',
       precioVenta: 650.00,
-      costoMateriales: 420.00, // Costo de transferencia interna de taller (tela + costura absorbida)
-      detalleMateriales: 'Juego completo de filipina médica y pantalón con empaque y etiqueta',
+      costoMateriales: 420.00, // Costo de transferencia interna de taller
+      detalleMateriales: 'Juego de filipina antifluidos y pantalón médico con empaque de tienda',
       costoManoObra: 25.00,
       detalleManoObra: 'Atención y asesoría en vestidor, doblado y cobro',
       costoLuzUnitario: 0.15,
@@ -550,11 +751,11 @@ export const CATALOGO_PRECIOS_COSTOS = {
     },
     {
       id: 'imp_filipina_individual',
-      nombre: 'Filipina Médica / Antifluidos Individual',
-      categoria: 'Confección Propia (Taller Imperia)',
+      nombre: 'Filipina Médica / Antifluidos Individual (Taller Imperia)',
+      categoria: 'Confección Propia: Salud & Medicina',
       unidad: 'pieza',
       precioVenta: 420.00,
-      costoMateriales: 245.00, // Costo de transferencia interna de taller
+      costoMateriales: 245.00,
       detalleMateriales: 'Filipina antifluidos con bolsas utilitarias confeccionada en taller',
       costoManoObra: 15.00,
       detalleManoObra: 'Prueba en probador y ticket',
@@ -563,11 +764,11 @@ export const CATALOGO_PRECIOS_COSTOS = {
     },
     {
       id: 'imp_pantalon_clinico',
-      nombre: 'Pantalón Clínico / Quirúrgico Individual',
-      categoria: 'Confección Propia (Taller Imperia)',
+      nombre: 'Pantalón Clínico / Quirúrgico Individual (Taller Imperia)',
+      categoria: 'Confección Propia: Salud & Medicina',
       unidad: 'pieza',
       precioVenta: 380.00,
-      costoMateriales: 220.00, // Costo de transferencia interna de taller
+      costoMateriales: 220.00,
       detalleMateriales: 'Pantalón antifluidos/stretch con jareta y elástico ancho',
       costoManoObra: 15.00,
       detalleManoObra: 'Asesoría de talla y cobro en mostrador',
@@ -575,17 +776,134 @@ export const CATALOGO_PRECIOS_COSTOS = {
       pesoEnMix: 15
     },
     {
+      id: 'imp_pijama_quirurgica_propia',
+      nombre: 'Pijama Quirúrgica Cirujano Autoclave (Taller Imperia)',
+      categoria: 'Confección Propia: Salud & Medicina',
+      unidad: 'juego',
+      precioVenta: 560.00,
+      costoMateriales: 340.00,
+      detalleMateriales: 'Conjunto quirúrgico verde/azul hospitalario para esterilización',
+      costoManoObra: 20.00,
+      detalleManoObra: 'Atención y empaque estéril',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_filipina_veterinaria_pediatrica',
+      nombre: 'Filipina Temática Veterinaria / Pediátrica (Taller Imperia)',
+      categoria: 'Confección Propia: Salud & Medicina',
+      unidad: 'pieza',
+      precioVenta: 440.00,
+      costoMateriales: 255.00,
+      detalleMateriales: 'Microfibra estampada temática (mascotas/infantil) repelente',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Atención mostrador y probador',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 12
+    },
+    {
       id: 'imp_bata_laboratorio',
-      nombre: 'Bata de Laboratorio Gabardina Pesada',
-      categoria: 'Confección Propia (Taller Imperia)',
+      nombre: 'Bata de Laboratorio Gabardina Pesada (Taller Imperia)',
+      categoria: 'Confección Propia: Salud & Medicina',
       unidad: 'bata',
       precioVenta: 450.00,
-      costoMateriales: 265.00, // Costo de transferencia interna de taller
+      costoMateriales: 265.00,
       detalleMateriales: 'Gabardina blanca pesada, solapa reforzada y broches metálicos',
       costoManoObra: 15.00,
       detalleManoObra: 'Atención y entrega en mostrador',
       costoLuzUnitario: 0.10,
-      pesoEnMix: 10
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_chef_filipina_propia',
+      nombre: 'Filipina de Chef Gourmet (Estilo Permachef - Taller Imperia)',
+      categoria: 'Confección Propia: Gastronomía & Chef',
+      unidad: 'filipina',
+      precioVenta: 590.00,
+      costoMateriales: 330.00,
+      detalleMateriales: 'Gabardina fresca de alta gama, cuello mao y botonadura cruzada',
+      costoManoObra: 20.00,
+      detalleManoObra: 'Atención en probador y entrega',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 20
+    },
+    {
+      id: 'imp_chef_mandil_propio',
+      nombre: 'Mandil de Pechera Peto Chef / Barista (Taller Imperia)',
+      categoria: 'Confección Propia: Gastronomía & Chef',
+      unidad: 'mandil',
+      precioVenta: 320.00,
+      costoMateriales: 175.00,
+      detalleMateriales: 'Gabardina pesada o mezclilla con cintas ajustables y remaches',
+      costoManoObra: 10.00,
+      detalleManoObra: 'Despacho de mostrador',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 25
+    },
+    {
+      id: 'imp_chef_pantalon_propio',
+      nombre: 'Pantalón de Cocina / Chef Cargo (Taller Imperia)',
+      categoria: 'Confección Propia: Gastronomía & Chef',
+      unidad: 'pantalón',
+      precioVenta: 440.00,
+      costoMateriales: 250.00,
+      detalleMateriales: 'Gabardina transpirable con elástico reforzado y jareta',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Prueba de talla y cobro',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_camisa_mesero_camarista',
+      nombre: 'Uniforme de Servicio Mesero / Camarista (Taller Imperia)',
+      categoria: 'Confección Propia: Hotelería & Restaurantes',
+      unidad: 'pieza',
+      precioVenta: 420.00,
+      costoMateriales: 240.00,
+      detalleMateriales: 'Filipina de gala para sala o bata hotelera fácil planchado',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Atención y empaque para empresas',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_camisola_reflejante_propia',
+      nombre: 'Camisola Industrial con Cintas Reflejantes (Taller Imperia)',
+      categoria: 'Confección Propia: Ropa Industrial',
+      unidad: 'camisola',
+      precioVenta: 540.00,
+      costoMateriales: 310.00,
+      detalleMateriales: 'Gabardina ruda 8.5 oz con cintas reflejantes 2" norma STPS',
+      costoManoObra: 20.00,
+      detalleManoObra: 'Despacho y facturación corporativa',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 20
+    },
+    {
+      id: 'imp_overol_industrial_propio',
+      nombre: 'Overol Industrial de Trabajo 1 Pieza (Taller Imperia)',
+      categoria: 'Confección Propia: Ropa Industrial',
+      unidad: 'overol',
+      precioVenta: 720.00,
+      costoMateriales: 410.00,
+      detalleMateriales: 'Gabardina pesada 100% algodón 9 oz con cierre metálico doble acción',
+      costoManoObra: 25.00,
+      detalleManoObra: 'Prueba de overol y entrega',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_escolar_pantalon_polo',
+      nombre: 'Uniforme Escolar Completo (Pantalón/Falda + Polo Taller)',
+      categoria: 'Confección Propia: Uniformes Escolares',
+      unidad: 'juego',
+      precioVenta: 490.00,
+      costoMateriales: 280.00,
+      detalleMateriales: 'Pantalón gabardina escolar + playera polo piqué con vivos tejidos',
+      costoManoObra: 20.00,
+      detalleManoObra: 'Atención temporada escolar',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 25
     },
     {
       id: 'imp_calzado_accesorios',
@@ -602,12 +920,138 @@ export const CATALOGO_PRECIOS_COSTOS = {
     },
 
     // -----------------------------------------------------------------------
-    // LÍNEA B: DISTRIBUCIÓN MULTIMARCA MAYOREO (COTEXSA / YAZBEK / EUROCOTTON)
+    // LÍNEA B: MARCAS ESPECIALIZADAS DE PRESTIGIO (DISTRIBUCIÓN MAYORISTA)
+    // -----------------------------------------------------------------------
+    // 1. PERMACHEF GASTRONOMÍA
+    {
+      id: 'imp_permachef_filipina_original',
+      nombre: 'Filipina de Chef PermaChef Original (Línea Cool Vent / Boutique)',
+      categoria: 'Marca Especializada: PermaChef',
+      unidad: 'filipina',
+      precioVenta: 890.00,
+      costoMateriales: 560.00, // Factura mayorista neta PermaChef
+      detalleMateriales: 'Filipina oficial PermaChef con tecnología de ventilación y acabados de lujo',
+      costoManoObra: 25.00,
+      detalleManoObra: 'Asesoría de marca, prueba en probador y ticket',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_permachef_mandil_peto',
+      nombre: 'Mandil de Peto Texano Mezclilla / Piel PermaChef',
+      categoria: 'Marca Especializada: PermaChef',
+      unidad: 'mandil',
+      precioVenta: 480.00,
+      costoMateriales: 295.00,
+      detalleMateriales: 'Mandil gastronómico PermaChef con diseño texano y costuras reforzadas',
+      costoManoObra: 10.00,
+      detalleManoObra: 'Despacho de mostrador',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_permachef_pantalon_cargo',
+      nombre: 'Pantalón de Chef PermaChef Cargo Pro',
+      categoria: 'Marca Especializada: PermaChef',
+      unidad: 'pantalón',
+      precioVenta: 690.00,
+      costoMateriales: 430.00,
+      detalleMateriales: 'Pantalón oficial PermaChef para cocinas de alta temperatura',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Prueba de talla y empaque oficial',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 12
+    },
+
+    // 2. CLINIK UNIFORMES MÉDICOS (BIO-MEDICAL STYLE)
+    {
+      id: 'imp_clinik_scrub_stretch',
+      nombre: 'Set Quirúrgico Clinik Bio-Medical Stretch (Filipina + Jogger)',
+      categoria: 'Marca Especializada: Clinik',
+      unidad: 'juego',
+      precioVenta: 920.00,
+      costoMateriales: 580.00, // Factura mayorista Clinik
+      detalleMateriales: 'Set completo oficial Clinik tela 4-way stretch antifluido importada',
+      costoManoObra: 25.00,
+      detalleManoObra: 'Asesoría de tallas boutique médica y probador',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 18
+    },
+    {
+      id: 'imp_clinik_filipina_antifluido',
+      nombre: 'Filipina Médica Clinik Antifluido Dama / Caballero',
+      categoria: 'Marca Especializada: Clinik',
+      unidad: 'pieza',
+      precioVenta: 490.00,
+      costoMateriales: 310.00,
+      detalleMateriales: 'Filipina oficial Clinik corte princesa o sastre con tecnología médica',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Atención en mostrador',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_clinik_jogger_pant',
+      nombre: 'Pantalón Jogger Médico Clinik Multi-Bolsillos',
+      categoria: 'Marca Especializada: Clinik',
+      unidad: 'pieza',
+      precioVenta: 560.00,
+      costoMateriales: 350.00,
+      detalleMateriales: 'Pantalón tipo jogger con resorte de tobillo y tela antifluido Clinik',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Prueba y cobro',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 15
+    },
+
+    // 3. UNITAM UNIFORMES INDUSTRIALES (TRABAJO RUDO)
+    {
+      id: 'imp_unitam_overol_reflejante',
+      nombre: 'Overol Industrial Unitam con Cintas Reflejantes (Contratista)',
+      categoria: 'Marca Especializada: Unitam',
+      unidad: 'overol',
+      precioVenta: 760.00,
+      costoMateriales: 480.00, // Factura mayorista Unitam
+      detalleMateriales: 'Overol industrial Unitam gabardina 100% algodón pesada con cintas de seguridad',
+      costoManoObra: 20.00,
+      detalleManoObra: 'Despacho corporativo',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 12
+    },
+    {
+      id: 'imp_unitam_camisola_industrial',
+      nombre: 'Camisola Industrial Unitam Gabardina Pesada',
+      categoria: 'Marca Especializada: Unitam',
+      unidad: 'camisola',
+      precioVenta: 430.00,
+      costoMateriales: 270.00,
+      detalleMateriales: 'Camisola de trabajo rudo Unitam 2 bolsas con cartera',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Atención corporativa',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_unitam_pantalon_cargo',
+      nombre: 'Pantalón Industrial Unitam Trabajo Rudo',
+      categoria: 'Marca Especializada: Unitam',
+      unidad: 'pantalón',
+      precioVenta: 460.00,
+      costoMateriales: 290.00,
+      detalleMateriales: 'Pantalón de trabajo pesado Unitam gabardina reforzada',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Prueba y despacho',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 12
+    },
+
+    // -----------------------------------------------------------------------
+    // LÍNEA C: DISTRIBUCIÓN MULTIMARCA MAYOREO (COTEXSA / YAZBEK / EUROCOTTON)
     // -----------------------------------------------------------------------
     {
       id: 'imp_polo_50_50_blanca',
       nombre: 'Playera Polo 50/50 Piqué Blanca (Dama / Caballero)',
-      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 185.00,
       costoMateriales: 105.00, // Factura mayorista neta con IVA
@@ -620,7 +1064,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
     {
       id: 'imp_polo_50_50_color',
       nombre: 'Playera Polo 50/50 Piqué Color (Dama / Caballero)',
-      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 215.00,
       costoMateriales: 125.00,
@@ -633,7 +1077,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
     {
       id: 'imp_polo_dryfit_blanca',
       nombre: 'Playera Polo 100% Poliéster Dry Fit Blanca (Dama / Cab.)',
-      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 165.00,
       costoMateriales: 82.00,
@@ -646,7 +1090,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
     {
       id: 'imp_polo_dryfit_color',
       nombre: 'Playera Polo 100% Poliéster Dry Fit Color (Dama / Cab.)',
-      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 175.00,
       costoMateriales: 92.00,
@@ -659,7 +1103,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
     {
       id: 'imp_cuello_redondo_blanca',
       nombre: 'Playera Cuello Redondo Manga Corta Blanca (Dama / Cab.)',
-      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 120.00,
       costoMateriales: 69.00, // Factura mayorista Yazbek C0300 / Eurocotton
@@ -672,7 +1116,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
     {
       id: 'imp_cuello_redondo_color',
       nombre: 'Playera Cuello Redondo Manga Corta Color (Dama / Cab.)',
-      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 135.00,
       costoMateriales: 78.00,
@@ -685,7 +1129,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
     {
       id: 'imp_camisa_gabardina_blanca',
       nombre: 'Camisa / Blusa Gabardina Manga Larga Blanca (Dama / Cab.)',
-      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 410.00,
       costoMateriales: 235.00, // Cotexsa serie 6000CL/6000DL o Yazbek C0607
@@ -698,7 +1142,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
     {
       id: 'imp_camisa_gabardina_color',
       nombre: 'Camisa / Blusa Gabardina Manga Larga Color (Dama / Cab.)',
-      categoria: 'Multimarca (Yazbek / Cotexsa / Eurocotton)',
+      categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 445.00,
       costoMateriales: 255.00,

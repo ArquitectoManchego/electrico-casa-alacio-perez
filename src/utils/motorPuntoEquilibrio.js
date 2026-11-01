@@ -134,12 +134,23 @@ export function calibrarNivelesVentaFinancieros({
 
   const pesoTotal = productos.reduce((sum, p) => sum + (p.pesoEnMix || 1), 0);
 
-  // Helper para generar distribución de artículos por producto según el mix
+  // Helper para generar distribución de artículos por producto según el mix (Método Hamilton-Hare)
   const generarMixCantidades = (totalArticulosMes) => {
+    if (totalArticulosMes <= 0 || productos.length === 0) return {};
+    const items = productos.map(p => {
+      const exacto = totalArticulosMes * ((p.pesoEnMix || 1) / pesoTotal);
+      const entero = Math.floor(exacto);
+      const resto = exacto - entero;
+      return { id: p.id, entero, resto };
+    });
+    const faltantes = totalArticulosMes - items.reduce((sum, item) => sum + item.entero, 0);
+    items.sort((a, b) => b.resto - a.resto);
+    for (let i = 0; i < faltantes && i < items.length; i++) {
+      items[i].entero += 1;
+    }
     const cantidades = {};
-    productos.forEach(p => {
-      const fraccion = (p.pesoEnMix || 1) / pesoTotal;
-      cantidades[p.id] = Math.max(0, Math.round(totalArticulosMes * fraccion));
+    items.forEach(item => {
+      cantidades[item.id] = Math.max(0, item.entero);
     });
     return cantidades;
   };
@@ -158,41 +169,55 @@ export function calibrarNivelesVentaFinancieros({
     productos
   });
 
+  // Helper de calibración óptima para metas de utilidad neta (evita distorsión por redondeo discreto en catálogos extensos)
+  const calibrarEscenarioPorMeta = (metaUtilidad) => {
+    if (mcPonderado <= 0) {
+      const arts = artsMesBajo * 2;
+      const cant = generarMixCantidades(arts);
+      return { 
+        artsMes: arts, 
+        cantidades: cant, 
+        pnl: calcularEstadoResultados({ cantidadesMensuales: cant, negocioId, diasLaborales, gastosFijosTotales, productos }) 
+      };
+    }
+    const baseArts = Math.round((gastosFijosTotales + metaUtilidad) / mcPonderado);
+    let bestArts = baseArts;
+    let minDiff = Infinity;
+    let bestPnl = null;
+    let bestCant = null;
+
+    for (let offset = -2; offset <= 2; offset++) {
+      const testArts = Math.max(1, baseArts + offset);
+      const testCant = generarMixCantidades(testArts);
+      const pnl = calcularEstadoResultados({
+        cantidadesMensuales: testCant,
+        negocioId,
+        diasLaborales,
+        gastosFijosTotales,
+        productos
+      });
+      const diff = Math.abs(pnl.utilidadNeta - metaUtilidad);
+      if (diff < minDiff) {
+        minDiff = diff;
+        bestArts = testArts;
+        bestPnl = pnl;
+        bestCant = testCant;
+      }
+    }
+    return { artsMes: bestArts, cantidades: bestCant, pnl: bestPnl };
+  };
+
   // 2. ESCENARIO MEDIO (Superávit moderado, cubre gastos con holgura)
   const metaUtilidadMedio = 8000.00; // $8,000 MXN libres
-  const artsMesMedio = mcPonderado > 0 ? Math.ceil((gastosFijosTotales + metaUtilidadMedio) / mcPonderado) : (artsMesBajo * 2);
-  const cantMedio = generarMixCantidades(artsMesMedio);
-  const pnlMedio = calcularEstadoResultados({
-    cantidadesMensuales: cantMedio,
-    negocioId,
-    diasLaborales,
-    gastosFijosTotales,
-    productos
-  });
+  const { artsMes: artsMesMedio, cantidades: cantMedio, pnl: pnlMedio } = calibrarEscenarioPorMeta(metaUtilidadMedio);
 
   // 3. ESCENARIO ALTO (META EXACTA DEL USUARIO: $20,000 MXN LIBRES)
   const metaUtilidadAlto = 20000.00; // $20,000 MXN libres exactos
-  const artsMesAlto = mcPonderado > 0 ? Math.ceil((gastosFijosTotales + metaUtilidadAlto) / mcPonderado) : (artsMesBajo * 3);
-  const cantAlto = generarMixCantidades(artsMesAlto);
-  const pnlAlto = calcularEstadoResultados({
-    cantidadesMensuales: cantAlto,
-    negocioId,
-    diasLaborales,
-    gastosFijosTotales,
-    productos
-  });
+  const { artsMes: artsMesAlto, cantidades: cantAlto, pnl: pnlAlto } = calibrarEscenarioPorMeta(metaUtilidadAlto);
 
   // 4. ESCENARIO MUY ALTO (SUPERIOR A $20,000 MXN LIBRES)
   const metaUtilidadMuyAlto = 35000.00; // $35,000 MXN libres
-  const artsMesMuyAlto = mcPonderado > 0 ? Math.ceil((gastosFijosTotales + metaUtilidadMuyAlto) / mcPonderado) : (artsMesAlto * 1.5);
-  const cantMuyAlto = generarMixCantidades(artsMesMuyAlto);
-  const pnlMuyAlto = calcularEstadoResultados({
-    cantidadesMensuales: cantMuyAlto,
-    negocioId,
-    diasLaborales,
-    gastosFijosTotales,
-    productos
-  });
+  const { artsMes: artsMesMuyAlto, cantidades: cantMuyAlto, pnl: pnlMuyAlto } = calibrarEscenarioPorMeta(metaUtilidadMuyAlto);
 
   return {
     puntoEquilibrio: pe,
