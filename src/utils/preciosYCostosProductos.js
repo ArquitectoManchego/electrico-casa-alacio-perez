@@ -920,16 +920,55 @@ export const CATALOGO_PRECIOS_COSTOS = {
     },
 
     // -----------------------------------------------------------------------
-    // LÍNEA B: MARCAS ESPECIALIZADAS DE PRESTIGIO (DISTRIBUCIÓN MAYORISTA)
+    // LÍNEA B: MARCAS ESPECIALIZADAS DE PRESTIGIO (DATA REAL FIREBASE SOFTWARE IMPERIA)
     // -----------------------------------------------------------------------
-    // 1. PERMACHEF GASTRONOMÍA
+    // 1. PERMACHEF GASTRONOMÍA (TOP GANANCIA BOUTIQUE & EDICIONES ESPECIALES)
+    {
+      id: 'imp_permachef_frida_kahlo',
+      nombre: 'Filipina PermaChef Frida Kahlo 4 Edición Especial (Dama / Cab.)',
+      categoria: 'Marca Especializada: PermaChef (Alta Ganancia)',
+      unidad: 'filipina',
+      precioVenta: 2417.00,
+      costoMateriales: 1790.00, // Factura oficial PermaChef Shopify API
+      detalleMateriales: 'Colección de autor Frida Kahlo 4 en tela premium y acabados bordados exclusivos',
+      costoManoObra: 25.00,
+      detalleManoObra: 'Asesoría boutique gastronómica y empaque oficial',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 6
+    },
+    {
+      id: 'imp_permachef_sabor_mexico',
+      nombre: 'Filipina PermaChef "Sabor a México" Gourmet (Dama / Cab.)',
+      categoria: 'Marca Especializada: PermaChef (Alta Ganancia)',
+      unidad: 'filipina',
+      precioVenta: 1889.00,
+      costoMateriales: 1399.00,
+      detalleMateriales: 'Filipina gourmet de gala PermaChef blanca con detalles alusivos nacionales',
+      costoManoObra: 20.00,
+      detalleManoObra: 'Atención especializada en mostrador y probador',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 8
+    },
+    {
+      id: 'imp_permachef_huipil_mandil',
+      nombre: 'Huipil / Mandil Gourmet con Sabor a México PermaChef',
+      categoria: 'Marca Especializada: PermaChef (Alta Ganancia)',
+      unidad: 'mandil',
+      precioVenta: 1619.00,
+      costoMateriales: 1199.00,
+      detalleMateriales: 'Mandil de colección gourmet de alto valor gastronómico',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Despacho boutique',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 8
+    },
     {
       id: 'imp_permachef_filipina_original',
       nombre: 'Filipina de Chef PermaChef Original (Línea Cool Vent / Boutique)',
       categoria: 'Marca Especializada: PermaChef',
       unidad: 'filipina',
       precioVenta: 890.00,
-      costoMateriales: 560.00, // Factura mayorista neta PermaChef
+      costoMateriales: 560.00,
       detalleMateriales: 'Filipina oficial PermaChef con tecnología de ventilación y acabados de lujo',
       costoManoObra: 25.00,
       detalleManoObra: 'Asesoría de marca, prueba en probador y ticket',
@@ -963,19 +1002,58 @@ export const CATALOGO_PRECIOS_COSTOS = {
       pesoEnMix: 12
     },
 
-    // 2. CLINIK UNIFORMES MÉDICOS (BIO-MEDICAL STYLE)
+    // 2. CLINIK UNIFORMES MÉDICOS (TOP GANANCIA CLÍNICA & SALUD)
+    {
+      id: 'imp_clinik_juego_414_409',
+      nombre: 'Juego Quirúrgico Clinik Premium MD 414 / 409 (Dama / Cab.)',
+      categoria: 'Marca Especializada: Clinik (Alta Ganancia)',
+      unidad: 'juego',
+      precioVenta: 2025.00,
+      costoMateriales: 1499.00, // Factura mayorista Clinik Shopify API
+      detalleMateriales: 'Set quirúrgico Clinik 4-way stretch modelo 414/409 alta costura médica',
+      costoManoObra: 25.00,
+      detalleManoObra: 'Asesoría boutique médica y probador',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 8
+    },
+    {
+      id: 'imp_clinik_saco_cusco',
+      nombre: 'Saco Médico de Gala Clinik MD 802 Cusco / 838 Xalisco',
+      categoria: 'Marca Especializada: Clinik (Alta Ganancia)',
+      unidad: 'saco',
+      precioVenta: 1561.00,
+      costoMateriales: 1156.00,
+      detalleMateriales: 'Saco médico manga ranglan filafil y lino italiano de alta costura médica',
+      costoManoObra: 20.00,
+      detalleManoObra: 'Prueba sastre y entrega en funda protectora',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 8
+    },
+    {
+      id: 'imp_clinik_bata_dacron_220',
+      nombre: 'Bata Médica Clinik Dacrón Solapa Redonda MD 220',
+      categoria: 'Marca Especializada: Clinik (Alta Ganancia)',
+      unidad: 'bata',
+      precioVenta: 1232.00,
+      costoMateriales: 912.00,
+      detalleMateriales: 'Bata médica de consulta y laboratorio en tela dacrón de alta durabilidad',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Prueba de talla y planchado',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 10
+    },
     {
       id: 'imp_clinik_scrub_stretch',
       nombre: 'Set Quirúrgico Clinik Bio-Medical Stretch (Filipina + Jogger)',
       categoria: 'Marca Especializada: Clinik',
       unidad: 'juego',
       precioVenta: 920.00,
-      costoMateriales: 580.00, // Factura mayorista Clinik
+      costoMateriales: 580.00,
       detalleMateriales: 'Set completo oficial Clinik tela 4-way stretch antifluido importada',
       costoManoObra: 25.00,
       detalleManoObra: 'Asesoría de tallas boutique médica y probador',
       costoLuzUnitario: 0.10,
-      pesoEnMix: 18
+      pesoEnMix: 15
     },
     {
       id: 'imp_clinik_filipina_antifluido',
@@ -1004,14 +1082,42 @@ export const CATALOGO_PRECIOS_COSTOS = {
       pesoEnMix: 15
     },
 
-    // 3. UNITAM UNIFORMES INDUSTRIALES (TRABAJO RUDO)
+    // 3. CALZADO PROFESIONAL ANTIDERRAPANTE (TOP GANANCIA CLÍNICO & CHEF)
+    {
+      id: 'imp_calzado_stico_clinik',
+      nombre: 'Calzado Profesional Antiderrapante Stico NEC 06 (Médico / Chef)',
+      categoria: 'Calzado Profesional Ergonómico',
+      unidad: 'par',
+      precioVenta: 2179.00,
+      costoMateriales: 1614.00,
+      detalleMateriales: 'Calzado ergonómico de poliuretano certificado STICO antiderrapante en aceite y agua',
+      costoManoObra: 20.00,
+      detalleManoObra: 'Prueba de calce ergonómico y ticket',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 6
+    },
+    {
+      id: 'imp_calzado_crocs_bistro',
+      nombre: 'Zapato Profesional Crocs Bistro Work Slip On (Chef / Servicio)',
+      categoria: 'Calzado Profesional Ergonómico',
+      unidad: 'par',
+      precioVenta: 1754.00,
+      costoMateriales: 1299.00,
+      detalleMateriales: 'Calzado oficial Crocs Bistro antifatiga para cocinas y áreas hospitalarias',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Prueba de número y entrega en caja',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 8
+    },
+
+    // 4. UNITAM UNIFORMES INDUSTRIALES (TRABAJO RUDO)
     {
       id: 'imp_unitam_overol_reflejante',
       nombre: 'Overol Industrial Unitam con Cintas Reflejantes (Contratista)',
       categoria: 'Marca Especializada: Unitam',
       unidad: 'overol',
       precioVenta: 760.00,
-      costoMateriales: 480.00, // Factura mayorista Unitam
+      costoMateriales: 480.00,
       detalleMateriales: 'Overol industrial Unitam gabardina 100% algodón pesada con cintas de seguridad',
       costoManoObra: 20.00,
       detalleManoObra: 'Despacho corporativo',
@@ -1048,18 +1154,127 @@ export const CATALOGO_PRECIOS_COSTOS = {
     // -----------------------------------------------------------------------
     // LÍNEA C: DISTRIBUCIÓN MULTIMARCA MAYOREO (COTEXSA / YAZBEK / EUROCOTTON)
     // -----------------------------------------------------------------------
+    // 1. CAMISERÍA CORPORATIVA Y MEZCLILLA (TOP GANANCIA POR UNIDAD)
+    {
+      id: 'imp_eurocotton_oxford_ml',
+      nombre: 'Camisa de Vestir Oxford Manga Larga Eurocotton (Caballero / Dama)',
+      categoria: 'Camisería Corporativa Eurocotton',
+      unidad: 'camisa',
+      precioVenta: 557.00,
+      costoMateriales: 384.00, // Factura VTEX Eurocotton oficial (45% markup)
+      detalleMateriales: 'Camisa de vestir tela Oxford suave 60/40 Eurocotton (Blanco, Cielo, Rayas)',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Asesoría de talla, empaque y planchado ligero',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 16
+    },
+    {
+      id: 'imp_eurocotton_gabardina_ml',
+      nombre: 'Camisa de Vestir Gabardina Manga Larga Eurocotton (Caballero / Dama)',
+      categoria: 'Camisería Corporativa Eurocotton',
+      unidad: 'camisa',
+      precioVenta: 529.00,
+      costoMateriales: 365.00,
+      detalleMateriales: 'Camisa de vestir ejecutiva en gabardina de alto gramaje Eurocotton',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Atención a cuentas empresariales',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_yazbek_camisa_mezclilla',
+      nombre: 'Camisa de Mezclilla Manga Larga 100% Algodón Yazbek (Cab. / Dama)',
+      categoria: 'Camisería Corporativa Yazbek',
+      unidad: 'camisa',
+      precioVenta: 544.00,
+      costoMateriales: 375.00, // Factura Yazbek Shopify API (45% markup)
+      detalleMateriales: 'Camisa de mezclilla índigo claro 100% algodón prelavada Yazbek de uso rudo',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Asesoría de corte recto o con silueta dama',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 16
+    },
+    {
+      id: 'imp_yazbek_camisa_gabardina',
+      nombre: 'Camisa / Blusa Gabardina Manga Larga Yazbek C0607 / D0607',
+      categoria: 'Camisería Corporativa Yazbek',
+      unidad: 'camisa',
+      precioVenta: 479.00,
+      costoMateriales: 330.00,
+      detalleMateriales: 'Camisa ejecutiva gabardina 50/50 Yazbek manga larga',
+      costoManoObra: 15.00,
+      detalleManoObra: 'Planchado y entrega',
+      costoLuzUnitario: 0.10,
+      pesoEnMix: 18
+    },
+    {
+      id: 'imp_cotexsa_camisa_6000',
+      nombre: 'Camisa de Gabardina Manga Larga Cotexsa Serie 6000CL / 6000DL',
+      categoria: 'Distribución Mayorista Cotexsa',
+      unidad: 'camisa',
+      precioVenta: 353.00,
+      costoMateriales: 235.00, // Factura mayorista Cotexsa (50% markup)
+      detalleMateriales: 'Gabardina ejecutiva de alto rendimiento Cotexsa manga larga',
+      costoManoObra: 12.00,
+      detalleManoObra: 'Despacho corporativo',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 20
+    },
+
+    // 2. SUDADERAS DE ALTO MARGEN
+    {
+      id: 'imp_yazbek_sudadera_cierre',
+      nombre: 'Sudadera Adulto con Capucha, Cangurera y Cierre Yazbek (50/50)',
+      categoria: 'Sudaderas de Alto Margen',
+      unidad: 'sudadera',
+      precioVenta: 428.00,
+      costoMateriales: 295.00,
+      detalleMateriales: 'Sudadera felpa 50/50 pesada con cierre metálico completo y capucha Yazbek',
+      costoManoObra: 10.00,
+      detalleManoObra: 'Doblado y empaque',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 15
+    },
+    {
+      id: 'imp_eurocotton_sudadera_canguro',
+      nombre: 'Sudadera Unisex Premium con Capucha y Cangurera Eurocotton',
+      categoria: 'Sudaderas de Alto Margen',
+      unidad: 'sudadera',
+      precioVenta: 428.00,
+      costoMateriales: 295.00,
+      detalleMateriales: 'Sudadera felpa suave unisex con forro en capucha Eurocotton',
+      costoManoObra: 10.00,
+      detalleManoObra: 'Doblado y empaque',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 15
+    },
+
+    // 3. PLAYERAS POLO Y BÁSICOS DE ALTO VOLUMEN
+    {
+      id: 'imp_cotexsa_polo_6900',
+      nombre: 'Playera Polo 50/50 Piqué Cotexsa Serie 6900 (Dama / Caballero)',
+      categoria: 'Distribución Mayorista Cotexsa',
+      unidad: 'pieza',
+      precioVenta: 158.00,
+      costoMateriales: 105.00, // Cotexsa 6900 50% markup
+      detalleMateriales: 'Polo piqué peinado 50/50 Cotexsa resistente al lavado industrial',
+      costoManoObra: 8.00,
+      detalleManoObra: 'Mostrador y despacho',
+      costoLuzUnitario: 0.05,
+      pesoEnMix: 25
+    },
     {
       id: 'imp_polo_50_50_blanca',
       nombre: 'Playera Polo 50/50 Piqué Blanca (Dama / Caballero)',
       categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 185.00,
-      costoMateriales: 105.00, // Factura mayorista neta con IVA
+      costoMateriales: 105.00,
       detalleMateriales: 'Polo piqué 50% algodón / 50% poliéster peinado (Cotexsa 6900 / Yazbek C0501)',
       costoManoObra: 8.00,
       detalleManoObra: 'Atención de mostrador, doblado y empaque',
       costoLuzUnitario: 0.05,
-      pesoEnMix: 30
+      pesoEnMix: 25
     },
     {
       id: 'imp_polo_50_50_color',
@@ -1072,7 +1287,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
       costoManoObra: 8.00,
       detalleManoObra: 'Atención de mostrador, doblado y empaque',
       costoLuzUnitario: 0.05,
-      pesoEnMix: 35
+      pesoEnMix: 30
     },
     {
       id: 'imp_polo_dryfit_blanca',
@@ -1085,7 +1300,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
       costoManoObra: 8.00,
       detalleManoObra: 'Atención y mostrador',
       costoLuzUnitario: 0.05,
-      pesoEnMix: 25
+      pesoEnMix: 20
     },
     {
       id: 'imp_polo_dryfit_color',
@@ -1098,7 +1313,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
       costoManoObra: 8.00,
       detalleManoObra: 'Atención y mostrador',
       costoLuzUnitario: 0.05,
-      pesoEnMix: 30
+      pesoEnMix: 25
     },
     {
       id: 'imp_cuello_redondo_blanca',
@@ -1106,12 +1321,12 @@ export const CATALOGO_PRECIOS_COSTOS = {
       categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 120.00,
-      costoMateriales: 69.00, // Factura mayorista Yazbek C0300 / Eurocotton
-      detalleMateriales: '100% algodón peinado peso completo 180-200g blanco',
+      costoMateriales: 69.00,
+      detalleMateriales: '100% algodón peinado peso completo 180-200g blanco Yazbek C0300 / Eurocotton',
       costoManoObra: 5.00,
       detalleManoObra: 'Despacho de mostrador y cobro',
       costoLuzUnitario: 0.05,
-      pesoEnMix: 40
+      pesoEnMix: 35
     },
     {
       id: 'imp_cuello_redondo_color',
@@ -1124,7 +1339,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
       costoManoObra: 5.00,
       detalleManoObra: 'Despacho de mostrador y cobro',
       costoLuzUnitario: 0.05,
-      pesoEnMix: 45
+      pesoEnMix: 40
     },
     {
       id: 'imp_camisa_gabardina_blanca',
@@ -1132,12 +1347,12 @@ export const CATALOGO_PRECIOS_COSTOS = {
       categoria: 'Básicos Multimarca (Yazbek / Cotexsa / Eurocotton)',
       unidad: 'pieza',
       precioVenta: 410.00,
-      costoMateriales: 235.00, // Cotexsa serie 6000CL/6000DL o Yazbek C0607
+      costoMateriales: 235.00,
       detalleMateriales: 'Gabardina ejecutiva 50/50 ó 60/40 algodón/poliéster blanca manga larga',
       costoManoObra: 15.00,
       detalleManoObra: 'Asesoría de cuello/talla, prueba en probador y planchado ligero',
       costoLuzUnitario: 0.10,
-      pesoEnMix: 20
+      pesoEnMix: 15
     },
     {
       id: 'imp_camisa_gabardina_color',
@@ -1150,7 +1365,7 @@ export const CATALOGO_PRECIOS_COSTOS = {
       costoManoObra: 15.00,
       detalleManoObra: 'Asesoría de cuello/talla, prueba en probador y planchado ligero',
       costoLuzUnitario: 0.10,
-      pesoEnMix: 25
+      pesoEnMix: 20
     }
   ],
 
