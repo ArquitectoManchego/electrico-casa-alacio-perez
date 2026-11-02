@@ -112,41 +112,68 @@ export function calcularDetalleProceso(proceso, cantidadMensual = 0, tamanoLote 
 }
 
 /**
- * Calibra automáticamente los escenarios Bajo, Medio y Alto (80% de horario laboral) para un negocio
+ * Calibra automáticamente los escenarios de venta para un negocio:
+ * - bajo: ~20% capacidad
+ * - tablas: ~35% capacidad (sales tablas / punto de equilibrio operativo)
+ * - medio: ~50% capacidad (venta regular buena)
+ * - alto: ~80% capacidad (temporada alta / 80% horario laboral)
+ * - muy_alto: ~95% capacidad (demanda pico máxima)
  */
 export function calibrarEscenariosNegocio(negocioConfig, procesosNegocio = [], mapaEquipos = {}, diasLaborales = 26, horasTurno = 8.0) {
   const minutosLaboralesMes = diasLaborales * horasTurno * 60;
+  const ESCENARIOS_LISTA = ['bajo', 'tablas', 'medio', 'alto', 'muy_alto'];
 
   // Si el negocio tiene volúmenes fijos de baja ocupación (como Oficina Consorcio)
   if (negocioConfig.modoCapacidad === 'baja_ocupacion_oficina') {
-    const escenarios = { bajo: {}, medio: {}, alto: {} };
-    ['bajo', 'medio', 'alto'].forEach(esc => {
+    const escenarios = {};
+    ESCENARIOS_LISTA.forEach(esc => {
       escenarios[esc] = { cantidades: {}, lotes: {} };
       procesosNegocio.forEach(p => {
-        const cant = (p.volumenFijoEscenario && p.volumenFijoEscenario[esc] !== undefined)
-          ? p.volumenFijoEscenario[esc]
-          : 1;
+        let cant = 1;
+        if (p.volumenFijoEscenario) {
+          if (p.volumenFijoEscenario[esc] !== undefined) {
+            cant = p.volumenFijoEscenario[esc];
+          } else if (esc === 'tablas') {
+            const b = p.volumenFijoEscenario.bajo || 1;
+            const m = p.volumenFijoEscenario.medio || 2;
+            cant = Math.max(1, Math.round(b + (m - b) * 0.5));
+          } else if (esc === 'muy_alto') {
+            const a = p.volumenFijoEscenario.alto || 3;
+            cant = Math.max(1, Math.round(a * 1.25));
+          }
+        }
         escenarios[esc].cantidades[p.id] = cant;
-        escenarios[esc].lotes[p.id] = (p.lotesPorEscenario && p.lotesPorEscenario[esc]) || 1;
+        escenarios[esc].lotes[p.id] = (p.lotesPorEscenario && (
+          p.lotesPorEscenario[esc] ||
+          (esc === 'tablas' ? p.lotesPorEscenario.bajo : p.lotesPorEscenario.alto) ||
+          p.lotesPorEscenario.medio
+        )) || 1;
       });
     });
+    escenarios.equilibrio = escenarios.tablas;
+    escenarios.buena = escenarios.medio;
     return escenarios;
   }
 
   // Para negocios de producción o comercial: calcular la utilización por unidad de mezcla
   const targets = {
     bajo: 0.20,
+    tablas: 0.35,
     medio: 0.50,
-    alto: 0.80 // 80% de capacidad en horario laboral para el equipo cuello de botella
+    alto: 0.80, // 80% de capacidad en horario laboral para el equipo cuello de botella
+    muy_alto: 0.95 // 95% de capacidad pico
   };
 
-  const escenarios = { bajo: {}, medio: {}, alto: {} };
+  const escenarios = {};
 
-  ['bajo', 'medio', 'alto'].forEach(esc => {
+  ESCENARIOS_LISTA.forEach(esc => {
     const targetCap = targets[esc];
     const lotesEsc = {};
     procesosNegocio.forEach(p => {
-      lotesEsc[p.id] = (p.lotesPorEscenario && p.lotesPorEscenario[esc]) || 1;
+      lotesEsc[p.id] = (p.lotesPorEscenario && (
+        p.lotesPorEscenario[esc] ||
+        (esc === 'tablas' ? p.lotesPorEscenario.bajo : (esc === 'muy_alto' ? p.lotesPorEscenario.alto : p.lotesPorEscenario.medio))
+      )) || 1;
     });
 
     // Calcular minutos por unidad de vector base de cada proceso en cada máquina
@@ -218,6 +245,9 @@ export function calibrarEscenariosNegocio(negocioConfig, procesosNegocio = [], m
     };
   });
 
+  escenarios.equilibrio = escenarios.tablas;
+  escenarios.buena = escenarios.medio;
+
   return escenarios;
 }
 
@@ -226,7 +256,7 @@ export function calibrarEscenariosNegocio(negocioConfig, procesosNegocio = [], m
  */
 export function simularNegocioCompleto({
   negocioId,
-  escenarioActivo = 'medio', // 'bajo' | 'medio' | 'alto' | 'custom'
+  escenarioActivo = 'medio', // 'bajo' | 'tablas' | 'medio' | 'alto' | 'muy_alto' | 'custom'
   overridesUsuario = null,   // { cantidades: {}, lotes: {} }
   diasLaborales = 26,
   horasTurno = 8.0,
@@ -307,10 +337,13 @@ export function simularNegocioCompleto({
       kwhEquiposMes[eqKey] = (kwhEquiposMes[eqKey] || 0) + kwhMes;
       minutosEquiposMes[eqKey] = (minutosEquiposMes[eqKey] || 0) + minutosTurnoMes;
     } else if (eq.rol === 'clima') {
-      // Modulación de clima según escenario
+      // Modulación de clima según escenario de venta
       let factorUso = 0.65;
       if (escenarioActivo === 'bajo') factorUso = 0.50;
-      if (escenarioActivo === 'alto') factorUso = 0.85;
+      else if (escenarioActivo === 'tablas' || escenarioActivo === 'equilibrio') factorUso = 0.58;
+      else if (escenarioActivo === 'medio' || escenarioActivo === 'buena') factorUso = 0.65;
+      else if (escenarioActivo === 'alto') factorUso = 0.85;
+      else if (escenarioActivo === 'muy_alto') factorUso = 0.95;
       const horasEfectivasClima = horasTurnoMes * factorUso;
       const factorInverter = eq.factorTrabajo || 0.62;
       const kwhMes = ((watts * factorInverter * horasEfectivasClima) / 1000);
@@ -395,7 +428,8 @@ export function simularConsorcioPorMedidores({
   medidores = [],
   tarifas = {},
   costosMEM = {},
-  diasPeriodo = 30
+  diasPeriodo = 30,
+  escenarioGlobal = null // 'bajo' | 'tablas' | 'medio' | 'alto' | 'muy_alto'
 }) {
   const medidoresList = Array.isArray(medidores) && medidores.length >= 6
     ? medidores
@@ -412,10 +446,11 @@ export function simularConsorcioPorMedidores({
   const resultadosNegocios = {};
   NEGOCIOS_CONFIG.forEach(neg => {
     const estado = todosEstadosNegocios[neg.id] || {};
+    const escActivo = escenarioGlobal || estado.escenarioActivo || 'medio';
     resultadosNegocios[neg.id] = simularNegocioCompleto({
       negocioId: neg.id,
-      escenarioActivo: estado.escenarioActivo || 'medio',
-      overridesUsuario: estado.overridesUsuario || null,
+      escenarioActivo: escActivo,
+      overridesUsuario: escenarioGlobal ? null : (estado.overridesUsuario || null),
       diasLaborales: estado.diasLaborales || neg.diasLaboralesDefault,
       horasTurno: estado.horasTurno || neg.horasTurnoDefault,
       aparatos,

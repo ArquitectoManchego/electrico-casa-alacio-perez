@@ -18,7 +18,9 @@ export default function SimuladorConsumoVentas({
   diasPeriodo = 30,
   proyectoId = 'consorcio_general',
   onKwhDiarioChange,
-  medidores = []
+  medidores = [],
+  escenarioVentas = 'medio',
+  onEscenarioVentasChange
 }) {
   const esConsorcio = proyectoId === 'consorcio_general';
 
@@ -53,7 +55,7 @@ export default function SimuladorConsumoVentas({
     const init = {};
     NEGOCIOS_CONFIG.forEach(neg => {
       init[neg.id] = {
-        escenarioActivo: 'medio',
+        escenarioActivo: escenarioVentas && escenarioVentas !== 'inventario' ? escenarioVentas : 'medio',
         overridesUsuario: null,
         diasLaborales: neg.diasLaboralesDefault,
         horasTurno: neg.horasTurnoDefault
@@ -69,6 +71,22 @@ export default function SimuladorConsumoVentas({
     } catch (e) {}
   }, [estadosNegocios, storageKey]);
 
+  // Sincronización entrante desde el Recibo de Luz CFE u otros módulos
+  useEffect(() => {
+    if (escenarioVentas && escenarioVentas !== 'inventario') {
+      setEstadosNegocios(prev => {
+        if (!prev[negocioActivoId] || prev[negocioActivoId].escenarioActivo === escenarioVentas) return prev;
+        return {
+          ...prev,
+          [negocioActivoId]: {
+            ...prev[negocioActivoId],
+            escenarioActivo: escenarioVentas
+          }
+        };
+      });
+    }
+  }, [escenarioVentas, negocioActivoId]);
+
   // Estado del negocio activo
   const estadoActual = estadosNegocios[negocioActivoId] || {
     escenarioActivo: 'medio',
@@ -79,11 +97,26 @@ export default function SimuladorConsumoVentas({
 
   const negocioConfig = NEGOCIOS_CONFIG.find(n => n.id === negocioActivoId) || NEGOCIOS_CONFIG[0];
 
-  // Simular los 3 escenarios fijos + el escenario activo del negocio seleccionado
+  // Simular los escenarios de ventas para el negocio seleccionado
   const simBajo = useMemo(() => {
     return simularNegocioCompleto({
       negocioId: negocioActivoId,
       escenarioActivo: 'bajo',
+      overridesUsuario: null,
+      diasLaborales: estadoActual.diasLaborales,
+      horasTurno: estadoActual.horasTurno,
+      aparatos,
+      esConsorcio,
+      tarifas,
+      costosMEM,
+      diasPeriodo
+    });
+  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+
+  const simTablas = useMemo(() => {
+    return simularNegocioCompleto({
+      negocioId: negocioActivoId,
+      escenarioActivo: 'tablas',
       overridesUsuario: null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
@@ -125,10 +158,27 @@ export default function SimuladorConsumoVentas({
     });
   }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
+  const simMuyAlto = useMemo(() => {
+    return simularNegocioCompleto({
+      negocioId: negocioActivoId,
+      escenarioActivo: 'muy_alto',
+      overridesUsuario: null,
+      diasLaborales: estadoActual.diasLaborales,
+      horasTurno: estadoActual.horasTurno,
+      aparatos,
+      esConsorcio,
+      tarifas,
+      costosMEM,
+      diasPeriodo
+    });
+  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+
   const simActual = useMemo(() => {
     if (estadoActual.escenarioActivo === 'bajo') return simBajo;
-    if (estadoActual.escenarioActivo === 'medio') return simMedio;
+    if (estadoActual.escenarioActivo === 'tablas' || estadoActual.escenarioActivo === 'equilibrio') return simTablas;
+    if (estadoActual.escenarioActivo === 'medio' || estadoActual.escenarioActivo === 'buena') return simMedio;
     if (estadoActual.escenarioActivo === 'alto') return simAlto;
+    if (estadoActual.escenarioActivo === 'muy_alto') return simMuyAlto;
 
     return simularNegocioCompleto({
       negocioId: negocioActivoId,
@@ -142,7 +192,7 @@ export default function SimuladorConsumoVentas({
       costosMEM,
       diasPeriodo
     });
-  }, [estadoActual.escenarioActivo, estadoActual.overridesUsuario, estadoActual.diasLaborales, estadoActual.horasTurno, simBajo, simMedio, simAlto, negocioActivoId, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [estadoActual.escenarioActivo, estadoActual.overridesUsuario, estadoActual.diasLaborales, estadoActual.horasTurno, simBajo, simTablas, simMedio, simAlto, simMuyAlto, negocioActivoId, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   // Simulación agregada de Consorcio por los 6 Medidores CFE
   const simConsorcio = useMemo(() => {
@@ -180,6 +230,9 @@ export default function SimuladorConsumoVentas({
         escenarioActivo: nuevoEscenario
       }
     }));
+    if (onEscenarioVentasChange) {
+      onEscenarioVentasChange(nuevoEscenario);
+    }
   };
 
   const handleChangeDiasLaborales = (dias) => {
@@ -310,8 +363,10 @@ export default function SimuladorConsumoVentas({
       <ComparativaMensualCFE 
         simulacionActual={simActual}
         simulacionBajo={simBajo}
+        simulacionTablas={simTablas}
         simulacionMedio={simMedio}
         simulacionAlto={simAlto}
+        simulacionMuyAlto={simMuyAlto}
         vistaConsolidada={vistaConsolidada}
         simulacionConsorcio={simConsorcio}
         diasPeriodo={diasPeriodo}

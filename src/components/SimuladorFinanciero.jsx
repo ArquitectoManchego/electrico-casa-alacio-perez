@@ -1,6 +1,24 @@
-import React, { useState } from 'react';
-import { DollarSign, Settings2, BarChart2, Info, Printer, Download, Eye, HelpCircle, Layers, Gauge } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { 
+  DollarSign, 
+  Settings2, 
+  BarChart2, 
+  Info, 
+  Printer, 
+  Download, 
+  Eye, 
+  HelpCircle, 
+  Layers, 
+  Gauge, 
+  TrendingUp, 
+  Link as LinkIcon, 
+  ShoppingCart, 
+  Zap, 
+  CheckCircle2,
+  Sparkles
+} from 'lucide-react';
 import { calcularCobroCFECompleto, calcularKwhDiarioAparato } from '../utils/simuladorCFE';
+import { simularConsorcioPorMedidores, simularNegocioCompleto } from '../utils/motorSimulacionVentas';
 
 // Función para convertir números a palabras en español para CFE
 function numeroALetras(num) {
@@ -74,7 +92,9 @@ function ReciboCFECard({
   costosMEM, 
   diasPeriodo, 
   clienteNombre, 
-  clienteDireccion 
+  clienteDireccion,
+  escenarioNombre = '',
+  negociosAsignados = []
 }) {
   const totalKwh = Math.max(0.1, kwhBimestral);
   const pointerPct = Math.min(100, (totalKwh / 2000) * 100);
@@ -96,8 +116,15 @@ function ReciboCFECard({
               <span>CFE</span>
               <span className="text-[9px] font-sans font-bold tracking-widest text-[#00875a] border-t border-[#00875a] pt-0.5 uppercase">Comisión Federal de Electricidad®</span>
             </div>
-            <div className="px-2.5 py-1 rounded-lg bg-emerald-50 text-[#00875a] border border-emerald-200 text-xs font-bold font-mono">
-              {medidor.nombre || `Medidor ${medidor.numero}`}
+            <div className="flex flex-col gap-1">
+              <div className="px-2.5 py-1 rounded-lg bg-emerald-50 text-[#00875a] border border-emerald-200 text-xs font-bold font-mono">
+                {medidor.nombre || `Medidor ${medidor.numero}`}
+              </div>
+              {escenarioNombre && (
+                <div className="text-[9px] font-mono font-bold text-teal-800 uppercase">
+                  Nivel: {escenarioNombre}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -120,6 +147,11 @@ function ReciboCFECard({
             {clienteDireccion}<br />
             VERACRUZ, VER
           </div>
+          {negociosAsignados && negociosAsignados.length > 0 && (
+            <div className="text-[10px] text-slate-500 font-sans pt-0.5">
+              <strong className="text-slate-700">Carga Operativa:</strong> {negociosAsignados.join(', ')}
+            </div>
+          )}
           
           <div className="pt-3 grid grid-cols-2 gap-y-1 gap-x-2 text-[10px] text-slate-600 font-mono uppercase">
             <div><strong className="text-slate-800">NO. DE SERVICIO:</strong> {servicioNum}</div>
@@ -131,7 +163,7 @@ function ReciboCFECard({
           </div>
           
           <div className="pt-1.5 text-[10px] text-slate-700">
-            <strong className="text-slate-800 uppercase font-mono">Periodo Facturado:</strong> 09 ABR - 11 JUN (SIMULADO EN BASE A {diasPeriodo} DÍAS)
+            <strong className="text-slate-800 uppercase font-mono">Periodo Facturado:</strong> 09 ABR - 11 JUN (SIMULADO EN BASE A {diasPeriodo} DÍAS{escenarioNombre ? ` • ESCENARIO: ${escenarioNombre.toUpperCase()}` : ''})
           </div>
         </div>
 
@@ -397,7 +429,10 @@ export default function SimuladorFinanciero({
   diasPeriodo,
   onDiasPeriodoChange,
   medidores = [],
-  aparatos = []
+  aparatos = [],
+  proyectoId = 'consorcio_general',
+  escenarioVentas = 'medio',
+  onEscenarioVentasChange
 }) {
   const [showConfig, setShowConfig] = useState(false);
   const [clienteNombre, setClienteNombre] = useState('RESIDENCIA CASA ALACIO PÉREZ');
@@ -409,20 +444,103 @@ export default function SimuladorFinanciero({
     ? medidores 
     : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
 
+  const esConsorcio = proyectoId === 'consorcio_general' || listaMedidores.length >= 6;
+
+  // Catálogo de Niveles de Ventas para el Recibo CFE
+  const NIVELES_VENTA = [
+    { id: 'bajo', nombre: 'Venta Baja', sub: '~20% Cap.', desc: 'Mínima demanda comercial', color: 'sky' },
+    { id: 'tablas', nombre: 'Sales Tablas', sub: '~35% Cap.', desc: 'Punto de equilibrio operativo', color: 'amber' },
+    { id: 'medio', nombre: 'Venta Buena', sub: '~50% Cap.', desc: 'Demanda comercial regular', color: 'teal' },
+    { id: 'alto', nombre: 'Venta Alta', sub: '80% Cap.', desc: 'Temporada alta y saturación laboral', color: 'emerald' },
+    { id: 'muy_alto', nombre: 'Venta Muy Alta', sub: '95% Cap.', desc: 'Demanda pico máxima', color: 'purple' },
+    { id: 'inventario', nombre: 'Aparatos Base', sub: 'Inventario', desc: 'Carga nominal estática de equipos', color: 'slate' }
+  ];
+
+  const nivelActivoObj = NIVELES_VENTA.find(n => n.id === escenarioVentas) || NIVELES_VENTA[2];
+
+  // Simulación según escenario de ventas
+  const simConsorcioVentas = useMemo(() => {
+    if (escenarioVentas === 'inventario') return null;
+    if (esConsorcio) {
+      return simularConsorcioPorMedidores({
+        escenarioGlobal: escenarioVentas,
+        aparatos,
+        medidores: listaMedidores,
+        tarifas,
+        costosMEM,
+        diasPeriodo
+      });
+    }
+    return null;
+  }, [escenarioVentas, esConsorcio, aparatos, listaMedidores, tarifas, costosMEM, diasPeriodo]);
+
+  const simNegocioIndividualVentas = useMemo(() => {
+    if (escenarioVentas === 'inventario' || esConsorcio) return null;
+    return simularNegocioCompleto({
+      negocioId: proyectoId || 'imperia_uniformes',
+      escenarioActivo: escenarioVentas,
+      aparatos,
+      tarifas,
+      costosMEM,
+      diasPeriodo
+    });
+  }, [escenarioVentas, esConsorcio, proyectoId, aparatos, tarifas, costosMEM, diasPeriodo]);
+
   // Calcular datos por medidor
-  const medidoresRecibosData = listaMedidores.map(med => {
-    const apsMed = aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id);
-    const kwhDiarioMed = apsMed.reduce((sum, ap) => sum + calcularKwhDiarioAparato(ap), 0);
-    const kwhBimestralMed = kwhDiarioMed * diasPeriodo;
-    const desgloseMed = calcularCobroCFECompleto(kwhBimestralMed, tarifas, costosMEM);
-    return {
-      medidor: med,
-      aparatos: apsMed,
-      kwhDiario: kwhDiarioMed,
-      kwhBimestral: kwhBimestralMed,
-      desglose: desgloseMed
-    };
-  });
+  const medidoresRecibosData = useMemo(() => {
+    return listaMedidores.map(med => {
+      const apsMed = aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id);
+
+      if (escenarioVentas === 'inventario') {
+        const kwhDiarioMed = apsMed.reduce((sum, ap) => sum + calcularKwhDiarioAparato(ap), 0);
+        const kwhBimestralMed = kwhDiarioMed * diasPeriodo;
+        const desgloseMed = calcularCobroCFECompleto(kwhBimestralMed, tarifas, costosMEM);
+        return {
+          medidor: med,
+          aparatos: apsMed,
+          kwhDiario: kwhDiarioMed,
+          kwhBimestral: kwhBimestralMed,
+          desglose: desgloseMed,
+          negociosAsignados: [med.nombre || `Medidor ${med.numero}`]
+        };
+      }
+
+      if (esConsorcio && simConsorcioVentas) {
+        const mData = simConsorcioVentas.mapaMedidores[med.id];
+        return {
+          medidor: med,
+          aparatos: apsMed,
+          kwhDiario: mData?.kwhDiario || 0,
+          kwhBimestral: mData?.kwhPeriodo || 0,
+          desglose: mData?.reciboCFE || calcularCobroCFECompleto(0, tarifas, costosMEM),
+          negociosAsignados: mData?.negociosAsignados || [med.nombre || `Medidor ${med.numero}`]
+        };
+      }
+
+      if (!esConsorcio && simNegocioIndividualVentas) {
+        return {
+          medidor: med,
+          aparatos: apsMed,
+          kwhDiario: simNegocioIndividualVentas.totalKwhDiario,
+          kwhBimestral: simNegocioIndividualVentas.kwhPeriodoCFE,
+          desglose: simNegocioIndividualVentas.cobroCFE,
+          negociosAsignados: [simNegocioIndividualVentas.negocio?.nombre || med.nombre]
+        };
+      }
+
+      const kwhDiarioMed = apsMed.reduce((sum, ap) => sum + calcularKwhDiarioAparato(ap), 0);
+      const kwhBimestralMed = kwhDiarioMed * diasPeriodo;
+      const desgloseMed = calcularCobroCFECompleto(kwhBimestralMed, tarifas, costosMEM);
+      return {
+        medidor: med,
+        aparatos: apsMed,
+        kwhDiario: kwhDiarioMed,
+        kwhBimestral: kwhBimestralMed,
+        desglose: desgloseMed,
+        negociosAsignados: [med.nombre || `Medidor ${med.numero}`]
+      };
+    });
+  }, [listaMedidores, aparatos, diasPeriodo, tarifas, costosMEM, escenarioVentas, esConsorcio, simConsorcioVentas, simNegocioIndividualVentas]);
 
   // Totales consolidados de todos los medidores
   const totalFacturadoConsolidado = medidoresRecibosData.reduce((sum, item) => sum + item.desglose.factura.total, 0);
@@ -436,12 +554,76 @@ export default function SimuladorFinanciero({
     onCostosMEMChange(field, parseFloat(val) || 0);
   };
 
+  const handleCambiarEscenario = (nuevo) => {
+    if (onEscenarioVentasChange) {
+      onEscenarioVentasChange(nuevo);
+    }
+  };
+
   const recibosFiltrados = filtroMedidor === 'todos' 
     ? medidoresRecibosData 
     : medidoresRecibosData.filter(item => item.medidor.id === filtroMedidor);
 
   return (
     <div className="space-y-6">
+
+      {/* ======================================================== */}
+      {/* SELECTOR DE NIVEL DE VENTAS VINCULADO CON CONSUMO */}
+      {/* ======================================================== */}
+      <div className="glass-panel p-4 rounded-2xl border border-teal-500/30 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 shadow-xl no-print">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <ShoppingCart size={13} />
+                Nivel de Operación y Ventas del Recibo
+              </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-teal-400/90 font-mono bg-teal-950/60 border border-teal-500/20 px-2.5 py-0.5 rounded-lg">
+                <LinkIcon size={11} className="text-teal-400" />
+                <span>Sincronizado con Consumo por Ventas</span>
+              </div>
+            </div>
+            <h3 className="text-base font-extrabold text-white mt-1">
+              Simulación de Factura CFE: <span className="text-teal-300">{nivelActivoObj.nombre} ({nivelActivoObj.sub})</span>
+            </h3>
+            <p className="text-xs text-slate-400 font-sans mt-0.5">
+              El consumo kWh de cada medidor se calcula a partir del ritmo operativo real (lotes, horas de máquina, precalentamiento y clima).
+            </p>
+          </div>
+
+          {/* Botones de Niveles de Ventas */}
+          <div className="flex flex-wrap items-center gap-2">
+            {NIVELES_VENTA.map(nivel => {
+              const isSelected = escenarioVentas === nivel.id;
+              let styleClass = 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-850';
+              if (isSelected) {
+                if (nivel.id === 'bajo') styleClass = 'bg-sky-500/20 text-sky-300 font-extrabold border-sky-500/50 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/30';
+                else if (nivel.id === 'tablas') styleClass = 'bg-amber-500/20 text-amber-300 font-extrabold border-amber-500/50 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/30';
+                else if (nivel.id === 'medio') styleClass = 'bg-teal-500/20 text-teal-300 font-extrabold border-teal-500/50 shadow-md shadow-teal-500/10 ring-1 ring-teal-500/30';
+                else if (nivel.id === 'alto') styleClass = 'bg-emerald-500/20 text-emerald-300 font-black border-emerald-500/50 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500/30';
+                else if (nivel.id === 'muy_alto') styleClass = 'bg-purple-500/20 text-purple-300 font-black border-purple-500/50 shadow-md shadow-purple-500/10 ring-1 ring-purple-500/30';
+                else styleClass = 'bg-slate-800 text-slate-200 font-extrabold border-slate-600';
+              }
+
+              return (
+                <button
+                  key={nivel.id}
+                  type="button"
+                  onClick={() => handleCambiarEscenario(nivel.id)}
+                  title={nivel.desc}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-sans border transition-all cursor-pointer flex flex-col items-start ${styleClass}`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
+                    <span>{nivel.nombre}</span>
+                  </div>
+                  <span className="text-[10px] font-mono opacity-80">{nivel.sub}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
       
       {/* Botones de control y configurador CFE */}
       <div className="flex flex-wrap items-center justify-between gap-4 no-print">
@@ -671,6 +853,8 @@ export default function SimuladorFinanciero({
             diasPeriodo={diasPeriodo}
             clienteNombre={clienteNombre}
             clienteDireccion={clienteDireccion}
+            escenarioNombre={nivelActivoObj?.nombre}
+            negociosAsignados={item.negociosAsignados}
           />
         ))}
       </div>

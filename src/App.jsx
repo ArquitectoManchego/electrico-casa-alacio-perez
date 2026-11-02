@@ -207,6 +207,22 @@ export default function App() {
   // Estado para el consumo diario dinámico del simulador de ventas
   const [salesKwhDiario, setSalesKwhDiario] = useState(null);
 
+  // Estado global para el nivel de ventas / ritmo operativo (compartido entre Recibo CFE y Consumo por Ventas)
+  const [escenarioVentasGlobal, setEscenarioVentasGlobal] = useState(() => {
+    try {
+      return localStorage.getItem('sge_escenario_ventas_global') || 'medio';
+    } catch (e) {
+      return 'medio';
+    }
+  });
+
+  const handleEscenarioGlobalChange = useCallback((nuevoEscenario) => {
+    setEscenarioVentasGlobal(nuevoEscenario);
+    try {
+      localStorage.setItem('sge_escenario_ventas_global', nuevoEscenario);
+    } catch (e) {}
+  }, []);
+
   // Estado para forzar sistema trifásico bajo demanda de usuario
   const [forzarTrifasico, setForzarTrifasico] = useState(false);
 
@@ -2294,6 +2310,9 @@ export default function App() {
                 onDiasPeriodoChange={setDiasPeriodo}
                 medidores={medidores}
                 aparatos={aparatos}
+                proyectoId={currentProyectoId}
+                escenarioVentas={escenarioVentasGlobal}
+                onEscenarioVentasChange={handleEscenarioGlobalChange}
               />
             </div>
           )}
@@ -2331,6 +2350,8 @@ export default function App() {
                 proyectoId={currentProyectoId}
                 onKwhDiarioChange={setSalesKwhDiario}
                 medidores={medidores}
+                escenarioVentas={escenarioVentasGlobal}
+                onEscenarioVentasChange={handleEscenarioGlobalChange}
               />
             </div>
           )}

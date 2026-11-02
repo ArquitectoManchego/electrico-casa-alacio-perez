@@ -210,6 +210,22 @@ const diaAltoReal = simularDiaVentaInteractivo({
   gastosFijosMensuales: peHP.costosFijos.gastosFijosTotales
 });
 assert(diaAltoReal.utilidadNetaDia >= 750, `Día Alto genera >= $750 MXN netos/día para sumar $20,000/mes (actual: $${Math.round(diaAltoReal.utilidadNetaDia)})`);
+assert(diaAltoReal.calificacionDia === 'alto', `Día Alto califica como "alto" (actual: ${diaAltoReal.calificacionDia})`);
+
+// Caso D: Día Muy Alto (ritmo superior a $20k libres / $35k+ libres)
+const artsDiaMuyAlto = {};
+Object.entries(calibHP.escenarios.muy_alto.cantidades).forEach(([pId, qMes]) => {
+  artsDiaMuyAlto[pId] = Math.round(qMes / 26);
+});
+const diaMuyAltoReal = simularDiaVentaInteractivo({
+  articulosVendidosMap: artsDiaMuyAlto,
+  negocioId: 'hawaiian_paradise',
+  diasLaborales: 26,
+  gastosFijosMensuales: peHP.costosFijos.gastosFijosTotales
+});
+assert(diaMuyAltoReal.calificacionDia === 'muy_alto', `Día Muy Alto califica como "muy_alto" (actual: ${diaMuyAltoReal.calificacionDia})`);
+assert(diaMuyAltoReal.utilidadNetaDia >= 1300, `Día Muy Alto genera >= $1,300 MXN netos/día para sumar $35,000/mes (actual: $${Math.round(diaMuyAltoReal.utilidadNetaDia)})`);
+
 // -----------------------------------------------------------------------------
 // PRUEBA 7: Salario Mínimo General Vigente y Equivalencias
 // -----------------------------------------------------------------------------

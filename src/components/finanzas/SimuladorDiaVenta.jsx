@@ -26,7 +26,9 @@ export default function SimuladorDiaVenta({
   articulosVendidosMap = {},
   onChangeArticulo,
   onResetDia,
-  onApplyPreset
+  onApplyPreset,
+  presetActivo = 'bajo',
+  onRestaurarPresetDefault
 }) {
   const resultadoDia = useMemo(() => {
     return simularDiaVentaInteractivo({
@@ -49,6 +51,8 @@ export default function SimuladorDiaVenta({
     cuotaFijaDia,
     utilidadNetaDia,
     calificacionDia,
+    categoriaNombre = 'Día Cero',
+    categoriaSlug = 'cero',
     mensaje,
     esTallerCostura = negocioId === 'taller_costura'
   } = resultadoDia;
@@ -84,51 +88,137 @@ export default function SimuladorDiaVenta({
           </p>
         </div>
 
-        {/* Botones de Presets Rápidos */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => onApplyPreset('cero')}
-            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
-            title={esTallerCostura ? 'Jornada sin confección (0 prendas)' : 'Día sin ventas (0 artículos)'}
-          >
-            {esTallerCostura ? 'Día Cero (0 prendas)' : 'Día Cero (0)'}
-          </button>
-          <button
-            onClick={() => onApplyPreset('bajo')}
-            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition cursor-pointer"
-            title={esTallerCostura ? 'Producción baja (≤10 prendas confeccionadas)' : 'Día bajo (≤10 artículos en total)'}
-          >
-            {esTallerCostura ? 'Prod. Baja (≤10 prendas)' : 'Día Bajo (≤10 arts)'}
-          </button>
-          <button
-            onClick={() => onApplyPreset('equilibrio')}
-            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition cursor-pointer"
-            title={esTallerCostura ? 'Prendas mínimas para pagar sueldos, luz y renta del taller' : 'Exactamente el punto de equilibrio para cubrir gastos del día'}
-          >
-            {esTallerCostura ? 'Pto. Equilibrio Costura' : 'Punto Equilibrio'}
-          </button>
-          <button
-            onClick={() => onApplyPreset('medio')}
-            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition cursor-pointer"
-            title={esTallerCostura ? 'Producción media solvente con superávit' : 'Día medio con superávit sobre gastos fijos'}
-          >
-            {esTallerCostura ? 'Prod. Media' : 'Día Medio'}
-          </button>
-          <button
-            onClick={() => onApplyPreset('alto')}
-            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-400/50 shadow-sm transition cursor-pointer flex items-center gap-1"
-            title={esTallerCostura ? 'Producción alta para meta de $20,000 libres al mes' : 'Ritmo para ganar $20,000 MXN libres al mes'}
-          >
-            <Sparkles size={12} className="text-teal-400" />
-            {esTallerCostura ? 'Prod. Alta ($20k Libres)' : 'Día Alto ($20k Libres)'}
-          </button>
-          <button
-            onClick={onResetDia}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition cursor-pointer"
-            title="Reiniciar conteo de la jornada"
-          >
-            <RotateCcw size={14} />
-          </button>
+        {/* Botones de Presets Rápidos + Día Muy Alto + Personalizado */}
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* Día Cero */}
+            <button
+              onClick={() => onApplyPreset('cero')}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer border ${
+                presetActivo === 'cero'
+                  ? 'bg-slate-700 text-white border-slate-500 shadow-sm ring-1 ring-slate-400'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
+              }`}
+              title={esTallerCostura ? 'Jornada sin confección (0 prendas)' : 'Día sin ventas (0 artículos)'}
+            >
+              {esTallerCostura ? 'Día Cero (0)' : 'Día Cero (0)'}
+            </button>
+
+            {/* Venta Baja */}
+            <button
+              onClick={() => onApplyPreset('bajo')}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer border ${
+                presetActivo === 'bajo'
+                  ? 'bg-rose-500/25 text-rose-200 border-rose-400 shadow-sm ring-1 ring-rose-400/50 font-bold'
+                  : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border-rose-500/30'
+              }`}
+              title={esTallerCostura ? 'Producción baja (≤10 prendas confeccionadas)' : 'Día bajo (≤10 artículos en total)'}
+            >
+              {esTallerCostura ? 'Prod. Baja (≤10)' : 'Venta Baja (≤10)'}
+            </button>
+
+            {/* Sales Tablas / Equilibrio */}
+            <button
+              onClick={() => onApplyPreset('equilibrio')}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer border ${
+                presetActivo === 'equilibrio'
+                  ? 'bg-amber-500/25 text-amber-200 border-amber-400 shadow-sm ring-1 ring-amber-400/50 font-bold'
+                  : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30'
+              }`}
+              title={esTallerCostura ? 'Prendas mínimas para pagar sueldos, luz y renta del taller' : 'Sales tablas: cubre exactamente gastos del día'}
+            >
+              {esTallerCostura ? 'Tablas (Equilibrio)' : 'Sales Tablas'}
+            </button>
+
+            {/* Día Medio / Venta Buena */}
+            <button
+              onClick={() => onApplyPreset('medio')}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer border ${
+                presetActivo === 'medio'
+                  ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400 shadow-sm ring-1 ring-emerald-400/50 font-bold'
+                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+              }`}
+              title={esTallerCostura ? 'Producción media solvente con superávit' : 'Día medio con venta buena y superávit'}
+            >
+              {esTallerCostura ? 'Prod. Media' : 'Venta Buena (Medio)'}
+            </button>
+
+            {/* Día Alto ($20k Libres) */}
+            <button
+              onClick={() => onApplyPreset('alto')}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer border flex items-center gap-1 ${
+                presetActivo === 'alto'
+                  ? 'bg-teal-500/30 text-teal-100 border-teal-400 shadow-sm ring-1 ring-teal-400/60 font-bold'
+                  : 'bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border-teal-500/40'
+              }`}
+              title={esTallerCostura ? 'Producción alta para meta de $20,000 libres al mes' : 'Ritmo para ganar $20,000 MXN libres al mes'}
+            >
+              <Sparkles size={11} className="text-teal-400" />
+              {esTallerCostura ? 'Prod. Alta ($20k)' : 'Día Alto ($20k)'}
+            </button>
+
+            {/* NUEVO: Día Muy Alto (> $20k Libres / $35k+) */}
+            <button
+              onClick={() => onApplyPreset('muy_alto')}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer border flex items-center gap-1 ${
+                presetActivo === 'muy_alto'
+                  ? 'bg-indigo-500/30 text-indigo-100 border-indigo-400 shadow-sm ring-1 ring-indigo-400/60 font-bold'
+                  : 'bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border-indigo-500/40'
+              }`}
+              title={esTallerCostura ? 'Producción muy alta extraordinaria (> $20,000 libres)' : 'Día muy alto con ritmo superior a $20,000 libres al mes ($35k+)'}
+            >
+              <TrendingUp size={11} className="text-indigo-400" />
+              {esTallerCostura ? 'Prod. Muy Alta (> $20k)' : 'Día Muy Alto (> $20k)'}
+            </button>
+
+            {/* NUEVO: Botón Personalizado (modo libre sin sobreescribir presets) */}
+            <button
+              onClick={() => onApplyPreset('personalizado')}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer border flex items-center gap-1 ${
+                presetActivo === 'personalizado'
+                  ? 'bg-amber-500/30 text-amber-100 border-amber-400 shadow-sm ring-1 ring-amber-400/60 font-bold'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300/80 border-slate-700'
+              }`}
+              title="Modo libre de simulación: los cambios no se guardan en los presets estándar"
+            >
+              <span>Personalizado</span>
+            </button>
+
+            {/* Reiniciar / Restaurar Calibración */}
+            <button
+              onClick={onResetDia}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition cursor-pointer"
+              title="Poner en ceros toda la jornada"
+            >
+              <RotateCcw size={14} />
+            </button>
+          </div>
+
+          {/* Estado de Persistencia y Acciones de Calibración */}
+          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
+            {presetActivo === 'personalizado' ? (
+              <span className="text-amber-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Modo libre: cambios no se guardan sobre presets
+              </span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-teal-400/90 flex items-center gap-1">
+                  <CheckCircle2 size={11} className="text-teal-400" />
+                  Cambios en {presetActivo.toUpperCase()} se guardan automáticamente
+                </span>
+                {onRestaurarPresetDefault && (
+                  <button
+                    onClick={() => onRestaurarPresetDefault(presetActivo)}
+                    className="text-[9px] underline text-slate-400 hover:text-slate-200 cursor-pointer"
+                    title="Restaurar valores de fábrica sugeridos por el modelo matemático"
+                  >
+                    Restaurar sugerido
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -151,6 +241,8 @@ export default function SimuladorDiaVenta({
           ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
           : calificacionDia === 'medio'
           ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+          : calificacionDia === 'muy_alto'
+          ? 'bg-indigo-500/15 border-indigo-400/50 text-indigo-200'
           : 'bg-teal-500/15 border-teal-400/40 text-teal-200'
       }`}>
         <div className="flex items-center gap-3">
@@ -160,15 +252,31 @@ export default function SimuladorDiaVenta({
             <HelpCircle size={28} className="text-amber-400 shrink-0" />
           ) : calificacionDia === 'medio' ? (
             <CheckCircle2 size={28} className="text-emerald-400 shrink-0" />
+          ) : calificacionDia === 'muy_alto' ? (
+            <Sparkles size={28} className="text-indigo-400 shrink-0 animate-pulse" />
           ) : (
             <Target size={28} className="text-teal-400 shrink-0" />
           )}
           <div>
-            <div className="text-xs uppercase font-bold tracking-wider font-mono">
-              {esTallerCostura ? 'Diagnóstico de Producción: ' : 'Diagnóstico del Día: '} 
-              {calificacionDia.toUpperCase().replace('_', ' ')}
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase font-bold tracking-wider font-mono">
+                {esTallerCostura ? 'Diagnóstico de Producción' : 'Diagnóstico del Día'}
+              </span>
+              <span className={`px-2 py-0.5 rounded text-[11px] font-extrabold uppercase font-mono border ${
+                calificacionDia === 'cero' || calificacionDia === 'bajo_deficit'
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
+                  : calificacionDia === 'bajo_equilibrio'
+                  ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                  : calificacionDia === 'medio'
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                  : calificacionDia === 'muy_alto'
+                  ? 'bg-indigo-950/80 text-indigo-200 border-indigo-400/60 shadow-sm'
+                  : 'bg-teal-950/80 text-teal-300 border-teal-500/40'
+              }`}>
+                Categoría: {categoriaNombre}
+              </span>
             </div>
-            <div className="text-sm font-semibold mt-0.5">
+            <div className="text-sm font-semibold mt-1">
               {mensaje}
             </div>
           </div>

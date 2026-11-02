@@ -152,12 +152,27 @@ export default function SelectorEscenarioYNegocio({
               <span className="text-[10px] font-mono text-slate-500 font-normal">(~20% cap)</span>
             </button>
 
-            {/* Mes Medio */}
+            {/* Sales Tablas (Equilibrio) */}
+            <button
+              type="button"
+              onClick={() => onSelectEscenario('tablas')}
+              className={`px-3 py-2 rounded-xl text-xs font-sans transition-all flex items-center gap-2 cursor-pointer ${
+                escenarioActivo === 'tablas' || escenarioActivo === 'equilibrio'
+                  ? 'bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/40 shadow-sm'
+                  : 'bg-slate-900/50 text-slate-400 border border-slate-800 hover:text-white hover:bg-slate-850'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span>Sales Tablas</span>
+              <span className="text-[10px] font-mono text-slate-500 font-normal">(~35% cap)</span>
+            </button>
+
+            {/* Mes Medio / Venta Buena */}
             <button
               type="button"
               onClick={() => onSelectEscenario('medio')}
               className={`px-3 py-2 rounded-xl text-xs font-sans transition-all flex items-center gap-2 cursor-pointer ${
-                escenarioActivo === 'medio'
+                escenarioActivo === 'medio' || escenarioActivo === 'buena'
                   ? 'bg-teal-500/20 text-teal-300 font-extrabold border border-teal-500/40 shadow-sm'
                   : 'bg-slate-900/50 text-slate-400 border border-slate-800 hover:text-white hover:bg-slate-850'
               }`}
@@ -181,6 +196,23 @@ export default function SelectorEscenarioYNegocio({
               <span>Mes Alto</span>
               <span className="text-[10px] font-mono text-emerald-400/90 font-bold px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/20">
                 80% Cap.
+              </span>
+            </button>
+
+            {/* Mes Muy Alto (95% Capacidad Pico) */}
+            <button
+              type="button"
+              onClick={() => onSelectEscenario('muy_alto')}
+              className={`px-3 py-2 rounded-xl text-xs font-sans transition-all flex items-center gap-2 cursor-pointer ${
+                escenarioActivo === 'muy_alto'
+                  ? 'bg-purple-500/20 text-purple-300 font-black border border-purple-500/50 shadow-md shadow-purple-500/10 ring-1 ring-purple-500/30'
+                  : 'bg-slate-900/50 text-slate-400 border border-slate-800 hover:text-white hover:bg-slate-850'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+              <span>Mes Muy Alto</span>
+              <span className="text-[10px] font-mono text-purple-400/90 font-bold px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-500/20">
+                95% Cap.
               </span>
             </button>
 

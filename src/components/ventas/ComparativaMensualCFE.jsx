@@ -4,8 +4,10 @@ import { TrendingUp, DollarSign, Zap, Gauge, Building2, CheckCircle2, AlertCircl
 export default function ComparativaMensualCFE({
   simulacionActual,
   simulacionBajo,
+  simulacionTablas,
   simulacionMedio,
   simulacionAlto,
+  simulacionMuyAlto,
   vistaConsolidada = false,
   simulacionConsorcio = null,
   diasPeriodo = 30
@@ -109,7 +111,7 @@ export default function ComparativaMensualCFE({
     );
   }
 
-  // Vista de Negocio Individual: 3 Tarjetas Comparativas (Bajo / Medio / Alto 80%)
+  // Vista de Negocio Individual: Tarjetas Comparativas por Escenario
   const escActivo = simulacionActual.escenarioActivo;
 
   const cards = [
@@ -121,6 +123,14 @@ export default function ComparativaMensualCFE({
       color: 'sky',
       badge: '~20% Capacidad'
     },
+    ...(simulacionTablas ? [{
+      key: 'tablas',
+      titulo: 'Sales Tablas',
+      sub: 'Punto de equilibrio operativo',
+      sim: simulacionTablas,
+      color: 'amber',
+      badge: '~35% Capacidad'
+    }] : []),
     {
       key: 'medio',
       titulo: 'Mes Medio',
@@ -131,20 +141,28 @@ export default function ComparativaMensualCFE({
     },
     {
       key: 'alto',
-      titulo: 'Mes Alto (80% Cap.)',
+      titulo: 'Mes Alto',
       sub: 'Capacidad pico en horario laboral',
       sim: simulacionAlto,
       color: 'emerald',
-      badge: '80% Límite Máximo'
-    }
+      badge: '80% Límite'
+    },
+    ...(simulacionMuyAlto ? [{
+      key: 'muy_alto',
+      titulo: 'Mes Muy Alto',
+      sub: 'Demanda pico máxima',
+      sim: simulacionMuyAlto,
+      color: 'purple',
+      badge: '95% Pico'
+    }] : [])
   ];
 
   return (
     <div className="space-y-4">
-      {/* 3 Tarjetas Comparativas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Tarjetas Comparativas */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${cards.length >= 5 ? 'lg:grid-cols-5' : 'md:grid-cols-3'} gap-4`}>
         {cards.map(c => {
-          const isSelected = escActivo === c.key;
+          const isSelected = escActivo === c.key || (c.key === 'tablas' && escActivo === 'equilibrio') || (c.key === 'medio' && escActivo === 'buena');
           const kwhMes = c.sim ? Math.round(c.sim.totalKwhMes) : 0;
           const kwhDia = c.sim ? c.sim.totalKwhDiario.toFixed(1) : 0;
           const pesos = c.sim ? Math.round(c.sim.cobroCFE.factura?.total || 0) : 0;
@@ -152,11 +170,11 @@ export default function ComparativaMensualCFE({
 
           let borderClass = 'border-slate-800 bg-slate-900/40';
           if (isSelected) {
-            borderClass = c.key === 'alto' 
-              ? 'border-emerald-500/80 bg-slate-900/80 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-500/10'
-              : c.key === 'bajo'
-                ? 'border-sky-500/80 bg-slate-900/80 ring-2 ring-sky-500/30'
-                : 'border-teal-500/80 bg-slate-900/80 ring-2 ring-teal-500/30';
+            if (c.key === 'alto') borderClass = 'border-emerald-500/80 bg-slate-900/80 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-500/10';
+            else if (c.key === 'muy_alto') borderClass = 'border-purple-500/80 bg-slate-900/80 ring-2 ring-purple-500/30 shadow-lg shadow-purple-500/10';
+            else if (c.key === 'tablas') borderClass = 'border-amber-500/80 bg-slate-900/80 ring-2 ring-amber-500/30 shadow-lg shadow-amber-500/10';
+            else if (c.key === 'bajo') borderClass = 'border-sky-500/80 bg-slate-900/80 ring-2 ring-sky-500/30';
+            else borderClass = 'border-teal-500/80 bg-slate-900/80 ring-2 ring-teal-500/30';
           }
 
           return (

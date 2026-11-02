@@ -185,20 +185,36 @@ export default function ModuloFinanzasNegocios({
     });
   }, [negocioSeleccionado, diasLaborales, reciboLuzNegocio, gastosExtrasPorNegocio, productosNegocioActivo, nominaConfigActiva, salarioMinimoMensual]);
 
-  // Inicializar o sincronizar el simulador diario cuando se selecciona un preset o cambia de negocio
-  const aplicarPresetDia = useCallback((tipo) => {
-    if (!calibracionActiva || !productosNegocioActivo.length) return;
+  // Presets diarios guardados por negocio con persistencia en localStorage
+  const [presetActivoDia, setPresetActivoDia] = useState('bajo');
+  const [presetsGuardadosPorNegocio, setPresetsGuardadosPorNegocio] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sge_finanzas_presets_dia_v2');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  // Guardar presets en localStorage ante cualquier cambio
+  useEffect(() => {
+    try {
+      localStorage.setItem('sge_finanzas_presets_dia_v2', JSON.stringify(presetsGuardadosPorNegocio));
+    } catch (e) {}
+  }, [presetsGuardadosPorNegocio]);
+
+  // Generador matemático de valores por defecto para un preset dado
+  const generarPresetDefault = useCallback((tipo) => {
+    if (!calibracionActiva || !productosNegocioActivo.length) return {};
+    const nuevo = {};
 
     if (tipo === 'cero') {
-      const nuevo = {};
       productosNegocioActivo.forEach(p => { nuevo[p.id] = 0; });
-      setArticulosVendidosMap(nuevo);
-      return;
+      return nuevo;
     }
 
     if (tipo === 'bajo') {
       const bajo = calibracionActiva.escenarios.bajo;
-      const nuevo = {};
       let acumulado = 0;
       productosNegocioActivo.forEach((p, idx) => {
         const sugerido = Math.min(2, Math.round((bajo.cantidades[p.id] || 0) / diasLaborales));
@@ -209,47 +225,89 @@ export default function ModuloFinanzasNegocios({
           nuevo[p.id] = 0;
         }
       });
-      setArticulosVendidosMap(nuevo);
-      return;
+      return nuevo;
     }
 
     if (tipo === 'equilibrio') {
       const peDia = Math.ceil(calibracionActiva?.puntoEquilibrio?.puntoEquilibrio?.unidadesDia || calibracionActiva?.puntoEquilibrio?.unidadesDia || 0);
-      const nuevo = {};
       const pesoTotal = productosNegocioActivo.reduce((s, p) => s + (p.pesoEnMix || 1), 0);
       productosNegocioActivo.forEach(p => {
         const fraccion = (p.pesoEnMix || 1) / pesoTotal;
         nuevo[p.id] = Math.max(0, Math.round(peDia * fraccion));
       });
-      setArticulosVendidosMap(nuevo);
-      return;
+      return nuevo;
     }
 
     if (tipo === 'medio') {
       const medio = calibracionActiva.escenarios.medio;
-      const nuevo = {};
       productosNegocioActivo.forEach(p => {
         nuevo[p.id] = Math.max(0, Math.round((medio.cantidades[p.id] || 0) / diasLaborales));
       });
-      setArticulosVendidosMap(nuevo);
-      return;
+      return nuevo;
     }
 
     if (tipo === 'alto') {
       const alto = calibracionActiva.escenarios.alto;
-      const nuevo = {};
       productosNegocioActivo.forEach(p => {
         nuevo[p.id] = Math.max(0, Math.round((alto.cantidades[p.id] || 0) / diasLaborales));
       });
-      setArticulosVendidosMap(nuevo);
-      return;
+      return nuevo;
     }
+
+    if (tipo === 'muy_alto') {
+      const muyAlto = calibracionActiva.escenarios.muy_alto;
+      productosNegocioActivo.forEach(p => {
+        nuevo[p.id] = Math.max(0, Math.round((muyAlto.cantidades[p.id] || 0) / diasLaborales));
+      });
+      return nuevo;
+    }
+
+    return nuevo;
   }, [calibracionActiva, productosNegocioActivo, diasLaborales]);
 
-  // Inicializar el simulador diario con preset bajo cuando cambia el negocio
+  // Inicializar o sincronizar el simulador diario cuando se selecciona un preset o cambia de negocio
+  const aplicarPresetDia = useCallback((tipo) => {
+    setPresetActivoDia(tipo);
+
+    if (tipo === 'personalizado') {
+      // Modo libre: mantiene los valores actuales como base sin alterar presets guardados
+      return;
+    }
+
+    // Verificar si el usuario ya tiene valores guardados para este preset en este negocio
+    const guardado = presetsGuardadosPorNegocio[negocioSeleccionado]?.[tipo];
+    if (guardado && Object.keys(guardado).length > 0) {
+      setArticulosVendidosMap({ ...guardado });
+      return;
+    }
+
+    // Si no hay valores guardados, calcular el valor matemático sugerido
+    const generado = generarPresetDefault(tipo);
+    setArticulosVendidosMap(generado);
+  }, [negocioSeleccionado, presetsGuardadosPorNegocio, generarPresetDefault]);
+
+  // Restaurar los valores matemáticos sugeridos para un preset
+  const handleRestaurarPresetDefault = useCallback((tipo) => {
+    if (tipo === 'personalizado') {
+      aplicarPresetDia('medio');
+      return;
+    }
+    const def = generarPresetDefault(tipo);
+    setArticulosVendidosMap(def);
+    setPresetsGuardadosPorNegocio(prev => {
+      const negObj = { ...(prev[negocioSeleccionado] || {}) };
+      delete negObj[tipo];
+      return {
+        ...prev,
+        [negocioSeleccionado]: negObj
+      };
+    });
+  }, [generarPresetDefault, negocioSeleccionado, aplicarPresetDia]);
+
+  // Inicializar el simulador diario al cambiar el negocio
   useEffect(() => {
     if (calibracionActiva && productosNegocioActivo.length) {
-      aplicarPresetDia('bajo');
+      aplicarPresetDia(presetActivoDia || 'bajo');
     }
   }, [negocioSeleccionado]);
 
@@ -305,12 +363,35 @@ export default function ModuloFinanzasNegocios({
     });
   };
 
-  // Manejador del stepper diario
+  // Manejador del stepper diario: guarda los cambios automáticamente para el preset activo (excepto en personalizado)
   const handleChangeArticulo = (prodId, cantidad) => {
-    setArticulosVendidosMap(prev => ({
-      ...prev,
-      [prodId]: Math.max(0, cantidad)
-    }));
+    const val = Math.max(0, cantidad);
+    setArticulosVendidosMap(prev => {
+      const nuevo = {
+        ...prev,
+        [prodId]: val
+      };
+
+      // Si no estamos en modo personalizado, persistir los cambios para el preset activo
+      if (presetActivoDia && presetActivoDia !== 'personalizado') {
+        setPresetsGuardadosPorNegocio(prevPresets => {
+          const negObj = prevPresets[negocioSeleccionado] || {};
+          const updated = {
+            ...prevPresets,
+            [negocioSeleccionado]: {
+              ...negObj,
+              [presetActivoDia]: nuevo
+            }
+          };
+          try {
+            localStorage.setItem('sge_finanzas_presets_dia_v2', JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
+      }
+
+      return nuevo;
+    });
   };
 
   const handleResetDia = () => {
@@ -507,6 +588,8 @@ export default function ModuloFinanzasNegocios({
               onChangeArticulo={handleChangeArticulo}
               onResetDia={handleResetDia}
               onApplyPreset={aplicarPresetDia}
+              presetActivo={presetActivoDia}
+              onRestaurarPresetDefault={handleRestaurarPresetDefault}
             />
           )}
 
