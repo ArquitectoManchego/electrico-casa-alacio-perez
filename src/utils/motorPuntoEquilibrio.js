@@ -25,6 +25,7 @@ export function calcularPuntoEquilibrio({
   reciboLuzReal = null,
   sueldosFijosExtras = 0,
   otrosGastosFijos = 0,
+  costoMantenimientoEquipos = 0,
   productosPersonalizados = null,
   configNomina = null,
   salarioMinimoMensual = null
@@ -58,7 +59,8 @@ export function calcularPuntoEquilibrio({
     sueldosBrutos = totalCostoLaboral;
   }
 
-  const gastosFijosTotales = rentaConIva + aguaMensual + luzMensual + totalCostoLaboral + parseFloat(otrosGastosFijos || 0);
+  const gastoMantenimientoMensual = parseFloat(costoMantenimientoEquipos || 0);
+  const gastosFijosTotales = rentaConIva + aguaMensual + luzMensual + totalCostoLaboral + parseFloat(otrosGastosFijos || 0) + gastoMantenimientoMensual;
   const cuotaFijaDiaria = diasLaborales > 0 ? (gastosFijosTotales / diasLaborales) : 0;
 
   const { mcPonderado, precioPonderado, margenPctPonderado } = calcularMargenPromedioPonderado(negocioId, productosPersonalizados);
@@ -82,6 +84,7 @@ export function calcularPuntoEquilibrio({
       totalCostoLaboral,
       sueldosFijosExtras: totalCostoLaboral,
       otrosGastosFijos,
+      costoMantenimientoEquipos: gastoMantenimientoMensual,
       gastosFijosTotales,
       cuotaFijaDiaria,
       nominaDetalle
@@ -113,6 +116,7 @@ export function calibrarNivelesVentaFinancieros({
   reciboLuzReal = null,
   sueldosFijosExtras = 0,
   otrosGastosFijos = 0,
+  costoMantenimientoEquipos = 0,
   productosPersonalizados = null,
   configNomina = null,
   salarioMinimoMensual = null
@@ -123,6 +127,7 @@ export function calibrarNivelesVentaFinancieros({
     reciboLuzReal,
     sueldosFijosExtras,
     otrosGastosFijos,
+    costoMantenimientoEquipos,
     productosPersonalizados,
     configNomina,
     salarioMinimoMensual

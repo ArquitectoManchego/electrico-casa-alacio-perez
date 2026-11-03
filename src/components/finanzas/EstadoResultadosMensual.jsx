@@ -8,7 +8,8 @@ import {
   Target, 
   AlertTriangle,
   Info,
-  DollarSign
+  DollarSign,
+  Wrench
 } from 'lucide-react';
 
 export default function EstadoResultadosMensual({
@@ -227,6 +228,18 @@ export default function EstadoResultadosMensual({
                   <td className="py-2 px-3 text-right text-slate-400">-${Math.round(costosFijosDetalle?.sueldosFijosExtras).toLocaleString()}</td>
                 </tr>
               ) : null}
+              {costosFijosDetalle?.costoMantenimientoEquipos > 0 && (
+                <tr>
+                  <td className="py-2 px-3 text-slate-400 font-sans pl-6 flex items-center gap-1.5">
+                    <Wrench size={12} className="text-teal-400 shrink-0" />
+                    (-) Mantenimiento y Desgaste Maquinaria
+                  </td>
+                  <td className="py-2 px-3 text-right text-amber-300">-${Math.round(costosFijosDetalle.costoMantenimientoEquipos).toLocaleString()}</td>
+                  <td className="py-2 px-3 text-right text-amber-300">-${Math.round(costosFijosDetalle.costoMantenimientoEquipos).toLocaleString()}</td>
+                  <td className="py-2 px-3 text-right text-amber-300 bg-teal-500/5">-${Math.round(costosFijosDetalle.costoMantenimientoEquipos).toLocaleString()}</td>
+                  <td className="py-2 px-3 text-right text-amber-300">-${Math.round(costosFijosDetalle.costoMantenimientoEquipos).toLocaleString()}</td>
+                </tr>
+              )}
               <tr className="bg-slate-950/80 font-bold text-sm">
                 <td className="py-3 px-3 text-white font-sans flex items-center gap-1.5">
                   <DollarSign size={16} className="text-teal-400" />
@@ -288,7 +301,7 @@ export default function EstadoResultadosMensual({
         <Sparkles size={20} className="text-teal-400 shrink-0 mt-0.5" />
         <div>
           <span className="font-bold">Regla de Negocio Calibrada: </span>
-          En el <strong className="text-white">Mes Alto</strong>, el negocio genera ventas para pagar el 100% de la renta prorrateada (${Math.round(costosFijosDetalle?.rentaConIva || 0).toLocaleString()} con IVA), su consumo de agua (${Math.round(costosFijosDetalle?.aguaMensual || 0).toLocaleString()}), su recibo de luz CFE (${Math.round(costosFijosDetalle?.luzMensual || 0).toLocaleString()}) y todos sus costos variables, dejando exactamente <strong className="text-white font-mono">$20,000 MXN libres de ganancia neta</strong> en el bolsillo del negocio.
+          En el <strong className="text-white">Mes Alto</strong>, el negocio genera ventas para pagar el 100% de la renta prorrateada (${Math.round(costosFijosDetalle?.rentaConIva || 0).toLocaleString()} con IVA), su consumo de agua (${Math.round(costosFijosDetalle?.aguaMensual || 0).toLocaleString()}), su recibo de luz CFE (${Math.round(costosFijosDetalle?.luzMensual || 0).toLocaleString()}){costosFijosDetalle?.costoMantenimientoEquipos > 0 ? `, mantenimiento y desgaste de maquinaria ($${Math.round(costosFijosDetalle.costoMantenimientoEquipos).toLocaleString()})` : ''} y todos sus costos variables, dejando exactamente <strong className="text-white font-mono">$20,000 MXN libres de ganancia neta</strong> en el bolsillo del negocio.
         </div>
       </div>
     </div>

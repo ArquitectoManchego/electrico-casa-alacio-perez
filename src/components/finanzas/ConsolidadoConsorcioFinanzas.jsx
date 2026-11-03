@@ -34,7 +34,7 @@ export default function ConsolidadoConsorcioFinanzas({
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1 font-sans">
-            Visión integral del inmueble (299.40 m² totales). Renta $10,440 MXN con IVA ($9,000 + 16% IVA), Agua $1,000 MXN y 6 medidores CFE.
+            Visión integral del inmueble (299.40 m² totales). Renta $10,440 MXN con IVA ($9,000 + 16% IVA), Agua $1,000 MXN, 6 medidores CFE y amortización/mantenimiento preventivo de maquinaria.
           </p>
         </div>
 
@@ -176,6 +176,11 @@ export default function ConsolidadoConsorcioFinanzas({
                 </td>
                 <td className="py-2.5 px-3 text-right font-medium text-amber-300">
                   ${Math.round(row.gastosFijos).toLocaleString()}
+                  {row.mantenimientoEquipos > 0 && (
+                    <div className="text-[9px] text-slate-500 font-sans">
+                      incl. ${Math.round(row.mantenimientoEquipos).toLocaleString()} maq.
+                    </div>
+                  )}
                 </td>
                 <td className="py-2.5 px-3 text-right text-slate-200">
                   ${Math.round(row.ingresos).toLocaleString()}

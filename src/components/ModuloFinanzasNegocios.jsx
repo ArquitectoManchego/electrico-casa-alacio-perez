@@ -50,6 +50,8 @@ import {
   calcularNominaNegocio 
 } from '../utils/nominaYTurnosNegocios.js';
 
+import { calcularCicloVidaNegocio } from '../utils/motorCicloVidaMantenimiento.js';
+
 export default function ModuloFinanzasNegocios({
   aparatos = [],
   tarifas = {},
@@ -168,7 +170,38 @@ export default function ModuloFinanzasNegocios({
     return configNominaPorNegocio[negocioSeleccionado] || PLANTILLA_DEFAULT_NEGOCIOS[negocioSeleccionado] || PLANTILLA_DEFAULT_NEGOCIOS.hawaiian_paradise;
   }, [negocioSeleccionado, configNominaPorNegocio]);
 
-  // Calibración de Punto de Equilibrio y Escenarios para el negocio activo (incluye nómina e IMSS)
+  // Mantenimiento y desgaste de maquinaria guardado desde el módulo de Ciclo de Vida
+  const [gastosMantenimientoMap, setGastosMantenimientoMap] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sge_finanzas_mantenimiento_maquinaria_v1');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const saved = localStorage.getItem('sge_finanzas_mantenimiento_maquinaria_v1');
+        if (saved) setGastosMantenimientoMap(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const costoMantenimientoNegocio = useMemo(() => {
+    if (negocioSeleccionado === 'consolidado') return 0;
+    const entry = gastosMantenimientoMap[negocioSeleccionado];
+    if (entry && entry.activo === false) return 0;
+    if (entry && entry.totalOperativoMensual !== undefined) return entry.totalOperativoMensual;
+    // Si aún no se abre Ciclo de Vida, calcular el presupuesto real con catálogo de partes por defecto
+    const calc = calcularCicloVidaNegocio({ negocioId: negocioSeleccionado, aparatos });
+    return calc?.resumenFinanciero?.costoOperativoTotalMensual || 0;
+  }, [negocioSeleccionado, gastosMantenimientoMap, aparatos]);
+
+  // Calibración de Punto de Equilibrio y Escenarios para el negocio activo (incluye nómina, IMSS y mantenimiento)
   const calibracionActiva = useMemo(() => {
     if (negocioSeleccionado === 'consolidado') return null;
     const extras = gastosExtrasPorNegocio[negocioSeleccionado] || { sueldos: 0, otros: 0 };
@@ -179,11 +212,12 @@ export default function ModuloFinanzasNegocios({
       reciboLuzReal: reciboLuzNegocio,
       sueldosFijosExtras: extras.sueldos || 0,
       otrosGastosFijos: extras.otros || 0,
+      costoMantenimientoEquipos: costoMantenimientoNegocio,
       productosPersonalizados: productosNegocioActivo,
       configNomina: nominaConfigActiva,
       salarioMinimoMensual
     });
-  }, [negocioSeleccionado, diasLaborales, reciboLuzNegocio, gastosExtrasPorNegocio, productosNegocioActivo, nominaConfigActiva, salarioMinimoMensual]);
+  }, [negocioSeleccionado, diasLaborales, reciboLuzNegocio, gastosExtrasPorNegocio, productosNegocioActivo, nominaConfigActiva, salarioMinimoMensual, costoMantenimientoNegocio]);
 
   // Presets diarios guardados por negocio con persistencia en localStorage
   const [presetActivoDia, setPresetActivoDia] = useState('bajo');
@@ -407,6 +441,7 @@ export default function ModuloFinanzasNegocios({
     let aguaTotal = 0;
     let luzTotal = 0;
     let nominaTotalConsorcio = 0;
+    let mantenimientoTotalConsorcio = 0;
     let gastosFijosTotales = 0;
     let ingresosBrutosTotales = 0;
     let utilidadBrutaTotal = 0;
@@ -435,12 +470,19 @@ export default function ModuloFinanzasNegocios({
       const extras = gastosExtrasPorNegocio[neg.id] || { sueldos: 0, otros: 0 };
       const nominaConfig = configNominaPorNegocio[neg.id] || PLANTILLA_DEFAULT_NEGOCIOS[neg.id] || PLANTILLA_DEFAULT_NEGOCIOS.hawaiian_paradise;
 
+      const entryMant = gastosMantenimientoMap[neg.id];
+      const mantActivo = entryMant ? entryMant.activo !== false : true;
+      const mantNegocio = mantActivo 
+        ? (entryMant?.totalOperativoMensual ?? (calcularCicloVidaNegocio({ negocioId: neg.id, aparatos })?.resumenFinanciero?.costoOperativoTotalMensual || 0))
+        : 0;
+
       const calib = calibrarNivelesVentaFinancieros({
         negocioId: neg.id,
         diasLaborales,
         reciboLuzReal: luz,
         sueldosFijosExtras: extras.sueldos || 0,
         otrosGastosFijos: extras.otros || 0,
+        costoMantenimientoEquipos: mantNegocio,
         productosPersonalizados: prods,
         configNomina: nominaConfig,
         salarioMinimoMensual
@@ -456,6 +498,7 @@ export default function ModuloFinanzasNegocios({
       aguaTotal += agua.montoMensual;
       luzTotal += luz;
       nominaTotalConsorcio += nominaTotal;
+      mantenimientoTotalConsorcio += mantNegocio;
       gastosFijosTotales += gf;
       ingresosBrutosTotales += pnl.ingresosBrutos;
       utilidadBrutaTotal += pnl.utilidadBruta;
@@ -473,9 +516,10 @@ export default function ModuloFinanzasNegocios({
         luz,
         nominaTotal,
         empleadosCount: empCount,
+        mantenimientoEquipos: mantNegocio,
         gastosFijos: gf,
         ingresos: pnl.ingresosBrutos,
-        utilidadBruta: pnl.utilidadBruta,
+        margenBruto: pnl.utilidadBruta,
         utilidadNeta: pnl.utilidadNeta
       });
     });
@@ -487,13 +531,14 @@ export default function ModuloFinanzasNegocios({
         aguaTotal,
         luzTotal,
         nominaTotal: nominaTotalConsorcio,
+        mantenimientoTotalConsorcio,
         gastosFijosTotales,
         ingresosBrutosTotales,
         utilidadBrutaTotal,
         utilidadNetaTotal
       }
     };
-  }, [escenarioActivo, diasLaborales, productosOverrides, gastosExtrasPorNegocio, configNominaPorNegocio, salarioMinimoMensual]);
+  }, [escenarioActivo, diasLaborales, productosOverrides, gastosExtrasPorNegocio, configNominaPorNegocio, salarioMinimoMensual, gastosMantenimientoMap, aparatos]);
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">

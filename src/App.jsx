@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   TrendingUp,
   DollarSign,
+  Wrench,
   X
 } from 'lucide-react';
 
@@ -1883,8 +1884,8 @@ export default function App() {
             : 'border-transparent text-slate-400 hover:text-slate-200'
         }`}
       >
-        <Scale size={14} />
-        Ciclo de Vida (Versus)
+        <Wrench size={14} />
+        Ciclo de Vida y Mantenimiento
       </button>
 
       <button
@@ -2006,7 +2007,7 @@ export default function App() {
         <div className={`${
           layoutMode === 'celular'
             ? 'w-full'
-            : activeTab === 'diseno' || activeTab === 'cicloVida' 
+            : activeTab === 'diseno'
               ? isFormCollapsed ? 'lg:col-span-12' : 'lg:col-span-8' 
               : 'lg:col-span-12'
         } space-y-8 transition-all duration-300`}>
@@ -2508,183 +2509,23 @@ export default function App() {
             />
           )}
 
-          {/* PESTAÑA 2: VISTA DE CICLO DE VIDA (MODO VERSUS Y COMPETENCIA) */}
+          {/* PESTAÑA 2: VISTA DE CICLO DE VIDA Y MANTENIMIENTO */}
           {activeTab === 'cicloVida' && (
             <div className="space-y-6 animate-fadeIn no-print">
-              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden">
-                <div className="absolute right-0 top-0 p-4 opacity-5">
-                  <Scale size={140} className="text-teal-400" />
-                </div>
-                <h2 className="text-xl font-bold font-display text-white flex items-center gap-2">
-                  <Scale className="text-teal-400" size={22} />
-                  Competencia de Equipos - Ciclo de Vida (Versus TCO)
-                </h2>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed font-sans">
-                  Compara la viabilidad económica a corto (CapEx) y largo (OpEx / Energía CFE) plazo de múltiples variantes para cada equipo. Activa el modelo ganador para integrarlo de inmediato al cuadro de cargas.
-                </p>
-              </div>
-
-              {aparatos.length === 0 ? (
-                <div className="glass-panel p-12 text-center rounded-2xl border border-dashed border-slate-800">
-                  <HelpCircle className="text-slate-655 mx-auto mb-3 animate-pulse" size={40} />
-                  <p className="text-sm text-slate-400 font-bold font-sans">No hay aparatos registrados en este proyecto residencial.</p>
-                  <p className="text-xs text-slate-500 mt-1 font-sans">Usa la tarjeta de registro a la derecha para agregar tu primer equipo.</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {aparatos.map((ap) => {
-                    return (
-                      <div key={ap.id} className="glass-panel p-5 rounded-2xl border border-slate-805/80 space-y-4">
-                        {/* Cabecera del Aparato */}
-                        <div className="flex items-center justify-between border-b border-slate-850 pb-3">
-                          <div>
-                            <span className="text-[10px] font-bold text-teal-400 uppercase tracking-widest font-mono">Ranura / Equipo</span>
-                            <h3 className="text-base font-bold text-white font-display mt-0.5">{ap.tipo}</h3>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteAparato(ap.id)}
-                            className="text-xs px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-450 border border-rose-500/20 transition-all font-bold font-sans"
-                          >
-                            Eliminar Ranura
-                          </button>
-                        </div>
-
-                        {/* Listado de Variantes Competidoras */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {ap.variantes?.map((v) => {
-                            // Cálculos de TCO para esta variante
-                            const kwhDiario = calcularKwhDiarioAparato(v);
-                            const kwhAnual = kwhDiario * 365;
-                            const costoLuzAnual = kwhAnual * costoKwhPromedio;
-                            const maintAnual = parseFloat(v.mantenimiento) || 0;
-                            const capExAnual = (parseFloat(v.precio) || 0) / (parseFloat(v.vidaUtil) || 5);
-                            const tcoAnual = capExAnual + costoLuzAnual + maintAnual;
-
-                            const isActive = v.id === ap.activaVariantId;
-
-                            // Encontrar si este TCO es el mínimo en este grupo
-                            const tcosGroup = ap.variantes.map(x => {
-                              const kd = calcularKwhDiarioAparato(x);
-                              const ca = (parseFloat(x.precio) || 0) / (parseFloat(x.vidaUtil) || 5);
-                              return ca + (kd * 365 * costoKwhPromedio) + (parseFloat(x.mantenimiento) || 0);
-                            });
-                            const minTco = Math.min(...tcosGroup);
-                            const esGanador = tcoAnual === minTco && ap.variantes.length > 1;
-
-                            return (
-                              <div 
-                                key={v.id} 
-                                className={`p-4 rounded-xl border relative transition-all duration-300 flex flex-col justify-between ${
-                                  isActive 
-                                    ? 'bg-slate-950/60 border-teal-500/60 shadow-lg shadow-teal-500/5 glow-teal' 
-                                    : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'
-                                }`}
-                              >
-                                {esGanador && (
-                                  <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[9px] bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black uppercase tracking-wider shadow">
-                                    ⭐ Más Rentable
-                                  </span>
-                                )}
-
-                                <div className="space-y-3">
-                                  {/* Nombre de la variante */}
-                                  <div>
-                                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">{v.nombre}</h4>
-                                    <p className="text-[10px] text-slate-500 mt-0.5 font-sans">
-                                      {v.tipoCarga === 'monofasica' ? '1F (127V CA)' : v.tipoCarga === 'bifasica' ? '2F (220V CA)' : '3F (220V CA)'}
-                                    </p>
-                                  </div>
-
-                                  {/* Especificaciones Técnicas */}
-                                  <div className="p-2 rounded bg-slate-950/40 text-[10px] font-mono space-y-1 text-slate-400">
-                                    <div className="flex justify-between">
-                                      <span>Carga Activa:</span>
-                                      <span className="text-slate-200 font-bold">{v.watts} W</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span>F.P. NOM:</span>
-                                      <span className="text-slate-200">{v.fp.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span>Operación:</span>
-                                      <span className="text-slate-200">{v.horasAlta}h {v.consumoVariable && `(+ ${v.horasReposo}h reposo)`}</span>
-                                    </div>
-                                  </div>
-
-                                  {/* Desglose Financiero */}
-                                  <div className="space-y-1 text-[11px] font-sans">
-                                    <div className="flex justify-between text-slate-450">
-                                      <span>Precio CapEx:</span>
-                                      <span className="font-mono text-slate-200">${(v.precio || 0).toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-450">
-                                      <span>Mant. OpEx:</span>
-                                      <span className="font-mono text-slate-200">${(v.mantenimiento || 0).toLocaleString()}/año</span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-450">
-                                      <span>CFE Energía:</span>
-                                      <span className="font-mono text-slate-200">${Math.round(costoLuzAnual).toLocaleString()}/año</span>
-                                    </div>
-                                    <div className="flex justify-between border-t border-slate-800/80 pt-1.5 mt-1.5 font-bold text-slate-200">
-                                      <span>TCO Amortizado:</span>
-                                      <span className="font-mono text-teal-400 text-xs">${Math.round(tcoAnual).toLocaleString()} MXN/año</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Acciones */}
-                                <div className="mt-4 pt-2 border-t border-slate-850/50">
-                                  {isActive ? (
-                                    <div className="w-full py-1.5 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 font-bold text-[11px] text-center font-sans">
-                                      ✓ Activo en Cuadro
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => handleActivarVariante(ap.id, v.id)}
-                                      className="w-full py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] transition-all duration-200 active:scale-[0.97] font-sans"
-                                    >
-                                      Activar en Cuadro
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-
-                          {/* Tarjeta de Agregar Alternativa */}
-                          {activeAddVariantId !== ap.id ? (
-                            <button
-                              onClick={() => setActiveAddVariantId(ap.id)}
-                              className="p-4 rounded-xl border border-dashed border-slate-800 hover:border-slate-700 bg-slate-950/10 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-slate-250 transition-all group min-h-[220px]"
-                            >
-                              <PlusCircle className="text-slate-655 group-hover:text-teal-400 transition-colors" size={24} />
-                              <span className="text-xs font-bold uppercase tracking-wider font-sans">Añadir Competidor</span>
-                              <span className="text-[10px] text-slate-600 text-center font-sans font-normal">Registra otra alternativa para evaluar cuál es más rentable</span>
-                            </button>
-                          ) : (
-                            <div className="p-1 rounded-xl border border-slate-800 bg-slate-950/20 col-span-1 md:col-span-2 xl:col-span-1">
-                              <AddVariantForm 
-                                onSave={(vData) => {
-                                  handleAgregarVariante(ap.id, vData);
-                                  setActiveAddVariantId(null);
-                                }}
-                                onCancel={() => setActiveAddVariantId(null)}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <DashboardCicloVida 
+                aparatos={aparatos}
+                proyectoId={currentProyectoId}
+                medidores={medidores}
+                onActualizarAparato={handleUpdateAparato}
+                onAddAparato={handleAddAparato}
+              />
             </div>
           )}
 
         </div>
 
         {/* Columna Derecha: Formulario (4 cols) o Pestaña restauradora si está colapsado */}
-        {(activeTab === 'diseno' || activeTab === 'cicloVida') && (
+        {activeTab === 'diseno' && (
           <div className={`transition-all duration-300 no-print ${
             isFormCollapsed 
               ? 'w-0 lg:col-span-0 overflow-hidden relative' 
