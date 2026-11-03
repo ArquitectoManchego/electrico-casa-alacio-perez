@@ -9,6 +9,7 @@ import SelectorEscenarioYNegocio from './ventas/SelectorEscenarioYNegocio';
 import ComparativaMensualCFE from './ventas/ComparativaMensualCFE';
 import TablaProcesosRecetas from './ventas/TablaProcesosRecetas';
 import MonitorCapacidadEquipos from './ventas/MonitorCapacidadEquipos';
+import PanelEstacionalidadYPublicidad from './ventas/PanelEstacionalidadYPublicidad';
 
 export default function SimuladorConsumoVentas({
   aparatos = [],
@@ -96,6 +97,42 @@ export default function SimuladorConsumoVentas({
   };
 
   const negocioConfig = NEGOCIOS_CONFIG.find(n => n.id === negocioActivoId) || NEGOCIOS_CONFIG[0];
+
+  // Parámetros de Estacionalidad Anual, Vacaciones y Publicidad de Eventos en México
+  const [mesSeleccionado, setMesSeleccionado] = useState(8); // Por defecto Agosto (Pico Escolar)
+  const [esQuincena, setEsQuincena] = useState(false);
+  const [publicidadContraciclica, setPublicidadContraciclica] = useState(true);
+  const [eventosActivos, setEventosActivos] = useState(['regreso_clases']);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sge_ventas_estacionalidad_config_v1');
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.mesSeleccionado) setMesSeleccionado(data.mesSeleccionado);
+        if (data.esQuincena !== undefined) setEsQuincena(data.esQuincena);
+        if (data.publicidadContraciclica !== undefined) setPublicidadContraciclica(data.publicidadContraciclica);
+        if (data.eventosActivos) setEventosActivos(data.eventosActivos);
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sge_ventas_estacionalidad_config_v1', JSON.stringify({
+        mesSeleccionado,
+        esQuincena,
+        publicidadContraciclica,
+        eventosActivos
+      }));
+    } catch (e) {}
+  }, [mesSeleccionado, esQuincena, publicidadContraciclica, eventosActivos]);
+
+  const handleToggleEvento = (evId) => {
+    setEventosActivos(prev =>
+      prev.includes(evId) ? prev.filter(x => x !== evId) : [...prev, evId]
+    );
+  };
 
   // Simular los escenarios de ventas para el negocio seleccionado
   const simBajo = useMemo(() => {
@@ -358,6 +395,22 @@ export default function SimuladorConsumoVentas({
         hayEquiposFaltantes={hayEquiposFaltantes}
         onSyncEquiposFaltantes={handleSyncEquiposFaltantes}
       />
+
+      {/* 2. Panel de Estacionalidad Anual, Vacaciones Universitarias y Publicidad Anticipada */}
+      {!vistaConsolidada && (
+        <PanelEstacionalidadYPublicidad 
+          negocioId={negocioActivoId}
+          mesSeleccionado={mesSeleccionado}
+          onSelectMes={setMesSeleccionado}
+          esQuincena={esQuincena}
+          onToggleQuincena={() => setEsQuincena(prev => !prev)}
+          publicidadContraciclica={publicidadContraciclica}
+          onTogglePublicidadContraciclica={() => setPublicidadContraciclica(prev => !prev)}
+          eventosActivos={eventosActivos}
+          onToggleEvento={handleToggleEvento}
+          onAplicarEscenarioSugerido={handleSelectEscenario}
+        />
+      )}
 
       {/* 2. Comparativa de Escenarios y Facturación CFE */}
       <ComparativaMensualCFE 
