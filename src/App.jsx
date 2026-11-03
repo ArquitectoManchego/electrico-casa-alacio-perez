@@ -1401,6 +1401,8 @@ export default function App() {
     await dbService.updateAparato(currentProyectoId, id, nextAp);
   };
 
+  const handleUpdateAparato = handleUpdateAparatoProps;
+
   // Balancear todos los medidores del proyecto respetando estrictamente las fases habilitadas de cada medidor
   const handleBalancearFases = async () => {
     if (!currentProyectoId || aparatos.length === 0) return;
@@ -2516,7 +2518,7 @@ export default function App() {
                 aparatos={aparatos}
                 proyectoId={currentProyectoId}
                 medidores={medidores}
-                onActualizarAparato={handleUpdateAparato}
+                onActualizarAparato={handleUpdateAparatoProps}
                 onAddAparato={handleAddAparato}
               />
             </div>
