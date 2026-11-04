@@ -2384,6 +2384,8 @@ export default function App() {
                 costosMEM={costosMEM}
                 diasPeriodo={diasPeriodo}
                 aparatos={aparatos}
+                proyectoId={currentProyectoId}
+                medidores={medidores}
               />
             </div>
           )}
