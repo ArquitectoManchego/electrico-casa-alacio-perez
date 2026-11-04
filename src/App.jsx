@@ -21,7 +21,8 @@ import {
   TrendingUp,
   DollarSign,
   Wrench,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 
 import { dbService, DEFAULT_MEDIDORES_CONSORCIO } from './firebase';
@@ -65,6 +66,7 @@ import BalanceadorTablero from './components/BalanceadorTablero';
 import PoliticasEficiencia from './components/PoliticasEficiencia';
 import ModuloPieDePlano from './components/ModuloPieDePlano';
 import ModuloFinanzasNegocios from './components/ModuloFinanzasNegocios';
+import VistaSencillaEmpresaria from './components/sencillo/VistaSencillaEmpresaria';
 
 function AddVariantForm({ onSave, onCancel }) {
   const [vData, setVData] = useState({
@@ -229,6 +231,22 @@ export default function App() {
 
   // Estado para el modo de visualización de la interfaz (Escritorio vs Celular)
   const [layoutMode, setLayoutMode] = useState('escritorio'); // 'escritorio' | 'celular'
+
+  // Estado para el modo de complejidad de la aplicación: 'avanzado' (ingeniería y detalle) vs 'sencillo' (vista ejecutiva para la dueña/empresaria)
+  const [modoInterfaz, setModoInterfaz] = useState(() => {
+    try {
+      return localStorage.getItem('sge_modo_interfaz') || 'avanzado';
+    } catch (e) {
+      return 'avanzado';
+    }
+  });
+
+  const handleCambiarModoInterfaz = useCallback((nuevoModo) => {
+    setModoInterfaz(nuevoModo);
+    try {
+      localStorage.setItem('sge_modo_interfaz', nuevoModo);
+    } catch (e) {}
+  }, []);
 
   // Estado para la unidad de medida de carga por fase ('VA' | 'W' | 'A')
   const [fasesUnit, setFasesUnit] = useState('VA');
@@ -1821,8 +1839,36 @@ export default function App() {
           </div>
           
           {/* Selector de Proyectos y Modo de Vista en Navbar */}
-          <div className="no-print flex flex-col sm:flex-row items-center gap-4">
+          <div className="no-print flex flex-col sm:flex-row items-center gap-3">
             
+            {/* Interruptor de Modo de Interfaz: AVANZADO vs SENCILLO */}
+            <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 shadow-inner">
+              <button
+                onClick={() => handleCambiarModoInterfaz('avanzado')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+                  modoInterfaz === 'avanzado'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Modo Avanzado: Ingeniería eléctrica completa, cálculos NOM-001, diagramas CAD y herramientas técnicas"
+              >
+                <Cpu size={13} className={modoInterfaz === 'avanzado' ? 'text-white' : 'text-slate-400'} />
+                AVANZADO
+              </button>
+              <button
+                onClick={() => handleCambiarModoInterfaz('sencillo')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+                  modoInterfaz === 'sencillo'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md shadow-teal-500/30 font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Modo Sencillo: Vista ejecutiva y limpia para la dueña del consorcio, con información relevante de cada empresa"
+              >
+                <Sparkles size={13} className={modoInterfaz === 'sencillo' ? 'text-slate-950 stroke-[2.5]' : 'text-emerald-400'} />
+                SENCILLO
+              </button>
+            </div>
+
             {/* Interruptor de Modo de Pantalla */}
             <div className="flex items-center bg-slate-950/50 p-1 rounded-xl border border-slate-800/80 shadow-inner">
               <button
@@ -1875,7 +1921,7 @@ export default function App() {
         }`}
       >
         <Cpu size={14} />
-        Instalación Eléctrica
+        {modoInterfaz === 'sencillo' ? 'Equipos de mis Tiendas' : 'Instalación Eléctrica'}
       </button>
       
       <button
@@ -1887,7 +1933,7 @@ export default function App() {
         }`}
       >
         <Wrench size={14} />
-        Ciclo de Vida y Mantenimiento
+        {modoInterfaz === 'sencillo' ? 'Salud de Maquinaria' : 'Ciclo de Vida y Mantenimiento'}
       </button>
 
       <button
@@ -1911,7 +1957,7 @@ export default function App() {
         }`}
       >
         <ShoppingCart size={14} />
-        Consumo por Ventas
+        {modoInterfaz === 'sencillo' ? 'Ventas y Temporadas' : 'Consumo por Ventas'}
       </button>
 
       <button
@@ -1923,7 +1969,7 @@ export default function App() {
         }`}
       >
         <TrendingUp size={14} />
-        Finanzas y Rentabilidad
+        {modoInterfaz === 'sencillo' ? 'Finanzas y Ganancias' : 'Finanzas y Rentabilidad'}
       </button>
 
       <button
@@ -1935,7 +1981,7 @@ export default function App() {
         }`}
       >
         <ShieldCheck size={14} />
-        Políticas y Eficiencia
+        {modoInterfaz === 'sencillo' ? 'Ahorro de Luz' : 'Políticas y Eficiencia'}
       </button>
 
       <button
@@ -1947,7 +1993,7 @@ export default function App() {
         }`}
       >
         <Award size={14} />
-        Reporte UVIE
+        {modoInterfaz === 'sencillo' ? 'Certificación UVIE' : 'Reporte UVIE'}
       </button>
 
       <button
@@ -1959,7 +2005,7 @@ export default function App() {
         }`}
       >
         <Zap size={14} />
-        Tablero Visual
+        {modoInterfaz === 'sencillo' ? 'Tablero Eléctrico' : 'Tablero Visual'}
       </button>
       <button
         onClick={() => setActiveTab('unifilar')}
@@ -1970,7 +2016,7 @@ export default function App() {
         }`}
       >
         <Zap size={14} />
-        Diagrama Unifilar
+        {modoInterfaz === 'sencillo' ? 'Diagrama Unifilar' : 'Diagrama Unifilar'}
       </button>
       <button
         onClick={() => setActiveTab('balanceador')}
@@ -1981,7 +2027,7 @@ export default function App() {
         }`}
       >
         <Sliders size={14} />
-        Balance de Tablero
+        {modoInterfaz === 'sencillo' ? 'Balance de Fases' : 'Balance de Tablero'}
       </button>
 
       <button
@@ -1993,7 +2039,7 @@ export default function App() {
         }`}
       >
         <FileSpreadsheet size={14} />
-        Plano CAD 90x60
+        {modoInterfaz === 'sencillo' ? 'Plano CAD' : 'Plano CAD 90x60'}
       </button>
     </div>
   </div>
@@ -2004,15 +2050,36 @@ export default function App() {
       ? 'max-w-full px-4 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-8' 
       : 'max-w-[430px] px-4 flex flex-col gap-6 border-x border-slate-800 bg-[#0d1424] shadow-2xl relative min-h-[85vh]'
   }`}>
-        
-        {/* Columna Izquierda: Acometida, Cuadro, Exportación, Ciclo de Vida y Verificador */}
-        <div className={`${
-          layoutMode === 'celular'
-            ? 'w-full'
-            : activeTab === 'diseno'
-              ? isFormCollapsed ? 'lg:col-span-12' : 'lg:col-span-8' 
-              : 'lg:col-span-12'
-        } space-y-8 transition-all duration-300`}>
+        {modoInterfaz === 'sencillo' ? (
+          <div className="col-span-12 w-full">
+            <VistaSencillaEmpresaria
+              activeTab={activeTab}
+              currentProyectoId={currentProyectoId}
+              proyectos={proyectos}
+              aparatos={aparatos}
+              medidores={medidores}
+              tarifas={tarifas}
+              costosMEM={costosMEM}
+              diasPeriodo={diasPeriodo}
+              sales={sales}
+              salesEqualizer={salesEqualizer}
+              escenarioVentasGlobal={escenarioVentasGlobal}
+              onEscenarioGlobalChange={handleEscenarioGlobalChange}
+              onSelectProyecto={handleSelectProyecto}
+              onCambiarModo={handleCambiarModoInterfaz}
+              onSelectTab={setActiveTab}
+            />
+          </div>
+        ) : (
+          <>
+            {/* Columna Izquierda: Acometida, Cuadro, Exportación, Ciclo de Vida y Verificador */}
+            <div className={`${
+              layoutMode === 'celular'
+                ? 'w-full'
+                : activeTab === 'diseno'
+                  ? isFormCollapsed ? 'lg:col-span-12' : 'lg:col-span-8' 
+                  : 'lg:col-span-12'
+            } space-y-8 transition-all duration-300`}>
           
           {/* PESTAÑA 1: DISEÑO Y INSTALACIONES */}
           {activeTab === 'diseno' && (
@@ -2567,6 +2634,8 @@ export default function App() {
             </div>
           </div>
         )}
+      </>
+    )}
 
       </main>
 
