@@ -433,10 +433,56 @@ export default function CuadroCargasUVIE({
 
       {/* Tabla Oficial */}
       <div className="overflow-x-auto rounded-xl border border-slate-800/60 bg-slate-950/40 p-2 sm:p-4 print:border-none print:p-0 print:m-0 print:overflow-visible">
+        <style>{`
+          @media print {
+            .cuadro-uvie-banner {
+              background-color: #d1fae5 !important;
+              color: #000000 !important;
+              border: 1px solid #0d9488 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .cuadro-uvie-banner * {
+              color: #000000 !important;
+            }
+            .cuadro-uvie-header th {
+              background-color: #0f766e !important;
+              color: #ffffff !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .cuadro-uvie-subtotal {
+              background-color: #d1fae5 !important;
+              color: #000000 !important;
+              border-top: 2px solid #0d9488 !important;
+              border-bottom: 2px solid #0d9488 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .cuadro-uvie-subtotal * {
+              color: #000000 !important;
+            }
+            .cuadro-uvie-row td {
+              color: #000000 !important;
+            }
+            .cuadro-uvie-row .fase-a {
+              color: #991b1b !important;
+              font-weight: bold !important;
+            }
+            .cuadro-uvie-row .fase-b {
+              color: #78350f !important;
+              font-weight: bold !important;
+            }
+            .cuadro-uvie-row .fase-c {
+              color: #1e40af !important;
+              font-weight: bold !important;
+            }
+          }
+        `}</style>
         <div className="print-landscape-page w-full">
           <table className="w-full border-collapse text-left min-w-[960px] text-xs">
             <thead>
-              <tr className="border-b border-slate-800/80 text-slate-400 font-mono uppercase tracking-wider text-[10px]">
+              <tr className="cuadro-uvie-header border-b border-slate-800/80 text-slate-400 font-mono uppercase tracking-wider text-[10px]">
                 <th className="py-3 px-2 text-center w-[36px]">#</th>
                 <th className="py-3 px-2">Cto</th>
                 <th className="py-3 px-2 text-teal-400 whitespace-nowrap min-w-[150px]">Medidor</th>
@@ -459,7 +505,7 @@ export default function CuadroCargasUVIE({
               {gruposMedidoresFiltrados.map((grupo, gIdx) => (
                 <React.Fragment key={grupo.medidor.id}>
                   {/* Encabezado del Grupo de Medidor */}
-                  <tr className="bg-slate-900/80 border-t-2 border-teal-500/40 text-teal-300 font-sans font-bold">
+                  <tr className="cuadro-uvie-banner bg-slate-900/80 border-t-2 border-teal-500/40 text-teal-300 font-sans font-bold">
                     <td colSpan="16" className="py-2.5 px-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -495,7 +541,7 @@ export default function CuadroCargasUVIE({
                     </tr>
                   ) : (
                     grupo.circuitos.map((c, i) => (
-                      <tr key={c.id || i} className="hover:bg-slate-900/30 text-slate-300">
+                      <tr key={c.id || i} className="cuadro-uvie-row hover:bg-slate-900/30 text-slate-300">
                         <td className="py-2.5 px-2 text-center text-slate-500 font-bold">{c.index + 1}</td>
                         <td className="py-2.5 px-2 font-bold text-slate-400">{c.num}</td>
                         <td className="py-2.5 px-2 whitespace-nowrap">
@@ -508,13 +554,13 @@ export default function CuadroCargasUVIE({
                         <td className="py-2.5 px-2 text-center">{c.fp.toFixed(2)}</td>
                         <td className="py-2.5 px-2 text-right">{Math.round(c.va).toLocaleString()}</td>
                         <td className="py-2.5 px-2 text-center">{c.voltaje}</td>
-                        <td className="py-2.5 px-2 text-right font-bold text-slate-300">
+                        <td className="fase-a py-2.5 px-2 text-right font-bold text-slate-300">
                           {c.fases.A > 0 ? (fasesUnit === 'A' ? c.fases.A.toFixed(2) : Math.round(c.fases.A).toLocaleString()) : '-'}
                         </td>
-                        <td className="py-2.5 px-2 text-right font-bold text-slate-300">
+                        <td className="fase-b py-2.5 px-2 text-right font-bold text-slate-300">
                           {c.fases.B > 0 ? (fasesUnit === 'A' ? c.fases.B.toFixed(2) : Math.round(c.fases.B).toLocaleString()) : '-'}
                         </td>
-                        <td className="py-2.5 px-2 text-right font-bold text-slate-300">
+                        <td className="fase-c py-2.5 px-2 text-right font-bold text-slate-300">
                           {c.fases.C > 0 ? (fasesUnit === 'A' ? c.fases.C.toFixed(2) : Math.round(c.fases.C).toLocaleString()) : '-'}
                         </td>
                         <td className="py-2.5 px-2 text-right">{c.in.toFixed(2)}</td>
@@ -531,7 +577,7 @@ export default function CuadroCargasUVIE({
                   )}
 
                   {/* Fila de Subtotales del Medidor con Botón de Exportar PDF y Balancear */}
-                  <tr className="bg-slate-900/50 font-bold border-t border-slate-700/60 text-slate-200 text-[11px]">
+                  <tr className="cuadro-uvie-subtotal bg-slate-900/50 font-bold border-t border-slate-700/60 text-slate-200 text-[11px]">
                     <td colSpan="4" className="py-3 px-3 uppercase tracking-wider text-teal-300 flex-1">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <span>SUBTOTALES {grupo.medidor.nombre.toUpperCase()}</span>

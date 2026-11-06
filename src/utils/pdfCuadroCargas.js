@@ -41,30 +41,34 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
   const fasesDisp = grupo.fasesDisponibles || ['A', 'B'];
 
   // 1. BANNER SUPERIOR DE ENCABEZADO TÉCNICO
-  doc.setFillColor(15, 23, 42); // slate-900
-  doc.roundedRect(MARGIN_X, MARGIN_TOP, CONTENT_W, 20, 2, 2, 'F');
+  // Fondo verde claro (idéntico al fondo de subtotales de la tabla) con borde sutil
+  doc.setFillColor(209, 250, 229); // emerald-100 / verde menta claro
+  doc.setDrawColor(13, 148, 136); // teal-600
+  doc.setLineWidth(0.4);
+  doc.roundedRect(MARGIN_X, MARGIN_TOP, CONTENT_W, 20, 2, 2, 'FD');
 
-  // Título Principal
+  // Título Principal en negro con alto contraste
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(20, 184, 166); // teal-400
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0); // negro sólido
   doc.text('CUADRO DE CARGAS NOM-001-SEDE-2012 & DICTAMEN UVIE', MARGIN_X + 4, MARGIN_TOP + 6.5);
 
-  // Subtítulo con Nombre de Medidor (limpio, sin contorno)
+  // Subtítulo con Nombre de Medidor en negro sólido
   doc.setFontSize(13);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0); // negro sólido
   doc.text(`MEDIDOR ${med.numero}: ${med.nombre.toUpperCase()}`, MARGIN_X + 4, MARGIN_TOP + 14);
 
-  // Metadatos a la derecha
-  doc.setFont('helvetica', 'normal');
+  // Metadatos a la derecha en negro / tono oscuro de alto contraste
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
-  doc.setTextColor(148, 163, 184); // slate-400
+  doc.setTextColor(0, 0, 0); // negro
   const derechoX = MARGIN_X + CONTENT_W - 4;
   doc.text(`Acometida: ${acometidaMedId.toUpperCase()} (${fasesDisp.join('-')}) | Tensión: 127/220V`, derechoX, MARGIN_TOP + 6.5, { align: 'right' });
   doc.text(`Cargas: ${circuitos.length} ctos | Subtotal: ${Math.round(grupo.subtotalW || 0).toLocaleString()} W (${Math.round(grupo.subtotalVA || 0).toLocaleString()} VA)`, derechoX, MARGIN_TOP + 11, { align: 'right' });
   
   const desbal = grupo.desbalanceMedidor || 0;
-  doc.setTextColor(desbal > 5 ? 244 : 52, desbal > 5 ? 63 : 211, desbal > 5 ? 94 : 153);
+  // En color: rojo o verde bosque profundo; en B&W: casi negro con alto contraste
+  doc.setTextColor(desbal > 5 ? 153 : 4, desbal > 5 ? 27 : 120, desbal > 5 ? 27 : 87);
   doc.setFont('helvetica', 'bold');
   doc.text(`Desbalance UVIE: ${desbal.toFixed(2)}% (${desbal <= 5 ? 'CUMPLE <= 5%' : 'REVISAR > 5%'})`, derechoX, MARGIN_TOP + 15.5, { align: 'right' });
 
@@ -72,12 +76,12 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
   let currentY = MARGIN_TOP + 23;
   const headerHeight = 7.5;
 
-  doc.setFillColor(13, 148, 136); // teal-600
+  doc.setFillColor(15, 118, 110); // teal-700 / verde azulado profundo (oscuro y legible en B&W y color)
   doc.rect(MARGIN_X, currentY, CONTENT_W, headerHeight, 'F');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.8);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(255, 255, 255); // blanco brillante para máximo contraste
 
   let colX = MARGIN_X;
   COL_DEFS.forEach(col => {
@@ -104,7 +108,7 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
     doc.setFillColor(248, 250, 252);
     doc.rect(MARGIN_X, currentY, CONTENT_W, 10, 'F');
     doc.setFont('helvetica', 'italic');
-    doc.setTextColor(100, 116, 139);
+    doc.setTextColor(15, 23, 42);
     doc.text('No hay circuitos asignados a este medidor.', MARGIN_X + CONTENT_W / 2, currentY + 6, { align: 'center' });
     currentY += 10;
   } else {
@@ -118,85 +122,109 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
       doc.rect(MARGIN_X, currentY, CONTENT_W, rowHeight, 'F');
 
       // Línea divisoria horizontal sutil
-      doc.setDrawColor(226, 232, 240); // slate-200
-      doc.setLineWidth(0.15);
+      doc.setDrawColor(203, 213, 225); // slate-300
+      doc.setLineWidth(0.2);
       doc.line(MARGIN_X, currentY + rowHeight, MARGIN_X + CONTENT_W, currentY + rowHeight);
 
       let cellX = MARGIN_X;
       COL_DEFS.forEach(col => {
         let val = '';
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(51, 65, 85); // slate-700
+        doc.setTextColor(0, 0, 0); // negro sólido para máximo contraste en impresión
 
         switch (col.key) {
           case 'index':
             val = String(c.index !== undefined ? c.index + 1 : rIdx + 1);
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(100, 116, 139);
+            doc.setTextColor(0, 0, 0);
             break;
           case 'num':
             val = c.num || `C-${rIdx + 1}`;
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(15, 23, 42);
+            doc.setTextColor(0, 0, 0);
             break;
           case 'medidorNombre':
             val = med.nombre || c.medidorNombre || `Medidor ${med.numero}`;
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(15, 118, 110); // teal-700
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(13, 94, 88); // deep teal-800: en color se ve verde azulado, en B&W imprime negro
             break;
           case 'desc':
             val = c.desc || '';
             // Truncar si es muy largo para no desbordar
             if (val.length > 32) val = val.substring(0, 30) + '...';
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(15, 23, 42);
+            doc.setTextColor(0, 0, 0);
             break;
           case 'watts':
             val = Math.round(c.watts || 0).toLocaleString();
             doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
             break;
           case 'fp':
             val = Number(c.fp || 1).toFixed(2);
+            doc.setTextColor(0, 0, 0);
             break;
           case 'va':
             val = Math.round(c.va || 0).toLocaleString();
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
             break;
           case 'voltaje':
             val = c.voltaje || '127 V';
+            doc.setTextColor(0, 0, 0);
             break;
           case 'faseA':
             val = c.fases?.A > 0 ? (fasesUnit === 'A' ? Number(c.fases.A).toFixed(2) : String(Math.round(c.fases.A))) : '-';
-            if (val !== '-') doc.setTextColor(185, 28, 28); // red-700
+            if (val !== '-') {
+              doc.setFont('helvetica', 'bold');
+              doc.setTextColor(153, 27, 27); // deep red-800: rojo en color, negro en B&W
+            } else {
+              doc.setTextColor(0, 0, 0);
+            }
             break;
           case 'faseB':
             val = c.fases?.B > 0 ? (fasesUnit === 'A' ? Number(c.fases.B).toFixed(2) : String(Math.round(c.fases.B))) : '-';
-            if (val !== '-') doc.setTextColor(180, 83, 9); // amber-700
+            if (val !== '-') {
+              doc.setFont('helvetica', 'bold');
+              doc.setTextColor(120, 53, 15); // deep amber-900: ámbar en color, casi negro en B&W (sin verse gris claro)
+            } else {
+              doc.setTextColor(0, 0, 0);
+            }
             break;
           case 'faseC':
             val = c.fases?.C > 0 ? (fasesUnit === 'A' ? Number(c.fases.C).toFixed(2) : String(Math.round(c.fases.C))) : '-';
-            if (val !== '-') doc.setTextColor(29, 78, 216); // blue-700
+            if (val !== '-') {
+              doc.setFont('helvetica', 'bold');
+              doc.setTextColor(30, 64, 175); // deep blue-800: azul en color, casi negro en B&W
+            } else {
+              doc.setTextColor(0, 0, 0);
+            }
             break;
           case 'in':
             val = Number(c.in || 0).toFixed(2);
+            doc.setTextColor(0, 0, 0);
             break;
           case 'ic':
             val = Number(c.ic || 0).toFixed(2);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
             break;
           case 'proteccion':
             val = c.proteccion || '1 x 15 A';
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(13, 148, 136);
+            doc.setTextColor(13, 94, 88); // deep teal-800
             break;
           case 'conductor':
             val = c.conductor || '2 # 14 + 1 # 14 T';
+            doc.setTextColor(0, 0, 0);
             break;
           case 'caida':
             val = `${Number(c.caida || 0).toFixed(2)}%`;
+            doc.setFont('helvetica', 'bold');
             if (Number(c.caida || 0) > 3.0) {
-              doc.setTextColor(225, 29, 72); // rose-600
-              doc.setFont('helvetica', 'bold');
+              doc.setTextColor(153, 27, 27); // deep red-800
             } else {
-              doc.setTextColor(5, 150, 105); // emerald-600
+              doc.setTextColor(4, 120, 87); // deep emerald-700: verde en color, casi negro en B&W
             }
             break;
           default:
@@ -215,9 +243,9 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
     });
   }
 
-  // 4. FILA DE SUBTOTALES DEL MEDIDOR
+  // 4. FILA DE SUBTOTALES DEL MEDIDOR (Verde claro idéntico al banner, letras negras de alto contraste)
   const subtotalHeight = 7.5;
-  doc.setFillColor(240, 253, 250); // teal-50
+  doc.setFillColor(209, 250, 229); // emerald-100 / verde menta claro
   doc.rect(MARGIN_X, currentY, CONTENT_W, subtotalHeight, 'F');
 
   doc.setDrawColor(13, 148, 136); // teal-600
@@ -227,7 +255,7 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.2);
-  doc.setTextColor(15, 118, 110); // teal-700
+  doc.setTextColor(0, 0, 0); // letras negras de alto contraste
 
   // Etiqueta de subtotales
   doc.text(`SUBTOTALES MEDIDOR ${med.numero} (${med.nombre.toUpperCase()})`, MARGIN_X + 3, currentY + 5);
@@ -239,50 +267,50 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
   const vaColX = wattsColX + 9 + 14;
   doc.text(`${Math.round(grupo.subtotalVA || 0).toLocaleString()} VA`, vaColX, currentY + 5, { align: 'right' });
 
-  // Fases Subtotales
+  // Fases Subtotales en colores profundos (vibrantes a color, oscuros en B&W)
   const faseAColX = vaColX + 12 + 13;
   const subFases = grupo.subtotalFases || { A: 0, B: 0, C: 0 };
-  doc.setTextColor(185, 28, 28);
+  doc.setTextColor(153, 27, 27); // deep red-800
   doc.text(fasesDisp.includes('A') ? (fasesUnit === 'A' ? subFases.A.toFixed(2) : String(Math.round(subFases.A))) : '-', faseAColX, currentY + 5, { align: 'right' });
 
   const faseBColX = faseAColX + 13;
-  doc.setTextColor(180, 83, 9);
+  doc.setTextColor(120, 53, 15); // deep amber-900 (oscuro en B&W)
   doc.text(fasesDisp.includes('B') ? (fasesUnit === 'A' ? subFases.B.toFixed(2) : String(Math.round(subFases.B))) : '-', faseBColX, currentY + 5, { align: 'right' });
 
   const faseCColX = faseBColX + 13;
-  doc.setTextColor(29, 78, 216);
+  doc.setTextColor(30, 64, 175); // deep blue-800
   doc.text(fasesDisp.includes('C') ? (fasesUnit === 'A' ? subFases.C.toFixed(2) : String(Math.round(subFases.C))) : '-', faseCColX, currentY + 5, { align: 'right' });
 
   // Desbalance en la derecha del subtotal
-  doc.setTextColor(desbal > 5 ? 225 : 5, desbal > 5 ? 29 : 150, desbal > 5 ? 72 : 105);
+  doc.setTextColor(desbal > 5 ? 153 : 4, desbal > 5 ? 27 : 120, desbal > 5 ? 27 : 87);
   doc.text(`Desbalance: ${desbal.toFixed(2)}%`, MARGIN_X + CONTENT_W - 3, currentY + 5, { align: 'right' });
 
   currentY += subtotalHeight + 4;
 
   // 5. BLOQUE DE DICTAMEN TÉCNICO Y CUMPLIMIENTO UVIE AL PIE
   const pieY = Math.max(currentY, PAGE_H - 26);
-  doc.setFillColor(241, 245, 249); // slate-100
+  doc.setFillColor(248, 250, 252); // slate-50
   doc.roundedRect(MARGIN_X, pieY, CONTENT_W, 16, 1.5, 1.5, 'F');
 
-  doc.setDrawColor(203, 213, 225); // slate-300
-  doc.setLineWidth(0.2);
+  doc.setDrawColor(148, 163, 184); // slate-400
+  doc.setLineWidth(0.25);
   doc.roundedRect(MARGIN_X, pieY, CONTENT_W, 16, 1.5, 1.5, 'D');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
-  doc.setTextColor(15, 23, 42);
+  doc.setTextColor(0, 0, 0); // negro sólido
   doc.text('CERTIFICACIÓN Y DICTAMEN DE CONFORMIDAD TÉCNICA (NOM-001-SEDE-2012)', MARGIN_X + 4, pieY + 5);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.setTextColor(71, 85, 105);
+  doc.setTextColor(15, 23, 42); // casi negro de alto contraste
   doc.text('1. El balanceo de cargas entre fases operativas se mantiene por debajo del límite normativo del 5.0%.', MARGIN_X + 4, pieY + 9);
   doc.text('2. Las protecciones termo-magnéticas y calibres de conductores tipo THHN/THW-2 cumplen con el factor de corrección por temperatura y agrupamiento.', MARGIN_X + 4, pieY + 12.5);
 
   // Sello UVIE en la derecha
   doc.setFillColor(15, 23, 42);
   doc.roundedRect(MARGIN_X + CONTENT_W - 55, pieY + 2.5, 52, 11, 1, 1, 'F');
-  doc.setTextColor(20, 184, 166);
+  doc.setTextColor(209, 250, 229); // mint green
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   doc.text('DICTAMEN OFICIAL UVIE', MARGIN_X + CONTENT_W - 29, pieY + 6.5, { align: 'center' });
