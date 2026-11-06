@@ -914,21 +914,35 @@ export function vincularEquiposConInventario(negocioId, aparatos = [], esConsorc
   const resultado = {};
   const equiposDef = negocio.equipos;
 
-  // Filtrar aparatos candidatos: si es consorcio, filtrar por medidor o prefijo
+  // Filtrar aparatos candidatos:
+  // Si es consorcio, priorizar estrictamente por medidorId del contrato CFE.
+  // Solo si no tiene medidorId asignado se recurre al prefijo textual.
   const aparatosCandidatos = esConsorcio
-    ? aparatos.filter(ap => (ap.medidorId === negocio.medidorIdConsorcio) || (ap.tipo || '').toLowerCase().includes(negocio.prefijoConsorcio.toLowerCase()))
+    ? aparatos.filter(ap => {
+        if (ap.medidorId) {
+          return ap.medidorId === negocio.medidorIdConsorcio;
+        }
+        return (ap.tipo || '').toLowerCase().includes(negocio.prefijoConsorcio.toLowerCase());
+      })
     : aparatos;
 
+  const aparatosUsadosIds = new Set();
+
+  // 1. Mapear primero las recetas/equipos predeterminados del negocio
   Object.keys(equiposDef).forEach(eqKey => {
     const eq = equiposDef[eqKey];
     let aparatoEncontrado = null;
 
-    // 1. Coincidencia exacta o por keywords
     aparatoEncontrado = aparatosCandidatos.find(ap => {
+      if (aparatosUsadosIds.has(ap.id)) return false;
       const t = (ap.tipo || '').toLowerCase();
       const m = (ap.modelo || '').toLowerCase();
       return eq.keywords.some(k => t.includes(k.toLowerCase()) || m.includes(k.toLowerCase()));
     });
+
+    if (aparatoEncontrado) {
+      aparatosUsadosIds.add(aparatoEncontrado.id);
+    }
 
     const conectado = !!aparatoEncontrado;
     const wattsEfectivos = conectado ? (parseFloat(aparatoEncontrado.watts) || eq.wattsNominal) : eq.wattsNominal;
@@ -943,8 +957,64 @@ export function vincularEquiposConInventario(negocioId, aparatos = [], esConsorc
       wattsEfectivos,
       fpEfectivo,
       tipoCargaEfectiva,
-      faseEfectiva
+      faseEfectiva,
+      horasAlta: conectado ? (parseFloat(aparatoEncontrado.horasAlta) || negocio.horasTurnoDefault) : negocio.horasTurnoDefault,
+      horasReposo: conectado ? (parseFloat(aparatoEncontrado.horasReposo) || 0) : 0,
+      consumoVariable: conectado ? !!aparatoEncontrado.consumoVariable : false
     };
+  });
+
+  // 2. Incluir dinámicamente cualquier aparato adicional o reasignado a este medidor
+  aparatosCandidatos.forEach(ap => {
+    if (!aparatosUsadosIds.has(ap.id)) {
+      aparatosUsadosIds.add(ap.id);
+      const tLower = (ap.tipo || '').toLowerCase();
+      const mLower = (ap.modelo || '').toLowerCase();
+      const textoCompleto = `${tLower} ${mLower}`;
+
+      let rol = 'turno_fijo';
+      let factorTrabajo = 1.0;
+      if (/refrigerador|congelador|enfriador|chiller|modem|servidor|wifi/i.test(textoCompleto)) {
+        rol = 'continuo_24h';
+        factorTrabajo = 0.45;
+      } else if (/minisplit|clima|aire|ac\b|inverter/i.test(textoCompleto)) {
+        rol = 'clima';
+        factorTrabajo = 0.62;
+      } else if (ap.consumoVariable) {
+        rol = 'consumo_variable';
+        factorTrabajo = 1.0;
+      }
+
+      const key = `extra_${ap.id}`;
+      const wattsVal = parseFloat(ap.watts) || 0;
+      const fpVal = parseFloat(ap.fp) || 0.90;
+
+      resultado[key] = {
+        key,
+        nombre: ap.tipo + (ap.modelo ? ` (${ap.modelo})` : ''),
+        tipoCatalogo: ap.tipo,
+        wattsNominal: wattsVal,
+        wattsEfectivos: wattsVal,
+        fp: fpVal,
+        fpEfectivo: fpVal,
+        tipoCarga: ap.tipoCarga || 'monofasica',
+        tipoCargaEfectiva: ap.tipoCarga || 'monofasica',
+        faseSugerida: ap.fase || 'A',
+        faseEfectiva: ap.fase || 'A',
+        cantidadParalela: 1,
+        rol,
+        factorPrecalentamiento: 1.0,
+        factorTrabajo,
+        factorGap: 0.5,
+        factorStandby: 0.1,
+        horasAlta: parseFloat(ap.horasAlta) || negocio.horasTurnoDefault,
+        horasReposo: parseFloat(ap.horasReposo) || 0,
+        consumoVariable: !!ap.consumoVariable,
+        conectado: true,
+        aparatoReal: ap,
+        keywords: []
+      };
+    }
   });
 
   return resultado;

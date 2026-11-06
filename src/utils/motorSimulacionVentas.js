@@ -330,21 +330,33 @@ export function simularNegocioCompleto({
       kwhContinuoMes += kwhMes;
       kwhEquiposMes[eqKey] = (kwhEquiposMes[eqKey] || 0) + kwhMes;
       minutosEquiposMes[eqKey] = (minutosEquiposMes[eqKey] || 0) + (30 * 24 * 60 * factorCiclo);
-    } else if (eq.rol === 'turno_fijo') {
-      // Encendidas durante el turno abierto
-      const kwhMes = ((watts * horasTurnoMes) / 1000);
+    } else if (eq.rol === 'consumo_variable') {
+      const hAlta = eq.horasAlta !== undefined ? eq.horasAlta : horasTurno;
+      const hRep = eq.horasReposo || 0;
+      const kwhDia = ((watts * hAlta) + (watts * 0.20 * hRep)) / 1000;
+      const kwhMes = kwhDia * diasLaborales;
       kwhLucesTurnoMes += kwhMes;
       kwhEquiposMes[eqKey] = (kwhEquiposMes[eqKey] || 0) + kwhMes;
-      minutosEquiposMes[eqKey] = (minutosEquiposMes[eqKey] || 0) + minutosTurnoMes;
+      minutosEquiposMes[eqKey] = (minutosEquiposMes[eqKey] || 0) + ((hAlta + hRep) * 60 * diasLaborales);
+    } else if (eq.rol === 'turno_fijo') {
+      // Encendidas durante el turno abierto o sus horas configuradas
+      const hAlta = eq.horasAlta !== undefined ? eq.horasAlta : horasTurno;
+      const horasMes = hAlta * diasLaborales;
+      const kwhMes = ((watts * horasMes) / 1000);
+      kwhLucesTurnoMes += kwhMes;
+      kwhEquiposMes[eqKey] = (kwhEquiposMes[eqKey] || 0) + kwhMes;
+      minutosEquiposMes[eqKey] = (minutosEquiposMes[eqKey] || 0) + (horasMes * 60);
     } else if (eq.rol === 'clima') {
-      // Modulación de clima según escenario de venta
+      // Modulación de clima según escenario de venta y horario del local
       let factorUso = 0.65;
       if (escenarioActivo === 'bajo') factorUso = 0.50;
       else if (escenarioActivo === 'tablas' || escenarioActivo === 'equilibrio') factorUso = 0.58;
       else if (escenarioActivo === 'medio' || escenarioActivo === 'buena') factorUso = 0.65;
       else if (escenarioActivo === 'alto') factorUso = 0.85;
       else if (escenarioActivo === 'muy_alto') factorUso = 0.95;
-      const horasEfectivasClima = horasTurnoMes * factorUso;
+      const hTurnoClima = eq.horasAlta !== undefined ? eq.horasAlta : horasTurno;
+      const horasTurnoClimaMes = diasLaborales * hTurnoClima;
+      const horasEfectivasClima = horasTurnoClimaMes * factorUso;
       const factorInverter = eq.factorTrabajo || 0.62;
       const kwhMes = ((watts * factorInverter * horasEfectivasClima) / 1000);
       kwhClimaMes += kwhMes;
@@ -486,8 +498,8 @@ export function simularConsorcioPorMedidores({
     }
   });
 
-  // Sumar servicios comunes de consorcio_general si existen en med_6
-  const serviciosGenerales = aparatos.filter(ap => (ap.medidorId === 'med_6' || !ap.medidorId) && (ap.tipo || '').toLowerCase().includes('[servicios]'));
+  // Sumar servicios comunes no asignados expresamente a otro medidor
+  const serviciosGenerales = aparatos.filter(ap => !ap.medidorId && (ap.tipo || '').toLowerCase().includes('[servicios]'));
   let kwhServiciosPeriodo = 0;
   serviciosGenerales.forEach(ap => {
     const w = parseFloat(ap.watts) || 0;

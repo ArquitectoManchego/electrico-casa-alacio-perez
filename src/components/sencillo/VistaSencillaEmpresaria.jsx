@@ -31,7 +31,7 @@ import { CATALOGO_POLITICAS_NEGOCIOS, calcularAhorroPoliticasNegocio, calcularCo
 import { calcularCicloVidaNegocio } from '../../utils/motorCicloVidaMantenimiento';
 import { CATALOGO_EVENTOS_MEXICO, MESES_INFO } from '../../utils/motorTemporadasYEventos';
 import { CATALOGO_PRECIOS_COSTOS } from '../../utils/preciosYCostosProductos';
-import { calcularCobroCFECompleto } from '../../utils/simuladorCFE';
+import { calcularCobroCFECompleto, calcularKwhDiarioAparato } from '../../utils/simuladorCFE';
 
 import IlustracionEquipo from './IlustracionesEquipos';
 import FajoBilletes from './FajoBilletes';
@@ -94,13 +94,50 @@ export default function VistaSencillaEmpresaria({
     }
   }, [currentProyectoId]);
 
-  // Lista de equipos formateados para la empresa activa
+  // Lista de equipos formateados para la empresa activa (prioriza aparatos reales asignados a su medidor)
   const equiposDeLaEmpresa = useMemo(() => {
+    const targetMedId = negocioInfo?.medidorIdConsorcio || 'med_1';
+    const apsReales = (aparatos || []).filter(ap => (ap.medidorId || 'med_1') === targetMedId);
+
+    if (apsReales.length > 0) {
+      return apsReales.map(ap => {
+        const watts = parseFloat(ap.watts) || 0;
+        const horas = parseFloat(ap.horasAlta) || negocioInfo?.horasTurnoDefault || 8.5;
+        const kwhDiario = calcularKwhDiarioAparato(ap);
+        const kwhMes = kwhDiario * (negocioInfo?.diasLaboralesDefault || 26);
+        const pesosMes = Math.round(kwhMes * 3.85);
+
+        let nivelConsumo = 'Bajo';
+        let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        if (watts > 1800) {
+          nivelConsumo = 'Consumo Fuerte';
+          badgeColor = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+        } else if (watts > 700) {
+          nivelConsumo = 'Consumo Moderado';
+          badgeColor = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        }
+
+        return {
+          key: ap.id,
+          nombre: ap.tipo + (ap.modelo ? ` (${ap.modelo})` : ''),
+          watts,
+          pesosMes,
+          kwhMes: Math.round(kwhMes),
+          horas,
+          nivelConsumo,
+          badgeColor,
+          consejo: watts > 1000 
+            ? 'Equipo de potencia alta: Mantener apagado cuando no esté en producción para ahorrar hasta un 25%.'
+            : 'Equipo eficiente: Impacto ligero en tu recibo mensual de CFE.'
+        };
+      });
+    }
+
     if (!negocioInfo || !negocioInfo.equipos) return [];
     return Object.values(negocioInfo.equipos).map(eq => {
       const watts = eq.wattsNominal || 0;
-      const horas = 8.5;
-      const kwhMes = (watts * horas * 26 * 0.7) / 1000;
+      const horas = negocioInfo?.horasTurnoDefault || 8.5;
+      const kwhMes = (watts * horas * (negocioInfo?.diasLaboralesDefault || 26) * 0.7) / 1000;
       const pesosMes = Math.round(kwhMes * 3.85);
 
       let nivelConsumo = 'Bajo';
@@ -127,7 +164,7 @@ export default function VistaSencillaEmpresaria({
           : 'Equipo eficiente: Impacto ligero en tu recibo mensual de CFE.'
       };
     });
-  }, [negocioInfo]);
+  }, [negocioInfo, aparatos]);
 
   // Equipo activo mostrado en el Hero de 256x256 px
   const [equipoActivoKey, setEquipoActivoKey] = useState(null);
@@ -136,7 +173,7 @@ export default function VistaSencillaEmpresaria({
     if (equiposDeLaEmpresa.length > 0) {
       setEquipoActivoKey(equiposDeLaEmpresa[0].key);
     }
-  }, [negocioSeleccionadoId]);
+  }, [negocioSeleccionadoId, equiposDeLaEmpresa]);
 
   const equipoSeleccionado = useMemo(() => {
     return equiposDeLaEmpresa.find(e => e.key === equipoActivoKey) || equiposDeLaEmpresa[0] || {
@@ -173,21 +210,31 @@ export default function VistaSencillaEmpresaria({
     return CATALOGO_PRECIOS_COSTOS[negocioSeleccionadoId] || CATALOGO_PRECIOS_COSTOS.imperia_uniformes || [];
   }, [negocioSeleccionadoId]);
 
-  // Estimación de recibo de CFE y consumo
+  // Estimación de recibo de CFE y consumo (recalcula automáticamente si se reasignan aparatos)
   const estimacionRecibo = useMemo(() => {
-    const equiposNegocio = negocioInfo?.equipos ? Object.values(negocioInfo.equipos) : [];
-    const wattsTotales = equiposNegocio.reduce((acc, eq) => acc + (eq.wattsNominal || 0), 0) || 2500;
+    const targetMedId = negocioInfo?.medidorIdConsorcio || 'med_1';
+    const apsReales = (aparatos || []).filter(ap => (ap.medidorId || 'med_1') === targetMedId);
     
     let factorEscenario = 1.0;
     if (escenarioVentasGlobal === 'cero') factorEscenario = 0.45;
     else if (escenarioVentasGlobal === 'bajo') factorEscenario = 0.70;
-    else if (escenarioVentasGlobal === 'equilibrio') factorEscenario = 0.90;
-    else if (escenarioVentasGlobal === 'medio') factorEscenario = 1.0;
+    else if (escenarioVentasGlobal === 'equilibrio' || escenarioVentasGlobal === 'tablas') factorEscenario = 0.90;
+    else if (escenarioVentasGlobal === 'medio' || escenarioVentasGlobal === 'buena') factorEscenario = 1.0;
     else if (escenarioVentasGlobal === 'alto') factorEscenario = 1.30;
     else if (escenarioVentasGlobal === 'muy_alto') factorEscenario = 1.65;
 
-    const horasPromedioDia = 8.5;
-    const kwhMes = (wattsTotales * horasPromedioDia * 26 * 0.65 * factorEscenario) / 1000;
+    let kwhMes = 0;
+    if (apsReales.length > 0) {
+      const kwhDiarioTotal = apsReales.reduce((sum, ap) => sum + calcularKwhDiarioAparato(ap), 0);
+      const diasMes = negocioInfo?.diasLaboralesDefault || 26;
+      kwhMes = kwhDiarioTotal * diasMes * factorEscenario;
+    } else {
+      const equiposNegocio = negocioInfo?.equipos ? Object.values(negocioInfo.equipos) : [];
+      const wattsTotales = equiposNegocio.reduce((acc, eq) => acc + (eq.wattsNominal || 0), 0) || 2500;
+      const horasPromedioDia = negocioInfo?.horasTurnoDefault || 8.5;
+      kwhMes = (wattsTotales * horasPromedioDia * (negocioInfo?.diasLaboralesDefault || 26) * 0.65 * factorEscenario) / 1000;
+    }
+
     const desglose = calcularCobroCFECompleto(kwhMes, tarifas, costosMEM);
 
     return {
@@ -195,7 +242,7 @@ export default function VistaSencillaEmpresaria({
       totalPesos: Math.round(desglose.factura?.total || (kwhMes * 3.85)),
       tarifaEscalon: desglose.energia?.excedente?.kwh > 0 ? 'Excedente' : 'Intermedio'
     };
-  }, [negocioInfo, escenarioVentasGlobal, tarifas, costosMEM]);
+  }, [negocioInfo, escenarioVentasGlobal, tarifas, costosMEM, aparatos]);
 
   return (
     <div className="space-y-6 animate-fadeIn pb-16">

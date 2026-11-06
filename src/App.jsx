@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import { dbService, DEFAULT_MEDIDORES_CONSORCIO } from './firebase';
+import { NEGOCIOS_CONFIG } from './utils/equiposNegocios';
 import { 
   determinarAcometida, 
   determinarAcometidaMedidor, 
@@ -1391,6 +1392,18 @@ export default function App() {
     let fieldsToApply = { ...updatedFields };
     const targetMedId = fieldsToApply.medidorId || prevAp.medidorId || defaultMedId;
     const medObj = medidores.find(m => m.id === targetMedId) || { id: targetMedId, numero: 1 };
+
+    // Si el aparato cambia de medidor, adaptar automáticamente sus horas de operación al horario del local de destino
+    if (fieldsToApply.medidorId && fieldsToApply.medidorId !== prevAp.medidorId) {
+      const targetNegocio = NEGOCIOS_CONFIG.find(n => n.medidorIdConsorcio === targetMedId);
+      if (targetNegocio && fieldsToApply.horasAlta === undefined) {
+        const es24h = /refrigerador|congelador|enfriador|chiller|modem|servidor|wifi/i.test((prevAp.tipo || '') + ' ' + (prevAp.modelo || ''));
+        if (!es24h) {
+          fieldsToApply.horasAlta = targetNegocio.horasTurnoDefault;
+        }
+      }
+    }
+
     const candidateAp = { ...prevAp, ...fieldsToApply, medidorId: targetMedId };
     const otrosDelMedidor = aparatos.filter(ap => ap.id !== id && (ap.medidorId || defaultMedId) === targetMedId);
     const acometidaMed = determinarAcometidaMedidor(medObj, [...otrosDelMedidor, candidateAp]);

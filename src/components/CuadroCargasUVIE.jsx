@@ -13,6 +13,11 @@ import {
   determinarAcometidaMedidor,
   distribuirCargaPorFases
 } from '../utils/electricalCalculations';
+import {
+  exportarCuadroCargasIndividualPDF,
+  exportarTodosCuadrosCargasIndividualesPDF,
+  exportarDocumentoConsolidadoPDF
+} from '../utils/pdfCuadroCargas';
 
 export default function CuadroCargasUVIE({ 
   aparatos = [], 
@@ -331,9 +336,29 @@ export default function CuadroCargasUVIE({
             </button>
           )}
 
+          {/* Botón: Exportar Todos a PDF (1 archivo por Medidor) */}
+          <button
+            onClick={() => exportarTodosCuadrosCargasIndividualesPDF(gruposMedidoresFiltrados, fasesUnit)}
+            className="px-3.5 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
+            title="Genera y descarga 1 documento PDF independiente por cada cuadro de cargas de medidor"
+          >
+            <Download size={14} />
+            <span>Exportar Todos a PDF (1 por Medidor)</span>
+          </button>
+
+          {/* Botón: PDF Consolidado (1 hoja por Medidor) */}
+          <button
+            onClick={() => exportarDocumentoConsolidadoPDF(gruposMedidoresFiltrados, fasesUnit)}
+            className="px-3.5 py-1.5 rounded-lg border border-teal-500/50 bg-teal-950/40 hover:bg-teal-900/50 text-teal-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            title="Descarga un solo archivo PDF con cada cuadro de cargas en una hoja propia"
+          >
+            <Download size={14} />
+            <span>PDF Consolidado (1 Hoja/Medidor)</span>
+          </button>
+
           <button
             onClick={handleExportExcel}
-            className="px-3.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <FileSpreadsheet size={14} className="text-emerald-400" />
             Excel
@@ -341,10 +366,10 @@ export default function CuadroCargasUVIE({
           
           <button
             onClick={() => window.print()}
-            className="px-3.5 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <Printer size={14} />
-            Imprimir PDF
+            Imprimir
           </button>
         </div>
       </div>
@@ -388,19 +413,33 @@ export default function CuadroCargasUVIE({
                 </button>
               );
             })}
+
+            {selectedMedFilter !== 'todos' && (
+              <button
+                onClick={() => {
+                  const targetGrupo = gruposMedidores.find(g => g.medidor.id === selectedMedFilter);
+                  if (targetGrupo) exportarCuadroCargasIndividualPDF(targetGrupo, fasesUnit);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95 ml-auto"
+                title="Descargar PDF del medidor seleccionado"
+              >
+                <Download size={13} />
+                <span>Descargar PDF Seleccionado</span>
+              </button>
+            )}
           </div>
         </div>
       )}
 
       {/* Tabla Oficial */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-850 overflow-x-auto shadow-xl relative bg-slate-950/20 print-no-border print-p-0">
-        <div className="print-landscape-page">
-          <table className="w-full border-collapse text-left min-w-[1000px] text-xs">
+      <div className="overflow-x-auto rounded-xl border border-slate-800/60 bg-slate-950/40 p-2 sm:p-4 print:border-none print:p-0 print:m-0 print:overflow-visible">
+        <div className="print-landscape-page w-full">
+          <table className="w-full border-collapse text-left min-w-[960px] text-xs">
             <thead>
               <tr className="border-b border-slate-800/80 text-slate-400 font-mono uppercase tracking-wider text-[10px]">
                 <th className="py-3 px-2 text-center w-[36px]">#</th>
                 <th className="py-3 px-2">Cto</th>
-                <th className="py-3 px-2 text-teal-400">Medidor</th>
+                <th className="py-3 px-2 text-teal-400 whitespace-nowrap min-w-[150px]">Medidor</th>
                 <th className="py-3 px-2">Descripción del Circuito</th>
                 <th className="py-3 px-2 text-right">Watts (P)</th>
                 <th className="py-3 px-2 text-center">F.P.</th>
@@ -434,6 +473,14 @@ export default function CuadroCargasUVIE({
                         </div>
                         <div className="text-[11px] font-mono text-slate-300 flex items-center gap-3">
                           <span>Subtotal: <strong>{Math.round(grupo.subtotalW).toLocaleString()} W</strong> ({Math.round(grupo.subtotalVA).toLocaleString()} VA)</span>
+                          <button
+                            onClick={() => exportarCuadroCargasIndividualPDF(grupo, fasesUnit)}
+                            className="px-2 py-0.5 rounded bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-[10px] font-sans font-bold flex items-center gap-1 transition-all no-print cursor-pointer"
+                            title={`Descargar PDF oficial de este cuadro de cargas (${grupo.medidor.nombre})`}
+                          >
+                            <Download size={11} />
+                            <span>PDF</span>
+                          </button>
                         </div>
                       </div>
                     </td>
@@ -451,9 +498,9 @@ export default function CuadroCargasUVIE({
                       <tr key={c.id || i} className="hover:bg-slate-900/30 text-slate-300">
                         <td className="py-2.5 px-2 text-center text-slate-500 font-bold">{c.index + 1}</td>
                         <td className="py-2.5 px-2 font-bold text-slate-400">{c.num}</td>
-                        <td className="py-2.5 px-2">
-                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-teal-400 font-sans font-bold">
-                            Medidor {grupo.medidor.numero}
+                        <td className="py-2.5 px-2 whitespace-nowrap">
+                          <span className="text-slate-200 font-sans font-medium text-xs whitespace-nowrap">
+                            {grupo.medidor.nombre || c.medidorNombre}
                           </span>
                         </td>
                         <td className="py-2.5 px-2 font-sans font-medium text-slate-200">{c.desc}</td>
@@ -483,22 +530,32 @@ export default function CuadroCargasUVIE({
                     ))
                   )}
 
-                  {/* Fila de Subtotales del Medidor con Botón de Balancear */}
+                  {/* Fila de Subtotales del Medidor con Botón de Exportar PDF y Balancear */}
                   <tr className="bg-slate-900/50 font-bold border-t border-slate-700/60 text-slate-200 text-[11px]">
                     <td colSpan="4" className="py-3 px-3 uppercase tracking-wider text-teal-300 flex-1">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <span>SUBTOTALES {grupo.medidor.nombre.toUpperCase()}</span>
-                        {/* Botón propio para balancear las cargas de este medidor */}
-                        {onBalancearMedidor && (
+                        <div className="flex items-center gap-2 no-print">
                           <button
-                            onClick={() => onBalancearMedidor(grupo.medidor.id)}
-                            className="px-2.5 py-1 rounded bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-[10px] font-bold flex items-center gap-1 transition-all no-print cursor-pointer active:scale-95"
-                            title={`Abrir balanceador de cargas específicamente para ${grupo.medidor.nombre}`}
+                            onClick={() => exportarCuadroCargasIndividualPDF(grupo, fasesUnit)}
+                            className="px-2.5 py-1 rounded bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                            title={`Descargar documento PDF exclusivo para ${grupo.medidor.nombre}`}
                           >
-                            <ArrowRightLeft size={11} />
-                            <span>⚡ Balancear Cargas ({grupo.medidor.nombre})</span>
+                            <Download size={11} />
+                            <span>📄 Exportar PDF ({grupo.medidor.nombre})</span>
                           </button>
-                        )}
+                          {/* Botón propio para balancear las cargas de este medidor */}
+                          {onBalancearMedidor && (
+                            <button
+                              onClick={() => onBalancearMedidor(grupo.medidor.id)}
+                              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                              title={`Abrir balanceador de cargas específicamente para ${grupo.medidor.nombre}`}
+                            >
+                              <ArrowRightLeft size={11} />
+                              <span>⚡ Balancear Cargas</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-2 text-right text-emerald-400">{Math.round(grupo.subtotalW).toLocaleString()} W</td>
