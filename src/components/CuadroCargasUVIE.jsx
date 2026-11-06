@@ -18,6 +18,7 @@ import {
   exportarTodosCuadrosCargasIndividualesPDF,
   exportarDocumentoConsolidadoPDF
 } from '../utils/pdfCuadroCargas';
+import { extraerLocalYTipoLimpio } from '../utils/localHelpers';
 
 export default function CuadroCargasUVIE({ 
   aparatos = [], 
@@ -127,13 +128,16 @@ export default function CuadroCargasUVIE({
       activeConductor
     );
 
+    const { local: localNombre, tipoLimpio } = extraerLocalYTipoLimpio(ap, medidoresNombresMap.get(mId));
+
     return {
       id: ap.id,
       index,
       num: `C-${index + 1}`,
       medidorId: mId,
       medidorNombre: medidoresNombresMap.get(mId) || 'Medidor 1',
-      desc: ap.tipo + (ap.modelo ? ` (${ap.modelo})` : ''),
+      local: localNombre,
+      desc: tipoLimpio + (ap.modelo ? ` (${ap.modelo})` : ''),
       tipoCarga: tipoEfectivo,
       watts: w,
       fp: fp,
@@ -233,6 +237,7 @@ export default function CuadroCargasUVIE({
             <tr>
               <th>Cto</th>
               <th>Medidor</th>
+              <th>Local</th>
               <th>Descripción</th>
               <th>Watts (P)</th>
               <th>F.P.</th>
@@ -252,12 +257,13 @@ export default function CuadroCargasUVIE({
     `;
 
     gruposMedidores.forEach(g => {
-      html += `<tr><td colspan="15" class="medidor-header">${g.medidor.nombre.toUpperCase()} (MEDIDOR ${g.medidor.numero})</td></tr>`;
+      html += `<tr><td colspan="16" class="medidor-header">${g.medidor.nombre.toUpperCase()} (MEDIDOR ${g.medidor.numero})</td></tr>`;
       g.circuitos.forEach(c => {
         html += `
           <tr>
             <td>${c.num}</td>
             <td>${c.medidorNombre}</td>
+            <td>${c.local || ''}</td>
             <td style="text-align: left;">${c.desc}</td>
             <td>${Math.round(c.watts)}</td>
             <td>${c.fp.toFixed(2)}</td>
@@ -276,7 +282,7 @@ export default function CuadroCargasUVIE({
       });
       html += `
         <tr class="summary-medidor">
-          <td colspan="3">SUBTOTALES ${g.medidor.nombre.toUpperCase()}</td>
+          <td colspan="4">SUBTOTALES ${g.medidor.nombre.toUpperCase()}</td>
           <td>${Math.round(g.subtotalW)} W</td>
           <td>-</td>
           <td>${Math.round(g.subtotalVA)} VA</td>
@@ -291,7 +297,7 @@ export default function CuadroCargasUVIE({
 
     html += `
       <tr class="summary-global">
-        <td colspan="3">TOTALES GENERALES DEL PROYECTO</td>
+        <td colspan="4">TOTALES GENERALES DEL PROYECTO</td>
         <td>${Math.round(globalTotalW)} W</td>
         <td>-</td>
         <td>${Math.round(globalTotalVA)} VA</td>
@@ -486,14 +492,24 @@ export default function CuadroCargasUVIE({
                 <th className="py-3 px-2 text-center w-[36px]">#</th>
                 <th className="py-3 px-2">Cto</th>
                 <th className="py-3 px-2 text-teal-400 whitespace-nowrap min-w-[150px]">Medidor</th>
+                <th className="py-3 px-2 text-indigo-400 whitespace-nowrap min-w-[130px]">Local</th>
                 <th className="py-3 px-2">Descripción del Circuito</th>
                 <th className="py-3 px-2 text-right">Watts (P)</th>
                 <th className="py-3 px-2 text-center">F.P.</th>
                 <th className="py-3 px-2 text-right">VA (S)</th>
                 <th className="py-3 px-2 text-center">Tensión</th>
-                <th className="py-3 px-2 text-right text-red-400">Fase A ({fasesUnit})</th>
-                <th className="py-3 px-2 text-right text-amber-400">Fase B ({fasesUnit})</th>
-                <th className="py-3 px-2 text-right text-blue-400">Fase C ({fasesUnit})</th>
+                <th className="py-2 px-2 text-right text-red-400">
+                  <div>Fase A</div>
+                  <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
+                </th>
+                <th className="py-2 px-2 text-right text-amber-400">
+                  <div>Fase B</div>
+                  <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
+                </th>
+                <th className="py-2 px-2 text-right text-blue-400">
+                  <div>Fase C</div>
+                  <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
+                </th>
                 <th className="py-3 px-2 text-right">In (A)</th>
                 <th className="py-3 px-2 text-right">Ic (A)</th>
                 <th className="py-3 px-2 text-center">Protección</th>
@@ -506,7 +522,7 @@ export default function CuadroCargasUVIE({
                 <React.Fragment key={grupo.medidor.id}>
                   {/* Encabezado del Grupo de Medidor */}
                   <tr className="cuadro-uvie-banner bg-slate-900/80 border-t-2 border-teal-500/40 text-teal-300 font-sans font-bold">
-                    <td colSpan="16" className="py-2.5 px-3">
+                    <td colSpan="17" className="py-2.5 px-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Gauge size={14} className="text-teal-400" />
@@ -535,7 +551,7 @@ export default function CuadroCargasUVIE({
                   {/* Filas de circuitos de este medidor */}
                   {grupo.circuitos.length === 0 ? (
                     <tr>
-                      <td colSpan="16" className="py-4 text-center text-slate-600 italic">
+                      <td colSpan="17" className="py-4 text-center text-slate-600 italic">
                         No hay cargas asignadas a este medidor actualmente.
                       </td>
                     </tr>
@@ -547,6 +563,11 @@ export default function CuadroCargasUVIE({
                         <td className="py-2.5 px-2 whitespace-nowrap">
                           <span className="text-slate-200 font-sans font-medium text-xs whitespace-nowrap">
                             {grupo.medidor.nombre || c.medidorNombre}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 whitespace-nowrap">
+                          <span className="text-indigo-300 font-sans text-xs whitespace-nowrap font-medium">
+                            {c.local}
                           </span>
                         </td>
                         <td className="py-2.5 px-2 font-sans font-medium text-slate-200">{c.desc}</td>
@@ -578,7 +599,7 @@ export default function CuadroCargasUVIE({
 
                   {/* Fila de Subtotales del Medidor con Botón de Exportar PDF y Balancear */}
                   <tr className="cuadro-uvie-subtotal bg-slate-900/50 font-bold border-t border-slate-700/60 text-slate-200 text-[11px]">
-                    <td colSpan="4" className="py-3 px-3 uppercase tracking-wider text-teal-300 flex-1">
+                    <td colSpan="5" className="py-3 px-3 uppercase tracking-wider text-teal-300 flex-1">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <span>SUBTOTALES {grupo.medidor.nombre.toUpperCase()}</span>
                         <div className="flex items-center gap-2 no-print">
@@ -630,14 +651,14 @@ export default function CuadroCargasUVIE({
 
                   {/* Separador de Espacio entre Medidores */}
                   <tr className="bg-slate-950/80 h-4 border-b border-slate-900">
-                    <td colSpan="16" className="p-1"></td>
+                    <td colSpan="17" className="p-1"></td>
                   </tr>
                 </React.Fragment>
               ))}
 
               {/* Fila de Totales Generales del Proyecto */}
               <tr className="bg-slate-900/90 font-bold border-t-2 border-emerald-500/60 text-slate-100 text-xs">
-                <td colSpan="4" className="py-4 px-3 uppercase tracking-wider text-emerald-400 font-display">
+                <td colSpan="5" className="py-4 px-3 uppercase tracking-wider text-emerald-400 font-display">
                   TOTALES GENERALES DEL PROYECTO ({listaMedidores.length} MEDIDORES)
                 </td>
                 <td className="py-4 px-2 text-right text-emerald-400 font-bold">{Math.round(globalTotalW).toLocaleString()} W</td>

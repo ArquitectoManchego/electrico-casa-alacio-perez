@@ -27,6 +27,7 @@ import {
 
 import { dbService, DEFAULT_MEDIDORES_CONSORCIO } from './firebase';
 import { NEGOCIOS_CONFIG } from './utils/equiposNegocios';
+import { extraerLocalYTipoLimpio } from './utils/localHelpers';
 import { 
   determinarAcometida, 
   determinarAcometidaMedidor, 
@@ -573,11 +574,17 @@ export default function App() {
           const acometidaMed = acometidaPorMedidor[medId] || { id: 'bifasico', fasesDisponibles: ['A', 'B'] };
           const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
 
-          // Asegurar propiedades de la UVIE con valores por defecto
+          // Asegurar propiedades de la UVIE con valores por defecto y extracción de local
+          const medNombre = finalMedidores.find(m => m.id === medId)?.nombre || '';
+          const { local: localDerivado, tipoLimpio } = extraerLocalYTipoLimpio(ap, medNombre);
+          const localEfectivo = ap.local || localDerivado;
+
           const tieneCamposUvie = ap.tuberiaDiametro && ap.kaic;
           const apConUvie = {
             ...ap,
             medidorId: medId,
+            local: localEfectivo,
+            tipo: tipoLimpio,
             tuberiaDiametro: ap.tuberiaDiametro || '16 mm (1/2")',
             tuberiaTipo: ap.tuberiaTipo || 'Pared Delgada',
             longitudMetros: ap.longitudMetros !== undefined ? parseFloat(ap.longitudMetros) : 15,
@@ -586,7 +593,7 @@ export default function App() {
             factorAgrupamiento: ap.factorAgrupamiento !== undefined ? parseFloat(ap.factorAgrupamiento) : 1.0
           };
 
-          if (!tieneCamposUvie || ap.medidorId !== medId) {
+          if (!tieneCamposUvie || ap.medidorId !== medId || ap.local !== localEfectivo || ap.tipo !== tipoLimpio) {
             cambioDetectado = true;
           }
 

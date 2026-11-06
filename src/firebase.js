@@ -174,25 +174,25 @@ export function generarSeedAparatos(proyectoId) {
     { id: 'oc_5', tipo: 'Módem de Internet & Router WiFi', modelo: 'Router WiFi Dual-Band', watts: 25, fp: 0.85, tipoCarga: 'monofasica', fase: 'A', horasAlta: 24, precio: 2500, mantenimiento: 150, vidaUtil: 6 }
   ];
 
-  if (proyectoId === 'imperia_uniformes') return imperiaList.map(formatearAp);
-  if (proyectoId === 'papeleria_imperiarte') return papeleriaList.map(formatearAp);
-  if (proyectoId === 'hawaiian_paradise') return hawaiianList.map(formatearAp);
-  if (proyectoId === 'bordados_veracruz') return bordadosList.map(formatearAp);
-  if (proyectoId === 'taller_costura') return costuraList.map(formatearAp);
-  if (proyectoId === 'taller_publi_imperia') return publiList.map(formatearAp);
-  if (proyectoId === 'oficinas_consorcio') return oficinasList.map(formatearAp);
+  if (proyectoId === 'imperia_uniformes') return imperiaList.map(x => formatearAp({ ...x, local: 'Imperia Uniformes' }));
+  if (proyectoId === 'papeleria_imperiarte') return papeleriaList.map(x => formatearAp({ ...x, local: 'Papelería ImperiArte' }));
+  if (proyectoId === 'hawaiian_paradise') return hawaiianList.map(x => formatearAp({ ...x, local: 'Hawaiian Paradise Universidades' }));
+  if (proyectoId === 'bordados_veracruz') return bordadosList.map(x => formatearAp({ ...x, local: 'Bordados Veracruz' }));
+  if (proyectoId === 'taller_costura') return costuraList.map(x => formatearAp({ ...x, local: 'Taller de Costura Imperia' }));
+  if (proyectoId === 'taller_publi_imperia') return publiList.map(x => formatearAp({ ...x, local: 'Publi-Imperia' }));
+  if (proyectoId === 'oficinas_consorcio') return oficinasList.map(x => formatearAp({ ...x, local: 'Oficinas Consorcio' }));
 
   // Proyecto Maestro: Consorcio General (Inmueble Completo)
   const consolidado = [
-    ...imperiaList.map(x => ({ ...x, tipo: '[Imperia] ' + x.tipo, medidorId: 'med_1' })),
-    ...papeleriaList.map(x => ({ ...x, tipo: '[Papelería] ' + x.tipo, medidorId: 'med_2' })),
-    ...hawaiianList.map(x => ({ ...x, tipo: '[Hawaiian] ' + x.tipo, medidorId: 'med_3' })),
-    ...bordadosList.map(x => ({ ...x, tipo: '[Bordados] ' + x.tipo, medidorId: 'med_4' })),
-    ...costuraList.map(x => ({ ...x, tipo: '[Costura] ' + x.tipo, medidorId: 'med_5' })),
-    ...publiList.map(x => ({ ...x, tipo: '[Publi-Imperia] ' + x.tipo, medidorId: 'med_6' })),
-    ...oficinasList.map(x => ({ ...x, tipo: '[Consorcio] ' + x.tipo, medidorId: 'med_6' })),
-    { id: 'gen_1', tipo: '[Servicios] Bomba Presurizadora / Hidroneumático (1 HP)', modelo: 'Bomba 1 HP 127V', watts: 850, fp: 0.82, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 600, vidaUtil: 7, medidorId: 'med_6' },
-    { id: 'gen_2', tipo: '[Servicios] Contactos GFCI Sanitarios y Pasillos', modelo: 'Receptáculos GFCI 20A', watts: 1800, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 2, precio: 3200, mantenimiento: 300, vidaUtil: 15, medidorId: 'med_6' }
+    ...imperiaList.map(x => ({ ...x, local: 'Imperia Uniformes', medidorId: 'med_1' })),
+    ...papeleriaList.map(x => ({ ...x, local: 'Papelería ImperiArte', medidorId: 'med_2' })),
+    ...hawaiianList.map(x => ({ ...x, local: 'Hawaiian Paradise Universidades', medidorId: 'med_3' })),
+    ...bordadosList.map(x => ({ ...x, local: 'Bordados Veracruz', medidorId: 'med_4' })),
+    ...costuraList.map(x => ({ ...x, local: 'Taller de Costura Imperia', medidorId: 'med_5' })),
+    ...publiList.map(x => ({ ...x, local: 'Publi-Imperia', medidorId: 'med_6' })),
+    ...oficinasList.map(x => ({ ...x, local: 'Oficinas Consorcio', medidorId: 'med_6' })),
+    { id: 'gen_1', tipo: 'Bomba Presurizadora / Hidroneumático (1 HP)', local: 'Servicios Comunes', modelo: 'Bomba 1 HP 127V', watts: 850, fp: 0.82, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 600, vidaUtil: 7, medidorId: 'med_6' },
+    { id: 'gen_2', tipo: 'Contactos GFCI Sanitarios y Pasillos', local: 'Servicios Comunes', modelo: 'Receptáculos GFCI 20A', watts: 1800, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 2, precio: 3200, mantenimiento: 300, vidaUtil: 15, medidorId: 'med_6' }
   ];
 
   return consolidado.map(formatearAp);
@@ -251,18 +251,40 @@ const localStore = {
           ap.variantes = [baseVariant];
           ap.activaVariantId = 'default';
         }
-        // Migración inteligente para consorcio_general a los 6 medidores según negocio
+        // Migración inteligente para consorcio_general a los 6 medidores según negocio y asignación de local
+        const t = (ap.tipo || '').toLowerCase();
         if (proyectoId === 'consorcio_general') {
-          const t = (ap.tipo || '').toLowerCase();
-          if (t.includes('[imperia]')) ap.medidorId = 'med_1';
-          else if (t.includes('[papelería]') || t.includes('[papeleria]')) ap.medidorId = 'med_2';
-          else if (t.includes('[hawaiian]')) ap.medidorId = 'med_3';
-          else if (t.includes('[bordados]')) ap.medidorId = 'med_4';
-          else if (t.includes('[costura]')) ap.medidorId = 'med_5';
-          else if (t.includes('[publi-imperia]') || t.includes('[consorcio]') || t.includes('[servicios]')) ap.medidorId = 'med_6';
+          if (t.includes('[imperia]')) { if (!ap.local) ap.local = 'Imperia Uniformes'; if (!ap.medidorId) ap.medidorId = 'med_1'; }
+          else if (t.includes('[papelería]') || t.includes('[papeleria]')) { if (!ap.local) ap.local = 'Papelería ImperiArte'; if (!ap.medidorId) ap.medidorId = 'med_2'; }
+          else if (t.includes('[hawaiian]')) { if (!ap.local) ap.local = 'Hawaiian Paradise Universidades'; if (!ap.medidorId) ap.medidorId = 'med_3'; }
+          else if (t.includes('[bordados]')) { if (!ap.local) ap.local = 'Bordados Veracruz'; if (!ap.medidorId) ap.medidorId = 'med_4'; }
+          else if (t.includes('[costura]')) { if (!ap.local) ap.local = 'Taller de Costura Imperia'; if (!ap.medidorId) ap.medidorId = 'med_5'; }
+          else if (t.includes('[publi-imperia]')) { if (!ap.local) ap.local = 'Publi-Imperia'; if (!ap.medidorId) ap.medidorId = 'med_6'; }
+          else if (t.includes('[consorcio]')) { if (!ap.local) ap.local = 'Oficinas Consorcio'; if (!ap.medidorId) ap.medidorId = 'med_6'; }
+          else if (t.includes('[servicios]')) { if (!ap.local) ap.local = 'Servicios Comunes'; if (!ap.medidorId) ap.medidorId = 'med_6'; }
         }
         if (!ap.medidorId) {
           ap.medidorId = 'med_1';
+        }
+        if (!ap.local) {
+          const match = (ap.tipo || '').match(/^(\[|\()([^\)\]]+)(\]|\))\s*/);
+          if (match) {
+            const raw = match[2].toLowerCase();
+            if (raw.includes('imperia') && !raw.includes('publi')) ap.local = 'Imperia Uniformes';
+            else if (raw.includes('papeler') || raw.includes('arte')) ap.local = 'Papelería ImperiArte';
+            else if (raw.includes('hawaiian') || raw.includes('hp')) ap.local = 'Hawaiian Paradise Universidades';
+            else if (raw.includes('bordad')) ap.local = 'Bordados Veracruz';
+            else if (raw.includes('costura')) ap.local = 'Taller de Costura Imperia';
+            else if (raw.includes('publi')) ap.local = 'Publi-Imperia';
+            else if (raw.includes('consorcio') || raw.includes('oficina')) ap.local = 'Oficinas Consorcio';
+            else if (raw.includes('servicio')) ap.local = 'Servicios Comunes';
+            else ap.local = match[2].trim();
+          } else {
+            ap.local = DEFAULT_PROJECTS_LIST.find(p => p.id === proyectoId)?.nombre || 'Imperia Uniformes';
+          }
+        }
+        if (ap.tipo) {
+          ap.tipo = ap.tipo.replace(/^(\[|\()([^\)\]]+)(\]|\))\s*/, '').trim();
         }
         return ap;
       });
@@ -484,6 +506,26 @@ export const dbService = {
           }
           if (!ap.medidorId) {
             ap.medidorId = 'med_1';
+          }
+          if (!ap.local) {
+            const match = (ap.tipo || '').match(/^(\[|\()([^\)\]]+)(\]|\))\s*/);
+            if (match) {
+              const raw = match[2].toLowerCase();
+              if (raw.includes('imperia') && !raw.includes('publi')) ap.local = 'Imperia Uniformes';
+              else if (raw.includes('papeler') || raw.includes('arte')) ap.local = 'Papelería ImperiArte';
+              else if (raw.includes('hawaiian') || raw.includes('hp')) ap.local = 'Hawaiian Paradise Universidades';
+              else if (raw.includes('bordad')) ap.local = 'Bordados Veracruz';
+              else if (raw.includes('costura')) ap.local = 'Taller de Costura Imperia';
+              else if (raw.includes('publi')) ap.local = 'Publi-Imperia';
+              else if (raw.includes('consorcio') || raw.includes('oficina')) ap.local = 'Oficinas Consorcio';
+              else if (raw.includes('servicio')) ap.local = 'Servicios Comunes';
+              else ap.local = match[2].trim();
+            } else {
+              ap.local = DEFAULT_PROJECTS_LIST.find(p => p.id === proyectoId)?.nombre || 'Imperia Uniformes';
+            }
+          }
+          if (ap.tipo) {
+            ap.tipo = ap.tipo.replace(/^(\[|\()([^\)\]]+)(\]|\))\s*/, '').trim();
           }
           aparatos.push(ap);
         });

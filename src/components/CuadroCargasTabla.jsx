@@ -14,6 +14,7 @@ import {
   normalizarFaseParaMedidor,
   distribuirCargaPorFases
 } from '../utils/electricalCalculations';
+import { LOCALES_LISTA, extraerLocalYTipoLimpio } from '../utils/localHelpers';
 
 export default function CuadroCargasTabla({ 
   aparatos = [], 
@@ -278,6 +279,12 @@ export default function CuadroCargasTabla({
                     <strong>Medidor CFE:</strong> Medidor asignado a este circuito o aparato para facturación e instalación independiente.
                   </div>
                 </th>
+                <th className="p-3 w-[140px] text-left text-indigo-400 tooltip-container">
+                  Local
+                  <div className="tooltip-content">
+                    <strong>Local Asignado:</strong> Establecimiento físico donde opera el equipo (puede cambiarse independientemente del medidor).
+                  </div>
+                </th>
                 <th className="p-3 w-[180px] tooltip-container">
                   Circuito / Equipo
                   <div className="tooltip-content">
@@ -386,12 +393,21 @@ export default function CuadroCargasTabla({
                 <th className="p-3 text-center w-[90px] no-print">Acciones</th>
               </tr>
               <tr className="border-b border-slate-800/60 text-[9px] font-bold text-slate-500 bg-slate-950/10">
-                <th colSpan="10"></th>
+                <th colSpan="11"></th>
                 <th className="p-1 border-x border-slate-800/50 bg-slate-950/20">
                   <div className="grid grid-cols-3 text-center">
-                    <span>Fase A ({fasesUnit})</span>
-                    <span>Fase B ({fasesUnit})</span>
-                    <span>Fase C ({fasesUnit})</span>
+                    <div>
+                      <span className="block font-bold">Fase A</span>
+                      <span className="block text-[8px] font-normal opacity-70 leading-tight">({fasesUnit})</span>
+                    </div>
+                    <div>
+                      <span className="block font-bold">Fase B</span>
+                      <span className="block text-[8px] font-normal opacity-70 leading-tight">({fasesUnit})</span>
+                    </div>
+                    <div>
+                      <span className="block font-bold">Fase C</span>
+                      <span className="block text-[8px] font-normal opacity-70 leading-tight">({fasesUnit})</span>
+                    </div>
                   </div>
                 </th>
                 <th colSpan="8" className="no-print"></th>
@@ -445,7 +461,7 @@ export default function CuadroCargasTabla({
                     {/* Encabezado del grupo de Medidor (cuando hay múltiples medidores) */}
                     {listaMedidores.length > 1 && (
                       <tr className="bg-slate-900/80 border-t-2 border-b border-teal-500/40 text-xs font-sans">
-                        <td colSpan={19} className="p-2.5 px-4">
+                        <td colSpan={20} className="p-2.5 px-4">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-2">
                               <Gauge size={14} className="text-teal-400" />
@@ -474,7 +490,7 @@ export default function CuadroCargasTabla({
                     {/* Si no hay aparatos en este medidor */}
                     {apsGrupo.length === 0 && (
                       <tr className="hover:bg-slate-900/10">
-                        <td colSpan={19} className="p-4 text-center text-slate-500 italic font-sans text-xs">
+                        <td colSpan={20} className="p-4 text-center text-slate-500 italic font-sans text-xs">
                           No hay circuitos asignados a {medidor.nombre || `Medidor ${medidor.numero}`}. Puedes asignar aparatos usando el selector de medidor en el formulario de arriba o en la columna "Medidor".
                         </td>
                       </tr>
@@ -487,6 +503,10 @@ export default function CuadroCargasTabla({
                       const dist = distribuirCargaPorFases(ap, acometidaMed);
                       const va = dist.va;
                       const faseNorm = dist.faseNorm;
+
+                      const { local: localDerivado, tipoLimpio } = extraerLocalYTipoLimpio(ap, medidor.nombre || medidoresMap.get(ap.medidorId || defaultMedId));
+                      const apLocalVal = ap.local || localDerivado;
+                      const opcionesLocales = Array.from(new Set([...LOCALES_LISTA, apLocalVal].filter(Boolean)));
 
                       const tipoEfectivo = acometidaMed.id === 'monofasico'
                         ? 'monofasica'
@@ -542,12 +562,29 @@ export default function CuadroCargasTabla({
                             </span>
                           </td>
 
+                          {/* Local selector */}
+                          <td className="p-2 text-left">
+                            <select
+                              value={apLocalVal}
+                              onChange={(e) => onUpdateAparatoProps(ap.id, { local: e.target.value })}
+                              className="bg-slate-900 text-indigo-300 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] font-sans cursor-pointer focus:ring-1 focus:ring-indigo-500 max-w-[130px] truncate"
+                              title="Cambiar asignación del local físico (independiente del medidor)"
+                            >
+                              {opcionesLocales.map(loc => (
+                                <option key={loc} value={loc} className="bg-slate-900 text-slate-200">{loc}</option>
+                              ))}
+                            </select>
+                            <span className="print:inline hidden text-[9px] font-sans text-indigo-300">
+                              {apLocalVal}
+                            </span>
+                          </td>
+
                           {/* Equipo editable */}
                           <td className="p-2 font-sans">
                             <input
                               type="text"
-                              value={ap.tipo}
-                              onChange={(e) => onUpdateAparatoProps(ap.id, { tipo: e.target.value })}
+                              value={tipoLimpio}
+                              onChange={(e) => onUpdateAparatoProps(ap.id, { tipo: e.target.value, local: apLocalVal })}
                               className="bg-transparent border-none text-white font-bold focus:ring-1 focus:ring-teal-500 w-full rounded px-1 py-0.5 text-xs m-0 focus:bg-slate-950/50"
                             />
                             <div className="flex items-center gap-1.5 pl-1 mt-0.5">
@@ -838,6 +875,7 @@ export default function CuadroCargasTabla({
                       <td className="p-2.5 text-teal-300 font-sans font-bold text-[10px] uppercase truncate">
                         {medidor.nombre || `Medidor ${medidor.numero}`}
                       </td>
+                      <td className="p-2.5"></td>
                       <td className="p-2.5 text-slate-400 font-sans text-[10px]">
                         SUBTOTAL ({apsGrupo.length} {apsGrupo.length === 1 ? 'aparato' : 'aparatos'})
                       </td>
@@ -887,7 +925,7 @@ export default function CuadroCargasTabla({
 
                     {/* Fila separadora entre medidores */}
                     <tr className="h-4 bg-slate-950/60 no-print">
-                      <td colSpan={19}></td>
+                      <td colSpan={20}></td>
                     </tr>
                   </React.Fragment>
                 );
@@ -899,6 +937,7 @@ export default function CuadroCargasTabla({
               <tr className="border-t-2 border-slate-700 text-[11px] font-bold text-slate-200 bg-slate-900/60 font-mono">
                 <td className="p-3 text-center text-slate-500 font-semibold">-</td>
                 <td className="p-3 text-teal-400 uppercase font-sans font-black text-[10px]">PROYECTO</td>
+                <td className="p-3"></td>
                 <td className="p-3 text-white font-black">TOTAL PROYECTO COMPLETO</td>
                 <td className="p-3"></td>
                 <td className="p-3 text-right text-emerald-400 font-black">

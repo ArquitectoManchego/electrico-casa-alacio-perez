@@ -7,22 +7,21 @@ import { jsPDF } from 'jspdf';
  */
 
 const COL_DEFS = [
-  { key: 'index', label: '#', w: 7, align: 'center' },
-  { key: 'num', label: 'Cto', w: 11, align: 'center' },
-  { key: 'medidorNombre', label: 'Medidor', w: 36, align: 'left' },
-  { key: 'desc', label: 'Descripción del Circuito', w: 44, align: 'left' },
-  { key: 'watts', label: 'Watts (P)', w: 14, align: 'right' },
-  { key: 'fp', label: 'F.P.', w: 9, align: 'center' },
-  { key: 'va', label: 'VA (S)', w: 14, align: 'right' },
-  { key: 'voltaje', label: 'Tensión', w: 12, align: 'center' },
-  { key: 'faseA', label: 'Fase A', w: 13, align: 'right' },
-  { key: 'faseB', label: 'Fase B', w: 13, align: 'right' },
-  { key: 'faseC', label: 'Fase C', w: 13, align: 'right' },
-  { key: 'in', label: 'In (A)', w: 12, align: 'right' },
-  { key: 'ic', label: 'Ic (A)', w: 12, align: 'right' },
-  { key: 'proteccion', label: 'Protección', w: 13, align: 'center' },
-  { key: 'conductor', label: 'Conductor', w: 24, align: 'center' },
-  { key: 'caida', label: '% Caída', w: 12.4, align: 'center' }
+  { key: 'index', label: '#', w: 8, align: 'center' },
+  { key: 'num', label: 'Cto', w: 12, align: 'center' },
+  { key: 'desc', label: 'Descripción del Circuito', w: 70, align: 'left' },
+  { key: 'watts', label: 'Watts (P)', w: 16, align: 'right' },
+  { key: 'fp', label: 'F.P.', w: 11, align: 'center' },
+  { key: 'va', label: 'VA (S)', w: 16, align: 'right' },
+  { key: 'voltaje', label: 'Tensión', w: 14, align: 'center' },
+  { key: 'faseA', label: 'Fase A', w: 15, align: 'right' },
+  { key: 'faseB', label: 'Fase B', w: 15, align: 'right' },
+  { key: 'faseC', label: 'Fase C', w: 15, align: 'right' },
+  { key: 'in', label: 'In (A)', w: 14, align: 'right' },
+  { key: 'ic', label: 'Ic (A)', w: 14, align: 'right' },
+  { key: 'proteccion', label: 'Protección', w: 15, align: 'center' },
+  { key: 'conductor', label: 'Conductor', w: 20, align: 'center' },
+  { key: 'caida', label: '% Caída', w: 14.4, align: 'center' }
 ];
 
 const PAGE_W = 279.4;
@@ -74,27 +73,42 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
 
   // 2. ENCABEZADOS DE LA TABLA
   let currentY = MARGIN_TOP + 23;
-  const headerHeight = 7.5;
+  const headerHeight = 8.5; // Espacio suficiente para albergar cómodamente las 2 líneas en las fases
 
   doc.setFillColor(15, 118, 110); // teal-700 / verde azulado profundo (oscuro y legible en B&W y color)
   doc.rect(MARGIN_X, currentY, CONTENT_W, headerHeight, 'F');
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.8);
   doc.setTextColor(255, 255, 255); // blanco brillante para máximo contraste
 
   let colX = MARGIN_X;
+  const colXMap = {};
+
   COL_DEFS.forEach(col => {
-    let headerText = col.label;
-    if (col.key === 'faseA') headerText = `Fase A (${fasesUnit})`;
-    if (col.key === 'faseB') headerText = `Fase B (${fasesUnit})`;
-    if (col.key === 'faseC') headerText = `Fase C (${fasesUnit})`;
+    colXMap[col.key] = {
+      left: colX,
+      right: colX + col.w,
+      center: colX + col.w / 2,
+      w: col.w
+    };
 
     let textX = colX + 1.5;
     if (col.align === 'center') textX = colX + col.w / 2;
     if (col.align === 'right') textX = colX + col.w - 1.5;
 
-    doc.text(headerText, textX, currentY + 5, { align: col.align });
+    if (col.key === 'faseA' || col.key === 'faseB' || col.key === 'faseC') {
+      const letraFase = col.key.slice(-1);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.7);
+      doc.text(`Fase ${letraFase}`, textX, currentY + 3.4, { align: col.align });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.6);
+      doc.text(`(${fasesUnit})`, textX, currentY + 6.8, { align: col.align });
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.text(col.label, textX, currentY + 5.5, { align: col.align });
+    }
+
     colX += col.w;
   });
 
@@ -143,15 +157,11 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(0, 0, 0);
             break;
-          case 'medidorNombre':
-            val = med.nombre || c.medidorNombre || `Medidor ${med.numero}`;
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(13, 94, 88); // deep teal-800: en color se ve verde azulado, en B&W imprime negro
-            break;
           case 'desc':
-            val = c.desc || '';
-            // Truncar si es muy largo para no desbordar
-            if (val.length > 32) val = val.substring(0, 30) + '...';
+            let descLimpia = (c.desc || '').replace(/^(\[|\()([^\)\]]+)(\]|\))\s*/, '').trim();
+            // Truncar si es muy largo para 70mm
+            if (descLimpia.length > 50) descLimpia = descLimpia.substring(0, 48) + '...';
+            val = descLimpia;
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(0, 0, 0);
             break;
@@ -260,26 +270,31 @@ export function renderMedidorPage(doc, grupo, fasesUnit = 'VA', infoProyecto = {
   // Etiqueta de subtotales
   doc.text(`SUBTOTALES MEDIDOR ${med.numero} (${med.nombre.toUpperCase()})`, MARGIN_X + 3, currentY + 5);
 
-  // Valores de Watts y VA
-  const wattsColX = MARGIN_X + 7 + 11 + 36 + 44 + 14 - 1.5;
-  doc.text(`${Math.round(grupo.subtotalW || 0).toLocaleString()} W`, wattsColX, currentY + 5, { align: 'right' });
+  // Valores de Watts y VA alineados dinámicamente con sus columnas
+  if (colXMap.watts) {
+    doc.text(`${Math.round(grupo.subtotalW || 0).toLocaleString()} W`, colXMap.watts.right - 1.5, currentY + 5, { align: 'right' });
+  }
 
-  const vaColX = wattsColX + 9 + 14;
-  doc.text(`${Math.round(grupo.subtotalVA || 0).toLocaleString()} VA`, vaColX, currentY + 5, { align: 'right' });
+  if (colXMap.va) {
+    doc.text(`${Math.round(grupo.subtotalVA || 0).toLocaleString()} VA`, colXMap.va.right - 1.5, currentY + 5, { align: 'right' });
+  }
 
   // Fases Subtotales en colores profundos (vibrantes a color, oscuros en B&W)
-  const faseAColX = vaColX + 12 + 13;
   const subFases = grupo.subtotalFases || { A: 0, B: 0, C: 0 };
-  doc.setTextColor(153, 27, 27); // deep red-800
-  doc.text(fasesDisp.includes('A') ? (fasesUnit === 'A' ? subFases.A.toFixed(2) : String(Math.round(subFases.A))) : '-', faseAColX, currentY + 5, { align: 'right' });
+  if (colXMap.faseA) {
+    doc.setTextColor(153, 27, 27); // deep red-800
+    doc.text(fasesDisp.includes('A') ? (fasesUnit === 'A' ? subFases.A.toFixed(2) : String(Math.round(subFases.A))) : '-', colXMap.faseA.right - 1.5, currentY + 5, { align: 'right' });
+  }
 
-  const faseBColX = faseAColX + 13;
-  doc.setTextColor(120, 53, 15); // deep amber-900 (oscuro en B&W)
-  doc.text(fasesDisp.includes('B') ? (fasesUnit === 'A' ? subFases.B.toFixed(2) : String(Math.round(subFases.B))) : '-', faseBColX, currentY + 5, { align: 'right' });
+  if (colXMap.faseB) {
+    doc.setTextColor(120, 53, 15); // deep amber-900 (oscuro en B&W)
+    doc.text(fasesDisp.includes('B') ? (fasesUnit === 'A' ? subFases.B.toFixed(2) : String(Math.round(subFases.B))) : '-', colXMap.faseB.right - 1.5, currentY + 5, { align: 'right' });
+  }
 
-  const faseCColX = faseBColX + 13;
-  doc.setTextColor(30, 64, 175); // deep blue-800
-  doc.text(fasesDisp.includes('C') ? (fasesUnit === 'A' ? subFases.C.toFixed(2) : String(Math.round(subFases.C))) : '-', faseCColX, currentY + 5, { align: 'right' });
+  if (colXMap.faseC) {
+    doc.setTextColor(30, 64, 175); // deep blue-800
+    doc.text(fasesDisp.includes('C') ? (fasesUnit === 'A' ? subFases.C.toFixed(2) : String(Math.round(subFases.C))) : '-', colXMap.faseC.right - 1.5, currentY + 5, { align: 'right' });
+  }
 
   // Desbalance en la derecha del subtotal
   doc.setTextColor(desbal > 5 ? 153 : 4, desbal > 5 ? 27 : 120, desbal > 5 ? 27 : 87);
