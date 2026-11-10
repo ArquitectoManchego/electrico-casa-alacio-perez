@@ -1,10 +1,25 @@
 import React, { useState } from 'react';
-import { Zap, AlertTriangle, CheckCircle, Activity, Gauge, Plus, Minus, Edit2, Check, ArrowRightLeft } from 'lucide-react';
+import { 
+  Zap, 
+  AlertTriangle, 
+  CheckCircle, 
+  Activity, 
+  Gauge, 
+  Plus, 
+  Minus, 
+  Edit2, 
+  Check, 
+  ArrowRightLeft, 
+  Trash2, 
+  X, 
+  ArrowRight 
+} from 'lucide-react';
 import { calcularCorriente } from '../utils/electricalCalculations';
 
 export default function AcometidaCard({ 
   medidores = [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }],
   medidoresData = {},
+  aparatos = [],
   totalWattsProyecto = 0,
   totalVAProyecto = 0,
   fasesUnit = 'VA',
@@ -24,6 +39,12 @@ export default function AcometidaCard({
   const [editingMedidorId, setEditingMedidorId] = useState(null);
   const [tempNombre, setTempNombre] = useState('');
 
+  // Estado del modal para eliminar un medidor seleccionado
+  const [modalEliminarOpen, setModalEliminarOpen] = useState(false);
+  const [medidorAEliminarId, setMedidorAEliminarId] = useState(null);
+  const [accionAparatos, setAccionAparatos] = useState('mover'); // 'mover' | 'borrar'
+  const [medidorDestinoId, setMedidorDestinoId] = useState('');
+
   const handleStartRename = (med) => {
     setEditingMedidorId(med.id);
     setTempNombre(med.nombre);
@@ -35,6 +56,46 @@ export default function AcometidaCard({
     }
     setEditingMedidorId(null);
   };
+
+  const handleOpenDeleteModal = (targetMedId = null) => {
+    if (medidores.length <= 1) return;
+    const idToDelete = targetMedId || medidores[medidores.length - 1]?.id;
+    setMedidorAEliminarId(idToDelete);
+    const remaining = medidores.filter(m => m.id !== idToDelete);
+    setMedidorDestinoId(remaining[0]?.id || '');
+    setAccionAparatos('mover');
+    setModalEliminarOpen(true);
+  };
+
+  const handleSelectMedidorAEliminar = (newMedId) => {
+    setMedidorAEliminarId(newMedId);
+    const remaining = medidores.filter(m => m.id !== newMedId);
+    if (!remaining.some(m => m.id === medidorDestinoId)) {
+      setMedidorDestinoId(remaining[0]?.id || '');
+    }
+  };
+
+  const handleConfirmarEliminar = () => {
+    if (!medidorAEliminarId || !onRemoveMedidor) return;
+    onRemoveMedidor(medidorAEliminarId, {
+      accionAparatos,
+      targetMedidorId: medidorDestinoId
+    });
+    setModalEliminarOpen(false);
+    setMedidorAEliminarId(null);
+  };
+
+  // Datos calculados para el modal de eliminación
+  const medidorAEliminar = medidores.find(m => m.id === medidorAEliminarId);
+  const otrosMedidores = medidores.filter(m => m.id !== medidorAEliminarId);
+  const aparatosDelMedidor = medidorAEliminarId
+    ? (medidoresData[medidorAEliminarId]?.aparatos || aparatos.filter(ap => (ap.medidorId || medidores[0]?.id) === medidorAEliminarId))
+    : [];
+  const cantidadAparatos = aparatosDelMedidor.length;
+  const wattsAparatos = medidoresData[medidorAEliminarId]?.totalWatts ?? 
+    aparatosDelMedidor.reduce((sum, ap) => sum + (Number(ap.watts) || 0) * (Number(ap.cantidad) || 1), 0);
+  const vaAparatos = medidoresData[medidorAEliminarId]?.totalVA ??
+    aparatosDelMedidor.reduce((sum, ap) => sum + (Number(ap.va) || Number(ap.watts) || 0) * (Number(ap.cantidad) || 1), 0);
 
   return (
     <div className="space-y-6">
@@ -85,11 +146,12 @@ export default function AcometidaCard({
 
             {medidores.length > 1 && (
               <button
-                onClick={() => onRemoveMedidor && onRemoveMedidor(medidores[medidores.length - 1].id)}
-                className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition-all"
-                title="Quitar último medidor"
+                onClick={() => handleOpenDeleteModal()}
+                className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition-all flex items-center gap-1 active:scale-95"
+                title="Seleccionar y eliminar un medidor..."
               >
-                <Minus size={14} />
+                <Trash2 size={14} />
+                <span className="hidden sm:inline">Eliminar</span>
               </button>
             )}
           </div>
@@ -233,6 +295,15 @@ export default function AcometidaCard({
                           >
                             <Edit2 size={12} />
                           </button>
+                          {medidores.length > 1 && (
+                            <button
+                              onClick={() => handleOpenDeleteModal(med.id)}
+                              className="text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors p-1 rounded"
+                              title={`Eliminar ${med.nombre}`}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -380,6 +451,234 @@ export default function AcometidaCard({
           );
         })}
       </div>
+
+      {/* ======================================================== */}
+      {/* 3. MODAL PARA SELECCIONAR Y ELIMINAR MEDIDOR CFE         */}
+      {/* ======================================================== */}
+      {modalEliminarOpen && medidorAEliminar && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setModalEliminarOpen(false)}
+        >
+          <div 
+            className="bg-slate-900 border border-slate-750 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-100 animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header del Modal */}
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-display">
+                    Eliminar Medidor CFE
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Selecciona el medidor que deseas remover del proyecto
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalEliminarOpen(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+                title="Cerrar ventana"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Selector del Medidor a Eliminar */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">
+                  Medidor a eliminar:
+                </label>
+                <select
+                  value={medidorAEliminarId}
+                  onChange={(e) => handleSelectMedidorAEliminar(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-750 text-sm font-semibold text-white focus:outline-none focus:border-rose-500"
+                >
+                  {medidores.map((m) => {
+                    const dataM = medidoresData[m.id];
+                    const numAps = (dataM?.aparatos || aparatos.filter(ap => (ap.medidorId || medidores[0]?.id) === m.id)).length;
+                    const wM = dataM?.totalWatts || 0;
+                    return (
+                      <option key={m.id} value={m.id}>
+                        Medidor {m.numero}: {m.nombre} ({numAps} aparatos · {wM.toLocaleString()} W)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Estado de Cargas del Medidor Seleccionado */}
+              {cantidadAparatos > 0 ? (
+                <div className="space-y-4">
+                  {/* Alerta informativa de aparatos asignados */}
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 space-y-1.5">
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={18} />
+                      <div>
+                        <h4 className="text-xs font-bold text-amber-300">
+                          Este medidor tiene {cantidadAparatos} {cantidadAparatos === 1 ? 'aparato asignado' : 'aparatos asignados'}
+                        </h4>
+                        <p className="text-[11px] text-amber-200/80">
+                          Carga total activa: <strong className="text-white font-mono">{wattsAparatos.toLocaleString()} W</strong> ({vaAparatos.toLocaleString()} VA).
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-300 pt-1 border-t border-amber-500/20 font-medium">
+                      ¿Qué deseas hacer con estos aparatos antes de retirar el medidor?
+                    </p>
+                  </div>
+
+                  {/* Opciones Interactivas */}
+                  <div className="space-y-3">
+                    {/* Opción 1: Mover a otro medidor (Recomendado) */}
+                    <div 
+                      onClick={() => setAccionAparatos('mover')}
+                      className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                        accionAparatos === 'mover'
+                          ? 'bg-teal-500/10 border-teal-500/50 shadow-lg shadow-teal-500/5'
+                          : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="accionAparatos"
+                          checked={accionAparatos === 'mover'}
+                          onChange={() => setAccionAparatos('mover')}
+                          className="mt-1 text-teal-500 focus:ring-teal-400 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white">
+                              Mover los aparatos a otro medidor
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-semibold">
+                              Recomendado
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            Conserva los {cantidadAparatos} equipos y reubícalos en otro circuito de medición sin perder datos.
+                          </p>
+
+                          {/* Selector de medidor destino si está seleccionada la opción 'mover' */}
+                          {accionAparatos === 'mover' && (
+                            <div className="mt-3 pt-3 border-t border-slate-800/80 space-y-1.5 animate-fadeIn">
+                              <label className="text-[11px] font-bold text-teal-300 flex items-center gap-1.5">
+                                <ArrowRight size={12} />
+                                Selecciona a cuál medidor se van a mover:
+                              </label>
+                              <select
+                                value={medidorDestinoId}
+                                onChange={(e) => setMedidorDestinoId(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-teal-500/50 text-xs font-bold text-white focus:outline-none focus:border-teal-400"
+                              >
+                                {otrosMedidores.map((m) => {
+                                  const acom = medidoresData[m.id]?.acometida?.tipo || 'CFE';
+                                  return (
+                                    <option key={m.id} value={m.id}>
+                                      Medidor {m.numero}: {m.nombre} ({acom})
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <p className="text-[10px] text-slate-400 italic">
+                                * Las fases y ranuras se adaptarán automáticamente a la acometida del medidor de destino.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Opción 2: Borrar todos los aparatos */}
+                    <div 
+                      onClick={() => setAccionAparatos('borrar')}
+                      className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                        accionAparatos === 'borrar'
+                          ? 'bg-rose-500/10 border-rose-500/50 shadow-lg shadow-rose-500/5'
+                          : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="accionAparatos"
+                          checked={accionAparatos === 'borrar'}
+                          onChange={() => setAccionAparatos('borrar')}
+                          className="mt-1 text-rose-500 focus:ring-rose-400 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-rose-300">
+                              Borrar definitivamente todos los aparatos asignados
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-semibold">
+                              Irreversible
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            Se eliminarán por completo los {cantidadAparatos} aparatos del proyecto y ya no aparecerán en ningún cuadro de cargas ni cálculo.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Medidor sin aparatos */
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-start gap-3">
+                  <CheckCircle className="text-emerald-400 shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-300">
+                      Medidor sin aparatos asignados
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      Este medidor actualmente no tiene ninguna carga asignada. Puedes eliminarlo de forma segura e inmediata.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer de Acciones del Modal */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setModalEliminarOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+              >
+                Cancelar
+              </button>
+              
+              <button
+                type="button"
+                onClick={handleConfirmarEliminar}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-2 active:scale-95 ${
+                  accionAparatos === 'borrar' && cantidadAparatos > 0
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+                    : 'bg-rose-600/90 hover:bg-rose-600 text-white shadow-rose-600/20'
+                }`}
+              >
+                <Trash2 size={14} />
+                <span>
+                  {cantidadAparatos === 0
+                    ? 'Eliminar Medidor'
+                    : accionAparatos === 'mover'
+                      ? 'Mover aparatos y eliminar medidor'
+                      : 'Borrar aparatos y eliminar medidor'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

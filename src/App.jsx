@@ -810,20 +810,68 @@ export default function App() {
     await dbService.saveMedidores(currentProyectoId, updated);
   };
 
-  const handleRemoveMedidor = async (medId) => {
+  const handleRemoveMedidor = async (medId, options = {}) => {
     if (medidores.length <= 1) return;
+    const { accionAparatos = 'mover', targetMedidorId } = options;
     const remaining = medidores.filter(m => m.id !== medId);
-    const fallbackId = remaining[0].id;
-    const reasignados = aparatos.map(ap => {
-      if (ap.medidorId === medId) {
-        return { ...ap, medidorId: fallbackId };
-      }
-      return ap;
-    });
+    if (remaining.length === 0) return;
+
+    let fallbackId = targetMedidorId;
+    if (!fallbackId || !remaining.some(m => m.id === fallbackId)) {
+      fallbackId = remaining[0].id;
+    }
+    const targetMedidor = remaining.find(m => m.id === fallbackId) || remaining[0];
+
+    let reasignados = [];
+    if (accionAparatos === 'borrar') {
+      // Borrar permanentemente los aparatos asociados al medidor eliminado
+      reasignados = aparatos.filter(ap => (ap.medidorId || medidores[0]?.id) !== medId);
+    } else {
+      // Reubicar aparatos al medidor destino y normalizar fases / slots / horas operativas
+      const targetData = medidoresData[fallbackId];
+      const targetNegocio = NEGOCIOS_CONFIG.find(n => n.medidorIdConsorcio === fallbackId);
+      const acometidaMed = targetData?.acometida || determinarAcometidaMedidor(targetMedidor, []);
+      const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
+
+      const aparatosEnDestino = aparatos.filter(ap => (ap.medidorId || medidores[0]?.id) === fallbackId);
+      const slotsOcupados = new Set(aparatosEnDestino.map(ap => ap.slot).filter(Boolean));
+
+      reasignados = aparatos.map(ap => {
+        const curMedId = ap.medidorId || medidores[0]?.id;
+        if (curMedId === medId) {
+          let horasAlta = ap.horasAlta;
+          if (targetNegocio) {
+            const es24h = /refrigerador|congelador|enfriador|chiller|modem|servidor|wifi/i.test((ap.tipo || '') + ' ' + (ap.modelo || ''));
+            if (!es24h && targetNegocio.horasTurnoDefault) {
+              horasAlta = targetNegocio.horasTurnoDefault;
+            }
+          }
+
+          const candidate = {
+            ...ap,
+            medidorId: fallbackId,
+            horasAlta
+          };
+
+          const faseValida = normalizarFaseParaMedidor(candidate, acometidaMed);
+          const nuevoSlot = asignarSlotParaFase(faseValida, slotsOcupados, null, fasesDisp);
+          if (nuevoSlot) slotsOcupados.add(nuevoSlot);
+
+          return {
+            ...candidate,
+            fase: faseValida,
+            slot: nuevoSlot || ap.slot
+          };
+        }
+        return ap;
+      });
+    }
+
     setAparatos(reasignados);
     await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
     setMedidores(remaining);
     await dbService.saveMedidores(currentProyectoId, remaining);
+
     if (activeMedidorId === medId) {
       setActiveMedidorId(fallbackId);
     }
@@ -2111,6 +2159,7 @@ export default function App() {
                   totalVAProyecto={totalVAProyecto}
                   medidores={medidores}
                   medidoresData={medidoresData}
+                  aparatos={aparatos}
                   onSetCantidadMedidores={handleSetCantidadMedidores}
                   onAddMedidor={handleAddMedidor}
                   onRemoveMedidor={handleRemoveMedidor}
