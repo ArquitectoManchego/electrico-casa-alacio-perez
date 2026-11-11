@@ -522,12 +522,21 @@ export const EQUIPOS_DEFAULT_POR_NEGOCIO = {
     { id: 'pap_4', tipo: 'Alumbrado LED Papelería (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, precio: 1900, vidaUtil: 10, medidorId: 'med_2' }
   ],
   hawaiian_paradise: [
-    { id: 'hp_1', tipo: 'Crepera Eléctrica Profesional Krampouz', modelo: 'Plato 40cm Krampouz', watts: 1500, precio: 13500, vidaUtil: 8, medidorId: 'med_3' },
-    { id: 'hp_2', tipo: 'Máquina de Marquesitas Eléctrica', modelo: 'Marquesitera Profesional 1500W', watts: 1500, precio: 14500, vidaUtil: 7, medidorId: 'med_3' },
-    { id: 'hp_3', tipo: 'Licuadora Ninja Profesional Auto-iQ', modelo: 'Ninja Auto-iQ 1200W', watts: 1200, precio: 4500, vidaUtil: 5, medidorId: 'med_3' },
-    { id: 'hp_4', tipo: 'Máquina de Raspados y Hielo Granizado', modelo: 'Trituradora de Hielo 300W', watts: 300, precio: 7500, vidaUtil: 6, medidorId: 'med_3' },
-    { id: 'hp_5', tipo: 'Refrigerador Vitrina Panorámico Torrey', modelo: 'Vitrina 12 Pies Cúbicos', watts: 450, precio: 18500, vidaUtil: 8, medidorId: 'med_3' },
-    { id: 'hp_6', tipo: 'Minisplit Inverter 1.5 TR (220V)', modelo: '1.5 TR (18,000 BTU)', watts: 1700, precio: 13500, vidaUtil: 8, medidorId: 'med_3' }
+    { id: 'hp_andamar_c1', tipo: 'Alumbrado general LED', modelo: 'Luminarias LED 135W', watts: 135, precio: 2800, vidaUtil: 8, medidorId: 'med_3' },
+    { id: 'hp_andamar_c2', tipo: 'TPV / Caja y punto de venta', modelo: 'Terminal Punto de Venta', watts: 280, precio: 12000, vidaUtil: 6, medidorId: 'med_3' },
+    { id: 'hp_andamar_c3', tipo: 'Refrigerador 11 pies', modelo: 'Refrigerador Vertical Inverter', watts: 310, precio: 11000, vidaUtil: 10, medidorId: 'med_3' },
+    { id: 'hp_andamar_c4', tipo: 'Crepera eléctrica industrial', modelo: 'Italina CREPE-40', watts: 3000, precio: 16500, vidaUtil: 8, medidorId: 'med_3' },
+    { id: 'hp_andamar_c5', tipo: 'Cafetera Expresso Gaggia Ruby Pro', modelo: 'Ruby Pro 1 Grupo (220V)', watts: 2640, precio: 32000, vidaUtil: 8, medidorId: 'med_3' },
+    { id: 'hp_andamar_c6', tipo: 'Iluminación exterior / rótulo LED', modelo: 'Rótulo Exterior LED', watts: 16, precio: 1500, vidaUtil: 10, medidorId: 'med_3' },
+    { id: 'hp_andamar_c7', tipo: 'Congelador Horizontal 5ft³', modelo: 'CHM5BPLD / Mabe', watts: 115, precio: 5200, vidaUtil: 10, medidorId: 'med_3' },
+    { id: 'hp_andamar_c8', tipo: 'Licuadora profesional de Alta Potencia', modelo: 'U2000 / Ultrachef', watts: 2000, precio: 2800, vidaUtil: 5, medidorId: 'med_3' },
+    { id: 'hp_andamar_c9', tipo: 'Maquina de Marquesitas Electrica', modelo: 'Conesa Eléctrica 1.3 kW', watts: 1300, precio: 13370, vidaUtil: 5, medidorId: 'med_3' },
+    { id: 'hp_andamar_c10', tipo: 'Calentador de Sopa Comercial (Baño María)', modelo: 'M-315 / VEVOR', watts: 1200, precio: 4274, vidaUtil: 6, medidorId: 'med_3' },
+    { id: 'hp_andamar_c11', tipo: 'Hervidor de Agua Eléctrico (Tetera)', modelo: 'RegalBasics 1.8L', watts: 900, precio: 250, vidaUtil: 3, medidorId: 'med_3' },
+    { id: 'hp_andamar_c12', tipo: 'Olla de Presión Eléctrica Multifuncional', modelo: '34508 / Hamilton Beach', watts: 1200, precio: 2519, vidaUtil: 6, medidorId: 'med_3' },
+    { id: 'hp_andamar_c13', tipo: 'Maquina de Raspados', modelo: 'HSD100G / PAISE', watts: 370, precio: 4500, vidaUtil: 10, medidorId: 'med_3' },
+    { id: 'hp_andamar_c14', tipo: 'Dispensador Eléctrico Automático', modelo: 'PR352729 / Comfeè', watts: 30, precio: 564, vidaUtil: 4, medidorId: 'med_3' },
+    { id: 'hp_andamar_c15', tipo: 'Smart TV LED 70" 4K UHD', modelo: 'DAW70UR / Daewoo', watts: 220, precio: 9999, vidaUtil: 7, medidorId: 'med_3' }
   ],
   bordados_veracruz: [
     { id: 'bord_1', tipo: 'Bordadora Industrial Tajima / AEMCO 4C', modelo: 'AEMCO 4 Cabezas 12 Agujas', watts: 1200, precio: 95000, vidaUtil: 10, medidorId: 'med_4' },

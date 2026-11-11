@@ -25,7 +25,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
-import { dbService, DEFAULT_MEDIDORES_CONSORCIO } from './firebase';
+import { dbService, DEFAULT_MEDIDORES_CONSORCIO, EQUIPOS_HAWAIIAN_CANONICOS } from './firebase';
 import { NEGOCIOS_CONFIG } from './utils/equiposNegocios';
 import { extraerLocalYTipoLimpio } from './utils/localHelpers';
 import { 
@@ -556,6 +556,40 @@ export default function App() {
           idsVistos.add(ap.id);
           datosFiltrados.push(ap);
         });
+
+        // Sustitución canónica de equipos para el medidor Hawaiian Paradise Universidades (med_3):
+        // Detectar si los aparatos de Hawaiian Paradise aún corresponden a la versión preliminar antigua (hp_1..hp_14) o falta el canónico
+        const tieneHpAntiguo = datosFiltrados.some(ap => 
+          ((ap.medidorId || defaultMedId) === 'med_3' || ap.local === 'Hawaiian Paradise Universidades') &&
+          (/^hp_\d+$/.test(ap.id) || ap.id === 'hp_1' || ap.id === 'hp_14')
+        );
+        const faltaHpCanonico = !datosFiltrados.some(ap => ap.id === 'hp_andamar_c1');
+
+        if ((currentProyectoId === 'consorcio_general' && (tieneHpAntiguo || faltaHpCanonico)) ||
+            (currentProyectoId === 'hawaiian_paradise' && (tieneHpAntiguo || faltaHpCanonico))) {
+          // Filtrar retirando únicamente los aparatos anteriores de Hawaiian Paradise
+          const sinHpAntiguo = datosFiltrados.filter(ap => {
+            const esMed3 = (ap.medidorId || defaultMedId) === 'med_3';
+            const esLocalHp = ap.local === 'Hawaiian Paradise Universidades';
+            const esIdHpAntiguo = /^hp_\d+$/.test(ap.id);
+            return !(esMed3 && (esIdHpAntiguo || esLocalHp));
+          });
+
+          // Inyectar los 15 circuitos canónicos independientes con sus especificaciones de ingeniería
+          const nuevosHp = EQUIPOS_HAWAIIAN_CANONICOS.map(eq => ({
+            ...eq,
+            medidorId: currentProyectoId === 'consorcio_general' ? 'med_3' : (finalMedidores[0]?.id || 'med_1'),
+            local: 'Hawaiian Paradise Universidades'
+          }));
+
+          datosFiltrados.length = 0;
+          if (currentProyectoId === 'hawaiian_paradise') {
+            datosFiltrados.push(...nuevosHp);
+          } else {
+            datosFiltrados.push(...sinHpAntiguo, ...nuevosHp);
+          }
+          cambioDetectado = true;
+        }
 
         // Pre-calcular acometida efectiva de cada medidor para normalizar fases y ranuras
         const acometidaPorMedidor = {};

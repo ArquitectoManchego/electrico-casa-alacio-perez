@@ -11,6 +11,8 @@ import {
   setDoc,
   writeBatch
 } from 'firebase/firestore';
+import { EQUIPOS_HAWAIIAN_CANONICOS } from './data/equiposHawaiianCanonicos.js';
+export { EQUIPOS_HAWAIIAN_CANONICOS };
 
 // Configuración de Firebase
 const viteEnv = import.meta?.env || {};
@@ -118,22 +120,7 @@ export function generarSeedAparatos(proyectoId) {
     { id: 'pap_4', tipo: 'Alumbrado LED Papelería (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 1900, mantenimiento: 100, vidaUtil: 10 }
   ];
 
-  const hawaiianList = [
-    { id: 'hp_1', tipo: 'Crepera Eléctrica Profesional (1500W)', modelo: 'Plato 40cm Krampouz', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 6, precio: 13500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'hp_2', tipo: 'Máquina de Marquesitas Eléctrica', modelo: 'Marquesitera Profesional 1500W', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 5, precio: 14500, mantenimiento: 850, vidaUtil: 7 },
-    { id: 'hp_3', tipo: 'Licuadora Ninja Profesional (1200W)', modelo: 'Ninja Auto-iQ 1200W', watts: 1200, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 4500, mantenimiento: 500, vidaUtil: 5 },
-    { id: 'hp_4', tipo: 'Cafetera Breville Barista (Molino + Vaporizador)', modelo: 'Breville Barista Touch 1650W', watts: 1650, fp: 0.98, tipoCarga: 'monofasica', fase: 'A', horasAlta: 6, precio: 18500, mantenimiento: 1200, vidaUtil: 6 },
-    { id: 'hp_5', tipo: 'Máquina de Raspados Hawaiian Paradise', modelo: 'Raspadora Hielo Industrial', watts: 600, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 12000, mantenimiento: 900, vidaUtil: 7 },
-    { id: 'hp_6', tipo: 'Tetera Calentadora de Agua Eléctrica', modelo: 'Hervidor Rápido 1.7L 1500W', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 3, precio: 1200, mantenimiento: 150, vidaUtil: 4 },
-    { id: 'hp_7', tipo: 'Máquina Baño María Eléctrica (2 Ollas)', modelo: 'Baño María 2 Ollas 1500W', watts: 1500, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 6, precio: 8500, mantenimiento: 500, vidaUtil: 7 },
-    { id: 'hp_8', tipo: 'Minisplit Inverter 2 TR (24,000 BTU - 220V)', modelo: '2 TR (24,000 BTU)', watts: 2250, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 17500, mantenimiento: 1200, vidaUtil: 8 },
-    { id: 'hp_9', tipo: 'Computadora TPV', modelo: 'Touch POS Comandas', watts: 150, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 12000, mantenimiento: 350, vidaUtil: 6 },
-    { id: 'hp_10', tipo: 'Terminal Bancaria Mercado Pago', modelo: 'Smart POS WiFi/4G', watts: 15, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 2500, mantenimiento: 100, vidaUtil: 4 },
-    { id: 'hp_11', tipo: 'Televisión Smart LED 70 Pulgadas', modelo: 'Smart TV 70" 4K Menú', watts: 210, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 14500, mantenimiento: 300, vidaUtil: 7 },
-    { id: 'hp_12', tipo: 'Refrigerador Vertical (11 Pies Cúbicos)', modelo: 'Refrigerador 11 ft³ Inverter', watts: 350, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 24, precio: 11000, mantenimiento: 600, vidaUtil: 10 },
-    { id: 'hp_13', tipo: 'Congeladora Horizontal (11 Pies Cúbicos)', modelo: 'Congelador 11 ft³ Mabe', watts: 300, fp: 0.85, tipoCarga: 'monofasica', fase: 'A', horasAlta: 24, precio: 9500, mantenimiento: 600, vidaUtil: 10 },
-    { id: 'hp_14', tipo: 'Alumbrado LED Hawaiian Paradise (16 Luminarias)', modelo: '16x Lámparas LED 18W', watts: 288, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 6800, mantenimiento: 350, vidaUtil: 10 }
-  ];
+  const hawaiianList = EQUIPOS_HAWAIIAN_CANONICOS;
 
   const bordadosList = [
     { id: 'bv_1', tipo: 'Bordadora Industrial AEMCO 220V Dahao (4 Cabezas)', modelo: 'AEMCO Cama Plana 4 Cabezas 220V', watts: 1800, fp: 0.85, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 95000, mantenimiento: 5500, vidaUtil: 15 },
