@@ -12,7 +12,9 @@ import {
   ArrowRightLeft, 
   Trash2, 
   X, 
-  ArrowRight 
+  ArrowRight,
+  RefreshCw,
+  Layers
 } from 'lucide-react';
 import { calcularCorriente } from '../utils/electricalCalculations';
 
@@ -30,6 +32,10 @@ export default function AcometidaCard({
   onUpdateMedidor,
   onToggleForzarTrifasicoMedidor,
   onToggleFaseMedidor,
+  currentProyectoId = 'consorcio_general',
+  onConfigurar3Medidores,
+  onConfigurar6Medidores,
+  onRestaurarInventarioCompleto,
   // Backward compatibility props
   tipoSystem,
   fasesLoad,
@@ -44,6 +50,17 @@ export default function AcometidaCard({
   const [medidorAEliminarId, setMedidorAEliminarId] = useState(null);
   const [accionAparatos, setAccionAparatos] = useState('mover'); // 'mover' | 'borrar'
   const [medidorDestinoId, setMedidorDestinoId] = useState('');
+
+  // Estado del modal para restaurar inventario completo del consorcio
+  const [modalRestaurarOpen, setModalRestaurarOpen] = useState(false);
+  const [modoRestaurar, setModoRestaurar] = useState('3_medidores'); // '3_medidores' | '6_medidores' | 'faltantes'
+
+  const handleConfirmarRestaurar = () => {
+    if (onRestaurarInventarioCompleto) {
+      onRestaurarInventarioCompleto(modoRestaurar);
+    }
+    setModalRestaurarOpen(false);
+  };
 
   const handleStartRename = (med) => {
     setEditingMedidorId(med.id);
@@ -153,6 +170,48 @@ export default function AcometidaCard({
                 <Trash2 size={14} />
                 <span className="hidden sm:inline">Eliminar</span>
               </button>
+            )}
+
+            {currentProyectoId === 'consorcio_general' && (
+              <div className="flex items-center gap-1.5 border-l border-slate-800 pl-2">
+                <button
+                  type="button"
+                  onClick={() => onConfigurar3Medidores && onConfigurar3Medidores()}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                    medidores.length === 3
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                      : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700'
+                  }`}
+                  title="Agrupar todo el Consorcio en 3 Medidores independientes CFE"
+                >
+                  <Zap size={13} className="text-amber-400" />
+                  <span>3 Medidores</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onConfigurar6Medidores && onConfigurar6Medidores()}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                    medidores.length === 6
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                      : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700'
+                  }`}
+                  title="Separar en 6 Medidores CFE (1 por cada negocio)"
+                >
+                  <Layers size={13} className="text-cyan-400" />
+                  <span>6 Medidores</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalRestaurarOpen(true)}
+                  className="px-2.5 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-bold transition-all flex items-center gap-1 active:scale-95"
+                  title="Restaurar inventario completo de equipos del Consorcio"
+                >
+                  <RefreshCw size={13} className="text-teal-400" />
+                  <span className="hidden md:inline">Restaurar Equipos</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -674,6 +733,158 @@ export default function AcometidaCard({
                       ? 'Mover aparatos y eliminar medidor'
                       : 'Borrar aparatos y eliminar medidor'}
                 </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Restaurar Inventario del Consorcio */}
+      {modalRestaurarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-750 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-scaleUp">
+            
+            {/* Header del Modal */}
+            <div className="p-4 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400">
+                  <RefreshCw size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-display">
+                    Restaurar Inventario Completo del Consorcio
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Recupera todos los equipos de los 8 negocios con especificaciones UVIE y consumos calibrados.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalRestaurarOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Cuerpo del Modal */}
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-slate-300">
+                Selecciona cómo deseas organizar los equipos en los medidores CFE:
+              </p>
+
+              <div className="space-y-3">
+                {/* Opción A: 3 Medidores */}
+                <div
+                  onClick={() => setModoRestaurar('3_medidores')}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                    modoRestaurar === '3_medidores'
+                      ? 'bg-amber-500/10 border-amber-500/50 shadow-md shadow-amber-500/5'
+                      : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="modoRestaurar"
+                      checked={modoRestaurar === '3_medidores'}
+                      onChange={() => setModoRestaurar('3_medidores')}
+                      className="mt-1 text-amber-500 focus:ring-amber-400 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">
+                          ⚡ Distribuir en 3 Medidores Independientes (Recomendado)
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold">
+                          Optimizado
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        • <strong>Medidor 1:</strong> Imperia Uniformes & Taller de Costura<br/>
+                        • <strong>Medidor 2:</strong> Papelería ImperiArte & Bordados Veracruz<br/>
+                        • <strong>Medidor 3:</strong> Hawaiian Paradise, Publi-Imperia, Oficinas y Comunes
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Opción B: 6 Medidores */}
+                <div
+                  onClick={() => setModoRestaurar('6_medidores')}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                    modoRestaurar === '6_medidores'
+                      ? 'bg-cyan-500/10 border-cyan-500/50 shadow-md shadow-cyan-500/5'
+                      : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="modoRestaurar"
+                      checked={modoRestaurar === '6_medidores'}
+                      onChange={() => setModoRestaurar('6_medidores')}
+                      className="mt-1 text-cyan-500 focus:ring-cyan-400 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <span className="text-xs font-bold text-white">
+                        ⚡ Distribuir en 6 Medidores CFE (1 por cada Negocio)
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Crea 6 centros de carga individuales, cada uno con su propio recibo CFE independiente.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Opción C: Restaurar solo faltantes */}
+                <div
+                  onClick={() => setModoRestaurar('faltantes')}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                    modoRestaurar === 'faltantes'
+                      ? 'bg-teal-500/10 border-teal-500/50 shadow-md shadow-teal-500/5'
+                      : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="modoRestaurar"
+                      checked={modoRestaurar === 'faltantes'}
+                      onChange={() => setModoRestaurar('faltantes')}
+                      className="mt-1 text-teal-500 focus:ring-teal-400 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <span className="text-xs font-bold text-white">
+                        🔄 Solo inyectar equipos faltantes (mantener medidores actuales)
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        No altera tus medidores actuales ni borra nada existente; únicamente agrega los equipos que falten en el inventario.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer de Acciones del Modal */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setModalRestaurarOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmarRestaurar}
+                className="px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-slate-950 shadow-teal-500/20 active:scale-95"
+              >
+                <RefreshCw size={14} />
+                <span>Restaurar Inventario</span>
               </button>
             </div>
           </div>

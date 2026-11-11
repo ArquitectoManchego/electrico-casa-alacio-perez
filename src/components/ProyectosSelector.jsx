@@ -38,6 +38,9 @@ export default function ProyectosSelector({
     }
   };
 
+  const maestroProjs = proyectos.filter(p => p.id === 'consorcio_general');
+  const otrosProjs = proyectos.filter(p => p.id !== 'consorcio_general');
+
   return (
     <div className="flex items-center flex-wrap gap-2.5 bg-slate-950/40 p-2 rounded-xl border border-slate-800/80">
       
@@ -51,13 +54,26 @@ export default function ProyectosSelector({
       <select
         value={currentProyectoId}
         onChange={(e) => onSelectProyecto(e.target.value)}
-        className="px-3 py-1.5 rounded-lg glass-input text-xs font-bold text-slate-200 min-w-[150px] border-slate-800"
+        className="px-3 py-1.5 rounded-lg glass-input text-xs font-bold text-teal-300 min-w-[220px] border-slate-700 bg-slate-900 shadow-inner focus:outline-none focus:border-teal-400"
       >
-        {proyectos.map((p) => (
-          <option key={p.id} value={p.id} className="bg-slate-900 text-white font-bold">
-            {p.nombre}
-          </option>
-        ))}
+        {maestroProjs.length > 0 && (
+          <optgroup label="⭐ PROYECTO MAESTRO (TODO EL INMUEBLE)">
+            {maestroProjs.map((p) => (
+              <option key={p.id} value={p.id} className="bg-slate-900 text-emerald-300 font-bold">
+                👑 {p.nombre} (Todos los Negocios)
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {otrosProjs.length > 0 && (
+          <optgroup label="🏢 VISTAS INDIVIDUALES (UN SOLO NEGOCIO)">
+            {otrosProjs.map((p) => (
+              <option key={p.id} value={p.id} className="bg-slate-900 text-slate-200 font-medium">
+                {p.nombre}
+              </option>
+            ))}
+          </optgroup>
+        )}
       </select>
 
       {/* Acciones */}

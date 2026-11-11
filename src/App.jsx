@@ -25,7 +25,13 @@ import {
   Sparkles
 } from 'lucide-react';
 
-import { dbService, DEFAULT_MEDIDORES_CONSORCIO, EQUIPOS_HAWAIIAN_CANONICOS } from './firebase';
+import { 
+  dbService, 
+  DEFAULT_MEDIDORES_CONSORCIO, 
+  DEFAULT_MEDIDORES_3_CONSORCIO, 
+  generarSeedAparatos, 
+  EQUIPOS_HAWAIIAN_CANONICOS 
+} from './firebase';
 import { NEGOCIOS_CONFIG } from './utils/equiposNegocios';
 import { extraerLocalYTipoLimpio } from './utils/localHelpers';
 import { 
@@ -491,9 +497,25 @@ export default function App() {
     async function initProjects() {
       try {
         const list = await dbService.getProyectos();
-        setProyectos(list);
-        if (list.length > 0) {
-          setCurrentProyectoId(list[0].id);
+        // Consorcio General siempre al principio de la lista si existe
+        const sorted = [...list].sort((a, b) => {
+          if (a.id === 'consorcio_general') return -1;
+          if (b.id === 'consorcio_general') return 1;
+          return 0;
+        });
+        setProyectos(sorted);
+        if (sorted.length > 0) {
+          let selectedId = sorted[0].id;
+          try {
+            const saved = localStorage.getItem('sge_selected_proyecto_id');
+            if (saved && sorted.some(p => p.id === saved)) {
+              selectedId = saved;
+            } else {
+              const maestro = sorted.find(p => p.id === 'consorcio_general');
+              if (maestro) selectedId = maestro.id;
+            }
+          } catch (e) {}
+          setCurrentProyectoId(selectedId);
         }
       } catch (error) {
         console.error('Error inicializando proyectos:', error);
@@ -526,13 +548,11 @@ export default function App() {
         
         // Cargar medidores primero para sanitizar fases y ranuras por medidor independiente
         let finalMedidores = await dbService.getMedidores(currentProyectoId);
-        if (Array.isArray(finalMedidores) && finalMedidores.length > 0) {
-          if (currentProyectoId === 'consorcio_general' && finalMedidores.length < 6) {
-            finalMedidores = DEFAULT_MEDIDORES_CONSORCIO;
-            await dbService.saveMedidores(currentProyectoId, DEFAULT_MEDIDORES_CONSORCIO);
-          }
-        } else {
-          finalMedidores = [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+        if (!Array.isArray(finalMedidores) || finalMedidores.length === 0) {
+          finalMedidores = currentProyectoId === 'consorcio_general'
+            ? DEFAULT_MEDIDORES_CONSORCIO
+            : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+          await dbService.saveMedidores(currentProyectoId, finalMedidores);
         }
 
         setMedidores(finalMedidores);
@@ -1123,6 +1143,119 @@ export default function App() {
     if (activeMedidorId === medId) {
       setActiveMedidorId(fallbackId);
     }
+  };
+
+  const handleConfigurar3Medidores = async () => {
+    if (!currentProyectoId) return;
+    const medidores3 = [
+      { id: 'med_1', numero: 1, nombre: 'Imperia & Costura', forzarTrifasico: false },
+      { id: 'med_2', numero: 2, nombre: 'Papelería & Bordados', forzarTrifasico: false },
+      { id: 'med_3', numero: 3, nombre: 'Hawaiian, Publi & Consorcio', forzarTrifasico: false }
+    ];
+
+    // Reasignar aparatos inteligentemente por local
+    const reasignados = aparatos.map(ap => {
+      const loc = (ap.local || '').toLowerCase();
+      let targetMed = 'med_3';
+      if (loc.includes('imperia') && !loc.includes('publi')) targetMed = 'med_1';
+      else if (loc.includes('costura')) targetMed = 'med_1';
+      else if (loc.includes('papeler') || loc.includes('arte')) targetMed = 'med_2';
+      else if (loc.includes('bordad')) targetMed = 'med_2';
+      else if (loc.includes('hawaiian') || loc.includes('hp')) targetMed = 'med_3';
+      else if (loc.includes('publi')) targetMed = 'med_3';
+      else if (loc.includes('consorcio') || loc.includes('oficina') || loc.includes('servicio')) targetMed = 'med_3';
+      return { ...ap, medidorId: targetMed };
+    });
+
+    setMedidores(medidores3);
+    setAparatos(reasignados);
+    setActiveMedidorId('med_1');
+    await dbService.saveMedidores(currentProyectoId, medidores3);
+    await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
+    setBalanceToast({
+      tipo: 'exito',
+      mensaje: '⚡ Configuración aplicada: 3 Medidores independientes CFE con aparatos asignados por negocio.'
+    });
+  };
+
+  const handleConfigurar6Medidores = async () => {
+    if (!currentProyectoId) return;
+    const medidores6 = DEFAULT_MEDIDORES_CONSORCIO;
+    const reasignados = aparatos.map(ap => {
+      const loc = (ap.local || '').toLowerCase();
+      let targetMed = 'med_6';
+      if (loc.includes('imperia') && !loc.includes('publi')) targetMed = 'med_1';
+      else if (loc.includes('papeler') || loc.includes('arte')) targetMed = 'med_2';
+      else if (loc.includes('hawaiian') || loc.includes('hp')) targetMed = 'med_3';
+      else if (loc.includes('bordad')) targetMed = 'med_4';
+      else if (loc.includes('costura')) targetMed = 'med_5';
+      else if (loc.includes('publi')) targetMed = 'med_6';
+      else if (loc.includes('consorcio') || loc.includes('oficina') || loc.includes('servicio')) targetMed = 'med_6';
+      return { ...ap, medidorId: targetMed };
+    });
+
+    setMedidores(medidores6);
+    setAparatos(reasignados);
+    setActiveMedidorId('med_1');
+    await dbService.saveMedidores(currentProyectoId, medidores6);
+    await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
+    setBalanceToast({
+      tipo: 'exito',
+      mensaje: '⚡ Configuración aplicada: 6 Medidores independientes CFE (1 por cada negocio).'
+    });
+  };
+
+  const handleRestaurarInventarioCompleto = async (modo = '3_medidores') => {
+    if (!currentProyectoId) return;
+    const semilla = generarSeedAparatos(currentProyectoId);
+    let targetMedidores = medidores;
+    let targetAparatos = [];
+
+    if (currentProyectoId === 'consorcio_general') {
+      if (modo === '3_medidores') {
+        targetMedidores = DEFAULT_MEDIDORES_3_CONSORCIO;
+        targetAparatos = semilla.map(ap => {
+          const loc = (ap.local || '').toLowerCase();
+          let targetMed = 'med_3';
+          if (loc.includes('imperia') && !loc.includes('publi')) targetMed = 'med_1';
+          else if (loc.includes('costura')) targetMed = 'med_1';
+          else if (loc.includes('papeler') || loc.includes('arte')) targetMed = 'med_2';
+          else if (loc.includes('bordad')) targetMed = 'med_2';
+          else if (loc.includes('hawaiian') || loc.includes('hp')) targetMed = 'med_3';
+          else if (loc.includes('publi')) targetMed = 'med_3';
+          else if (loc.includes('consorcio') || loc.includes('oficina') || loc.includes('servicio')) targetMed = 'med_3';
+          return { ...ap, medidorId: targetMed };
+        });
+      } else if (modo === '6_medidores') {
+        targetMedidores = DEFAULT_MEDIDORES_CONSORCIO;
+        targetAparatos = semilla;
+      } else {
+        // 'faltantes': mantener medidores actuales y agregar únicamente los equipos ausentes
+        const existingIds = new Set(aparatos.map(a => a.id));
+        const missing = semilla.filter(a => !existingIds.has(a.id));
+        const validMedIds = targetMedidores.map(m => m.id);
+        const fallbackMedId = validMedIds[0] || 'med_1';
+        const adaptedMissing = missing.map(ap => ({
+          ...ap,
+          medidorId: validMedIds.includes(ap.medidorId) ? ap.medidorId : fallbackMedId
+        }));
+        targetAparatos = [...aparatos, ...adaptedMissing];
+      }
+    } else {
+      // Sub-proyectos individuales
+      targetMedidores = [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+      targetAparatos = semilla.map(ap => ({ ...ap, medidorId: 'med_1' }));
+    }
+
+    setMedidores(targetMedidores);
+    setAparatos(targetAparatos);
+    setActiveMedidorId(targetMedidores[0]?.id || 'med_1');
+    await dbService.saveMedidores(currentProyectoId, targetMedidores);
+    await dbService.guardarTodosLosAparatos(currentProyectoId, targetAparatos);
+    setBalanceToast({
+      tipo: 'exito',
+      mensaje: `🔄 ¡Inventario restaurado exitosamente! (${targetAparatos.length} equipos en ${targetMedidores.length} medidores)`
+    });
   };
 
   const handleUpdateMedidor = async (medId, fields) => {
@@ -1847,12 +1980,18 @@ export default function App() {
   // Controladores de Proyectos
   const handleSelectProyecto = (id) => {
     setCurrentProyectoId(id);
+    try {
+      localStorage.setItem('sge_selected_proyecto_id', id);
+    } catch (e) {}
   };
 
   const handleCreateProyecto = async (nombre) => {
     const nuevo = await dbService.createProyecto(nombre);
     setProyectos(prev => [...prev, nuevo]);
     setCurrentProyectoId(nuevo.id);
+    try {
+      localStorage.setItem('sge_selected_proyecto_id', nuevo.id);
+    } catch (e) {}
   };
 
   const handleClonarProyecto = async (nuevoNombre) => {
@@ -1860,17 +1999,20 @@ export default function App() {
     const nuevo = await dbService.clonarProyecto(currentProyectoId, nuevoNombre);
     setProyectos(prev => [...prev, nuevo]);
     setCurrentProyectoId(nuevo.id);
+    try {
+      localStorage.setItem('sge_selected_proyecto_id', nuevo.id);
+    } catch (e) {}
   };
 
   const handleDeleteProyecto = async (id) => {
     await dbService.deleteProyecto(id);
     const listaRestante = proyectos.filter(p => p.id !== id);
     setProyectos(listaRestante);
-    if (listaRestante.length > 0) {
-      setCurrentProyectoId(listaRestante[0].id);
-    } else {
-      setCurrentProyectoId('');
-    }
+    const fallbackId = listaRestante.length > 0 ? listaRestante[0].id : '';
+    setCurrentProyectoId(fallbackId);
+    try {
+      localStorage.setItem('sge_selected_proyecto_id', fallbackId);
+    } catch (e) {}
   };
 
   const handleUpdateProyectoProps = async (props) => {
@@ -2400,6 +2542,73 @@ export default function App() {
           {/* PESTAÑA 1: DISEÑO Y INSTALACIONES */}
           {activeTab === 'diseno' && (
             <div className="space-y-8 animate-fadeIn">
+
+              {/* Alerta de Proyecto Aislado con Botón para Volver al Consorcio General */}
+              {currentProyectoId !== 'consorcio_general' && (
+                <div className="bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-amber-950/20 animate-fadeIn">
+                  <div className="flex items-start sm:items-center gap-3 text-amber-200">
+                    <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 shrink-0 mt-0.5 sm:mt-0">
+                      <AlertTriangle size={20} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-white">
+                          Estás viendo la vista aislada: "{proyectos.find(p => p.id === currentProyectoId)?.nombre || currentProyectoId}"
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">
+                          {aparatos.length} {aparatos.length === 1 ? 'aparato' : 'aparatos'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-200/80 mt-1">
+                        Esta vista solo muestra las cargas exclusivas de este negocio. Para ver todo el inmueble con los 8 locales y tus medidores CFE, accede al proyecto maestro.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectProyecto('consorcio_general')}
+                    className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all text-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                  >
+                    <span>👑</span>
+                    <span>Ir a Consorcio Gallegos González (Todos los Negocios)</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Alerta de Inventario Incompleto en Consorcio General */}
+              {currentProyectoId === 'consorcio_general' && aparatos.length < 20 && (
+                <div className="bg-gradient-to-r from-teal-500/15 via-teal-500/10 to-transparent border border-teal-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-teal-950/20 animate-fadeIn">
+                  <div className="flex items-start sm:items-center gap-3 text-teal-200">
+                    <div className="p-2 rounded-xl bg-teal-500/20 text-teal-300 shrink-0 mt-0.5 sm:mt-0">
+                      <Sparkles size={20} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-white">
+                          Aviso de Inventario: Solo tienes {aparatos.length} equipos registrados en el Consorcio.
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-semibold border border-teal-500/30">
+                          Inventario Reducido
+                        </span>
+                      </div>
+                      <p className="text-xs text-teal-200/80 mt-1">
+                        Si se eliminaron equipos durante pruebas anteriores, puedes restaurar de inmediato los 55 equipos completos distribuidos en tus 3 medidores con un solo clic.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleRestaurarInventarioCompleto('3_medidores')}
+                      className="px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-bold rounded-xl shadow-lg shadow-teal-500/20 hover:scale-[1.02] active:scale-95 transition-all text-xs flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Zap size={14} />
+                      <span>Restaurar Todo en 3 Medidores</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Estatus CFE */}
               <div className="page-break-avoid">
                 <AcometidaCard 
@@ -2414,6 +2623,10 @@ export default function App() {
                   onUpdateMedidor={handleUpdateMedidor}
                   onToggleForzarTrifasicoMedidor={handleToggleForzarTrifasicoMedidor}
                   onToggleFaseMedidor={handleToggleFaseMedidor}
+                  currentProyectoId={currentProyectoId}
+                  onConfigurar3Medidores={handleConfigurar3Medidores}
+                  onConfigurar6Medidores={handleConfigurar6Medidores}
+                  onRestaurarInventarioCompleto={handleRestaurarInventarioCompleto}
                   tipoSystem={currentAcometida}
                   fasesLoad={fasesLoad}
                   fasesVA={fasesVA}

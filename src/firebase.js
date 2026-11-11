@@ -71,6 +71,12 @@ export const DEFAULT_MEDIDORES_CONSORCIO = [
   { id: 'med_6', numero: 6, nombre: 'Publi-Imperia & Consorcio', forzarTrifasico: false }
 ];
 
+export const DEFAULT_MEDIDORES_3_CONSORCIO = [
+  { id: 'med_1', numero: 1, nombre: 'Imperia & Costura', forzarTrifasico: false },
+  { id: 'med_2', numero: 2, nombre: 'Papelería & Bordados', forzarTrifasico: false },
+  { id: 'med_3', numero: 3, nombre: 'Hawaiian, Publi & Consorcio', forzarTrifasico: false }
+];
+
 // Generador de semillas de inventario para cada negocio
 export function generarSeedAparatos(proyectoId) {
   const formatearAp = (item) => {
@@ -479,10 +485,6 @@ const localStore = {
       if (data) {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          if (proyectoId === 'consorcio_general' && parsed.length < 6) {
-            localStore.saveMedidores(proyectoId, DEFAULT_MEDIDORES_CONSORCIO);
-            return DEFAULT_MEDIDORES_CONSORCIO;
-          }
           return parsed;
         }
       }
@@ -623,10 +625,6 @@ export const dbService = {
         if (docSnap.exists() && docSnap.data().medidores) {
           const m = docSnap.data().medidores;
           if (Array.isArray(m) && m.length > 0) {
-            if (proyectoId === 'consorcio_general' && m.length < 6) {
-              await this.saveMedidores(proyectoId, DEFAULT_MEDIDORES_CONSORCIO);
-              return DEFAULT_MEDIDORES_CONSORCIO;
-            }
             localStore.saveMedidores(proyectoId, m);
             return m;
           }
