@@ -226,6 +226,7 @@ export default function App() {
     hawaiian_paradise: 'medio',
     bordados_veracruz: 'medio',
     taller_costura: 'medio',
+    taller_publi_imperia: 'medio',
     publi_imperia: 'medio',
     oficinas_consorcio: 'medio'
   }), []);

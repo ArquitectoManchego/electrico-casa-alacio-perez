@@ -1008,21 +1008,33 @@ export const NEGOCIOS_CONFIG = [
  * Vincula los equipos definidos para un negocio con la lista real de aparatos del proyecto
  */
 export function vincularEquiposConInventario(negocioId, aparatos = [], esConsorcio = false) {
-  const negocio = NEGOCIOS_CONFIG.find(n => n.id === negocioId);
+  const normNegocioId = (negocioId === 'publi_imperia' || negocioId === 'taller_publi_imperia')
+    ? 'taller_publi_imperia'
+    : negocioId;
+
+  const negocio = NEGOCIOS_CONFIG.find(n => n.id === normNegocioId);
   if (!negocio) return {};
 
   const resultado = {};
   const equiposDef = negocio.equipos;
 
   // Filtrar aparatos candidatos:
-  // Se asocian al negocio por su identidad operativa/local (identificarNegocioDeAparato),
-  // permitiendo que los equipos estén distribuidos libremente en cualquier medidor físico CFE.
-  const aparatosCandidatos = esConsorcio
-    ? aparatos.filter(ap => {
-        const info = identificarNegocioDeAparato(ap);
-        return info.negocioId === negocio.id;
-      })
-    : aparatos;
+  // Se asocian al negocio estrictamente por la columna LOCAL del Cuadro de Cargas Normativo
+  // (mediante identificarNegocioDeAparato), garantizando el aislamiento total entre negocios
+  // (por ejemplo, los equipos de Publi-Imperia nunca deben figurar en Imperia Uniformes).
+  let aparatosCandidatos = (aparatos || []).filter(ap => {
+    const info = identificarNegocioDeAparato(ap);
+    const infoId = (info.negocioId === 'publi_imperia' || info.negocioId === 'taller_publi_imperia')
+      ? 'taller_publi_imperia'
+      : info.negocioId;
+    return infoId === normNegocioId;
+  });
+
+  // Si no se encontraron aparatos por local, pero se está en un proyecto mononegocio aislado
+  // (con pocos aparatos específicos del proyecto), usar los aparatos directos como fallback de seguridad
+  if (aparatosCandidatos.length === 0 && !esConsorcio && aparatos && aparatos.length > 0 && aparatos.length <= 15) {
+    aparatosCandidatos = aparatos;
+  }
 
   const aparatosUsadosIds = new Set();
 

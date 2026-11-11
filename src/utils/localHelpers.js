@@ -59,17 +59,40 @@ export function extraerLocalYTipoLimpio(aparato, medidorNombre = '') {
     }
   }
 
+  // Si aún no tiene local asignado, deducir por el tipo, modelo o ID del equipo antes de recurrir al medidor
+  if (!local) {
+    const tLower = `${aparato.tipo || ''} ${aparato.modelo || ''} ${aparato.id || ''}`.toLowerCase();
+    if (tLower.includes('publi') || tLower.includes('sublimac') || tLower.includes('dtf') || tLower.includes('atomstack') || tLower.includes('scanncut') || tLower.includes('serigraf') || tLower.includes('htv ront') || tLower.includes('tazas') || tLower.includes('gorras') || tLower.startsWith('pi_')) {
+      local = 'Publi-Imperia';
+    } else if (tLower.includes('costura') || tLower.includes('recta') || tLower.includes('overlock') || tLower.includes('collaretera') || tLower.includes('cortadora de tela') || tLower.includes('plancha de vapor') || tLower.startsWith('tc_')) {
+      local = 'Taller de Costura Imperia';
+    } else if (tLower.includes('bordad') || tLower.includes('aemco') || tLower.includes('melco') || tLower.startsWith('bv_')) {
+      local = 'Bordados Veracruz';
+    } else if (tLower.includes('papeler') || tLower.includes('arte') || tLower.includes('docucolor') || tLower.includes('xerox') || tLower.startsWith('pap_')) {
+      local = 'Papelería ImperiArte';
+    } else if (tLower.includes('hawaiian') || tLower.includes('paradise') || tLower.includes('crepera') || tLower.includes('marquesit') || tLower.includes('gaggia') || tLower.includes('wafflera') || tLower.startsWith('hp_')) {
+      local = 'Hawaiian Paradise Universidades';
+    } else if (tLower.includes('oficina') || tLower.includes('consorcio') || tLower.includes('laptop') || tLower.startsWith('oc_')) {
+      local = 'Oficinas Consorcio';
+    } else if (tLower.includes('servicio') || tLower.includes('bomba') || tLower.includes('gfci') || tLower.startsWith('gen_')) {
+      local = 'Servicios Comunes';
+    } else if (tLower.includes('uniforme') || tLower.includes('showroom') || tLower.startsWith('imp_')) {
+      local = 'Imperia Uniformes';
+    }
+  }
+
   // Si aún no tiene local asignado, deducir por medidor o valor por defecto
   if (!local) {
     if (medidorNombre) {
       const lowerMed = medidorNombre.toLowerCase();
-      if (lowerMed.includes('imperia') && !lowerMed.includes('publi')) local = 'Imperia Uniformes';
+      if (lowerMed.includes('publi')) local = 'Publi-Imperia';
+      else if (lowerMed.includes('costura')) local = 'Taller de Costura Imperia';
+      else if (lowerMed.includes('bordad')) local = 'Bordados Veracruz';
       else if (lowerMed.includes('papeler') || lowerMed.includes('arte')) local = 'Papelería ImperiArte';
       else if (lowerMed.includes('hawaiian')) local = 'Hawaiian Paradise Universidades';
-      else if (lowerMed.includes('bordad')) local = 'Bordados Veracruz';
-      else if (lowerMed.includes('costura')) local = 'Taller de Costura Imperia';
-      else if (lowerMed.includes('publi')) local = 'Publi-Imperia';
       else if (lowerMed.includes('consorcio') || lowerMed.includes('oficina')) local = 'Oficinas Consorcio';
+      else if (lowerMed.includes('servicio')) local = 'Servicios Comunes';
+      else if (lowerMed.includes('imperia') && !lowerMed.includes('publi')) local = 'Imperia Uniformes';
       else local = medidorNombre;
     } else {
       local = 'Imperia Uniformes';
@@ -143,31 +166,77 @@ export function compactarMedidoresConsecutivos(medidoresList, aparatosList = [])
  */
 export function identificarNegocioDeAparato(aparato) {
   if (!aparato) return { negocioId: 'imperia_uniformes', negocioNombre: 'Imperia Uniformes' };
-  const { local } = extraerLocalYTipoLimpio(aparato);
-  const loc = (local || '').toLowerCase();
-  const raw = `${aparato.tipo || ''} ${aparato.modelo || ''} ${loc}`.toLowerCase();
 
-  if (loc.includes('papeler') || loc.includes('arte') || raw.includes('[papelería]') || raw.includes('[papeleria]')) {
-    return { negocioId: 'papeleria_imperiarte', negocioNombre: 'Papelería ImperiArte' };
+  // 1. REGLA DE ORO: Columna "LOCAL" explícita del Cuadro de Cargas Normativo
+  const localDirecto = aparato.local ? String(aparato.local).trim() : '';
+  const locLower = localDirecto.toLowerCase();
+
+  if (locLower) {
+    if (locLower.includes('publi')) {
+      return { negocioId: 'taller_publi_imperia', negocioNombre: 'Publi-Imperia' };
+    }
+    if (locLower.includes('costura')) {
+      return { negocioId: 'taller_costura', negocioNombre: 'Taller de Costura Imperia' };
+    }
+    if (locLower.includes('bordad')) {
+      return { negocioId: 'bordados_veracruz', negocioNombre: 'Bordados Veracruz' };
+    }
+    if (locLower.includes('papeler') || locLower.includes('arte')) {
+      return { negocioId: 'papeleria_imperiarte', negocioNombre: 'Papelería ImperiArte' };
+    }
+    if (locLower.includes('hawaiian') || locLower.includes('paradise') || locLower.includes('hp')) {
+      return { negocioId: 'hawaiian_paradise', negocioNombre: 'Hawaiian Paradise Universidades' };
+    }
+    if (locLower.includes('oficina') || locLower.includes('consorcio')) {
+      return { negocioId: 'oficinas_consorcio', negocioNombre: 'Oficinas Consorcio' };
+    }
+    if (locLower.includes('servicio')) {
+      return { negocioId: 'servicios_comunes', negocioNombre: 'Servicios Comunes' };
+    }
+    if (locLower.includes('uniforme') || (locLower.includes('imperia') && !locLower.includes('publi') && !locLower.includes('costura'))) {
+      return { negocioId: 'imperia_uniformes', negocioNombre: 'Imperia Uniformes' };
+    }
   }
-  if (loc.includes('hawaiian') || loc.includes('hp') || loc.includes('paradise') || raw.includes('[hawaiian]')) {
-    return { negocioId: 'hawaiian_paradise', negocioNombre: 'Hawaiian Paradise Universidades' };
+
+  // 2. Si no viene definido el campo local, extraerlo de prefijos en tipo / modelo o ID de ingeniería
+  const { local: localDeducido } = extraerLocalYTipoLimpio(aparato);
+  const locDed = (localDeducido || '').toLowerCase();
+  const idLower = String(aparato.id || '').toLowerCase();
+  const raw = `${aparato.tipo || ''} ${aparato.modelo || ''} ${locDed} ${idLower}`.toLowerCase();
+
+  if (locDed.includes('publi') || raw.includes('[publi') || raw.includes('publi-imperia') || raw.includes('publimperia') || idLower.startsWith('pi_') || raw.includes('sublimaci') || raw.includes('atomstack') || raw.includes('scanncut') || raw.includes('serigrafia') || raw.includes('htv ront')) {
+    return { negocioId: 'taller_publi_imperia', negocioNombre: 'Publi-Imperia' };
   }
-  if (loc.includes('bordad') || raw.includes('[bordados]') || raw.includes('[bordado]')) {
-    return { negocioId: 'bordados_veracruz', negocioNombre: 'Bordados Veracruz' };
-  }
-  if (loc.includes('costura') || raw.includes('[costura]') || raw.includes('[taller]')) {
+  if (locDed.includes('costura') || raw.includes('[costura') || idLower.startsWith('tc_') || raw.includes('recta industrial') || raw.includes('overlock') || raw.includes('collaretera')) {
     return { negocioId: 'taller_costura', negocioNombre: 'Taller de Costura Imperia' };
   }
-  if (loc.includes('publi') || raw.includes('[publi-imperia]') || raw.includes('[publimperia]') || raw.includes('[sublimaci')) {
-    return { negocioId: 'publi_imperia', negocioNombre: 'Publi-Imperia' };
+  if (locDed.includes('bordad') || raw.includes('[bordad') || idLower.startsWith('bv_') || raw.includes('melco') || raw.includes('aemco') || raw.includes('tajima')) {
+    return { negocioId: 'bordados_veracruz', negocioNombre: 'Bordados Veracruz' };
   }
-  if (loc.includes('oficina') || loc.includes('consorcio') || raw.includes('[oficinas]') || raw.includes('[consorcio]')) {
+  if (locDed.includes('papeler') || locDed.includes('arte') || raw.includes('[papeler') || idLower.startsWith('pap_') || raw.includes('docucolor') || raw.includes('xerox')) {
+    return { negocioId: 'papeleria_imperiarte', negocioNombre: 'Papelería ImperiArte' };
+  }
+  if (locDed.includes('hawaiian') || locDed.includes('paradise') || raw.includes('[hawaiian') || idLower.startsWith('hp_') || raw.includes('crepera') || raw.includes('marquesit') || raw.includes('gaggia')) {
+    return { negocioId: 'hawaiian_paradise', negocioNombre: 'Hawaiian Paradise Universidades' };
+  }
+  if (locDed.includes('oficina') || locDed.includes('consorcio') || raw.includes('[oficina') || raw.includes('[consorcio') || idLower.startsWith('oc_')) {
     return { negocioId: 'oficinas_consorcio', negocioNombre: 'Oficinas Consorcio' };
   }
-  if (loc.includes('servicio') || raw.includes('[servicios]')) {
+  if (locDed.includes('servicio') || raw.includes('[servicio')) {
     return { negocioId: 'servicios_comunes', negocioNombre: 'Servicios Comunes' };
   }
+  if (locDed.includes('uniforme') || raw.includes('[imperia') || idLower.startsWith('imp_') || raw.includes('showroom')) {
+    return { negocioId: 'imperia_uniformes', negocioNombre: 'Imperia Uniformes' };
+  }
+
+  // 3. Fallback inteligente según medidorId para evitar mezclar negocios
+  const medId = String(aparato.medidorId || '').toLowerCase();
+  if (medId === 'med_2') return { negocioId: 'papeleria_imperiarte', negocioNombre: 'Papelería ImperiArte' };
+  if (medId === 'med_3') return { negocioId: 'hawaiian_paradise', negocioNombre: 'Hawaiian Paradise Universidades' };
+  if (medId === 'med_4') return { negocioId: 'bordados_veracruz', negocioNombre: 'Bordados Veracruz' };
+  if (medId === 'med_5') return { negocioId: 'taller_costura', negocioNombre: 'Taller de Costura Imperia' };
+  if (medId === 'med_6') return { negocioId: 'taller_publi_imperia', negocioNombre: 'Publi-Imperia' };
+
   return { negocioId: 'imperia_uniformes', negocioNombre: 'Imperia Uniformes' };
 }
 
