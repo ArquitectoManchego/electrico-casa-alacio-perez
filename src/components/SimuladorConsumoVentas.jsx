@@ -20,8 +20,10 @@ export default function SimuladorConsumoVentas({
   proyectoId = 'consorcio_general',
   onKwhDiarioChange,
   medidores = [],
-  escenarioVentas = 'medio',
-  onEscenarioVentasChange
+  escenarioVentas = 'por_empresa',
+  onEscenarioVentasChange,
+  escenariosPorNegocio = {},
+  onEscenarioNegocioChange
 }) {
   const esConsorcio = proyectoId === 'consorcio_general';
 
@@ -48,21 +50,26 @@ export default function SimuladorConsumoVentas({
   // Cargar estados guardados en localStorage
   const storageKey = `simulador_ventas_v2_${proyectoId}`;
   const [estadosNegocios, setEstadosNegocios] = useState(() => {
+    let result = {};
     try {
       const guardado = localStorage.getItem(storageKey);
-      if (guardado) return JSON.parse(guardado);
+      if (guardado) result = JSON.parse(guardado);
     } catch (e) {}
 
-    const init = {};
     NEGOCIOS_CONFIG.forEach(neg => {
-      init[neg.id] = {
-        escenarioActivo: escenarioVentas && escenarioVentas !== 'inventario' ? escenarioVentas : 'medio',
-        overridesUsuario: null,
-        diasLaborales: neg.diasLaboralesDefault,
-        horasTurno: neg.horasTurnoDefault
-      };
+      const escGuardado = escenariosPorNegocio?.[neg.id] || result[neg.id]?.escenarioActivo || 'medio';
+      if (!result[neg.id]) {
+        result[neg.id] = {
+          escenarioActivo: escGuardado,
+          overridesUsuario: null,
+          diasLaborales: neg.diasLaboralesDefault,
+          horasTurno: neg.horasTurnoDefault
+        };
+      } else {
+        result[neg.id].escenarioActivo = escGuardado;
+      }
     });
-    return init;
+    return result;
   });
 
   // Guardar en localStorage ante cualquier cambio
@@ -72,9 +79,26 @@ export default function SimuladorConsumoVentas({
     } catch (e) {}
   }, [estadosNegocios, storageKey]);
 
-  // Sincronización entrante desde el Recibo de Luz CFE u otros módulos
+  // Sincronizar escenarios independientes por negocio si vienen del estado persistido
   useEffect(() => {
-    if (escenarioVentas && escenarioVentas !== 'inventario') {
+    if (escenariosPorNegocio && Object.keys(escenariosPorNegocio).length > 0) {
+      setEstadosNegocios(prev => {
+        let changed = false;
+        const next = { ...prev };
+        Object.keys(escenariosPorNegocio).forEach(negId => {
+          if (next[negId] && next[negId].escenarioActivo !== escenariosPorNegocio[negId]) {
+            next[negId] = { ...next[negId], escenarioActivo: escenariosPorNegocio[negId] };
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [escenariosPorNegocio]);
+
+  // Sincronización entrante si se fuerza un escenario global específico diferente de 'por_empresa'
+  useEffect(() => {
+    if (escenarioVentas && escenarioVentas !== 'inventario' && escenarioVentas !== 'por_empresa' && escenarioVentas !== 'personalizado') {
       setEstadosNegocios(prev => {
         if (!prev[negocioActivoId] || prev[negocioActivoId].escenarioActivo === escenarioVentas) return prev;
         return {
@@ -87,6 +111,7 @@ export default function SimuladorConsumoVentas({
       });
     }
   }, [escenarioVentas, negocioActivoId]);
+
 
   // Estado del negocio activo
   const estadoActual = estadosNegocios[negocioActivoId] || {
@@ -231,18 +256,19 @@ export default function SimuladorConsumoVentas({
     });
   }, [estadoActual.escenarioActivo, estadoActual.overridesUsuario, estadoActual.diasLaborales, estadoActual.horasTurno, simBajo, simTablas, simMedio, simAlto, simMuyAlto, negocioActivoId, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
-  // Simulación agregada de Consorcio por los 6 Medidores CFE
+  // Simulación agregada de Consorcio por los Medidores Reales CFE
   const simConsorcio = useMemo(() => {
     if (!esConsorcio) return null;
     return simularConsorcioPorMedidores({
       todosEstadosNegocios: estadosNegocios,
+      escenariosPorNegocio,
       aparatos,
       medidores,
       tarifas,
       costosMEM,
       diasPeriodo
     });
-  }, [esConsorcio, estadosNegocios, aparatos, medidores, tarifas, costosMEM, diasPeriodo]);
+  }, [esConsorcio, estadosNegocios, escenariosPorNegocio, aparatos, medidores, tarifas, costosMEM, diasPeriodo]);
 
   // Notificar al componente padre el kWh diario para el recibo físico CFE
   useEffect(() => {
@@ -267,10 +293,14 @@ export default function SimuladorConsumoVentas({
         escenarioActivo: nuevoEscenario
       }
     }));
+    if (onEscenarioNegocioChange) {
+      onEscenarioNegocioChange(negocioActivoId, nuevoEscenario);
+    }
     if (onEscenarioVentasChange) {
       onEscenarioVentasChange(nuevoEscenario);
     }
   };
+
 
   const handleChangeDiasLaborales = (dias) => {
     setEstadosNegocios(prev => ({
@@ -394,7 +424,11 @@ export default function SimuladorConsumoVentas({
         onRestaurarCalibracion={handleRestaurarCalibracion}
         hayEquiposFaltantes={hayEquiposFaltantes}
         onSyncEquiposFaltantes={handleSyncEquiposFaltantes}
+        medidores={medidores}
+        aparatos={aparatos}
+        escenariosPorNegocio={escenariosPorNegocio}
       />
+
 
       {/* 2. Panel de Estacionalidad Anual, Vacaciones Universitarias y Publicidad Anticipada */}
       {!vistaConsolidada && (

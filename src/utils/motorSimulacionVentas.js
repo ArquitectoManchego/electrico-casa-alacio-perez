@@ -6,6 +6,7 @@
 import { NEGOCIOS_CONFIG, vincularEquiposConInventario } from './equiposNegocios.js';
 import { PROCESOS_POR_NEGOCIO } from './procesosNegocios.js';
 import { calcularCobroCFECompleto } from './simuladorCFE.js';
+import { identificarNegocioDeAparato } from './localHelpers.js';
 
 /**
  * Calcula los minutos y kWh consumidos por un proceso productivo
@@ -432,37 +433,38 @@ export function simularNegocioCompleto({
 }
 
 /**
- * Simula de forma agregada los 7 negocios agrupados en los 6 medidores CFE de consorcio_general
+ * Simula de forma agregada los negocios distribuidos en los medidores CFE reales del consorcio
  */
 export function simularConsorcioPorMedidores({
   todosEstadosNegocios = {},
+  escenariosPorNegocio = {},
   aparatos = [],
   medidores = [],
   tarifas = {},
   costosMEM = {},
   diasPeriodo = 30,
-  escenarioGlobal = null // 'bajo' | 'tablas' | 'medio' | 'alto' | 'muy_alto'
+  escenarioGlobal = null // 'bajo' | 'tablas' | 'medio' | 'alto' | 'muy_alto' | 'por_empresa'
 }) {
-  const medidoresList = Array.isArray(medidores) && medidores.length >= 6
+  const medidoresList = Array.isArray(medidores) && medidores.length > 0
     ? medidores
     : [
-        { id: 'med_1', numero: 1, nombre: 'Imperia Uniformes' },
-        { id: 'med_2', numero: 2, nombre: 'Papelería ImperiArte' },
-        { id: 'med_3', numero: 3, nombre: 'Hawaiian Paradise' },
-        { id: 'med_4', numero: 4, nombre: 'Bordados Veracruz' },
-        { id: 'med_5', numero: 5, nombre: 'Taller de Costura' },
-        { id: 'med_6', numero: 6, nombre: 'Publi-Imperia & Consorcio' }
+        { id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }
       ];
 
-  // Simular los 7 negocios
+  // 1. Simular cada uno de los negocios con su propio escenario guardado o el forzado
   const resultadosNegocios = {};
+  const kwhPorAparatoIdMes = new Map();
+
   NEGOCIOS_CONFIG.forEach(neg => {
     const estado = todosEstadosNegocios[neg.id] || {};
-    const escActivo = escenarioGlobal || estado.escenarioActivo || 'medio';
-    resultadosNegocios[neg.id] = simularNegocioCompleto({
+    const escActivo = (escenarioGlobal && escenarioGlobal !== 'por_empresa' && escenarioGlobal !== 'personalizado')
+      ? escenarioGlobal
+      : (escenariosPorNegocio[neg.id] || estado.escenarioActivo || 'medio');
+
+    const resNeg = simularNegocioCompleto({
       negocioId: neg.id,
       escenarioActivo: escActivo,
-      overridesUsuario: escenarioGlobal ? null : (estado.overridesUsuario || null),
+      overridesUsuario: (escenarioGlobal && escenarioGlobal !== 'por_empresa') ? null : (estado.overridesUsuario || null),
       diasLaborales: estado.diasLaborales || neg.diasLaboralesDefault,
       horasTurno: estado.horasTurno || neg.horasTurnoDefault,
       aparatos,
@@ -471,14 +473,26 @@ export function simularConsorcioPorMedidores({
       costosMEM,
       diasPeriodo
     });
+
+    resultadosNegocios[neg.id] = resNeg;
+
+    // Registrar el consumo mensual simulado de cada aparato real de este negocio
+    if (resNeg.capacidadesEquipos) {
+      Object.values(resNeg.capacidadesEquipos).forEach(cap => {
+        if (cap.aparatoReal && cap.aparatoReal.id) {
+          kwhPorAparatoIdMes.set(cap.aparatoReal.id, cap.kwhMes || 0);
+        }
+      });
+    }
   });
 
-  // Mapear consumo de negocios a cada medidor CFE
+  // 2. Mapear medidores reales CFE
   const mapaMedidores = {};
   medidoresList.forEach(m => {
     mapaMedidores[m.id] = {
       medidor: m,
       negociosAsignados: [],
+      aparatosAsignados: [],
       kwhMes: 0,
       kwhDiario: 0,
       kwhPeriodo: 0,
@@ -486,36 +500,49 @@ export function simularConsorcioPorMedidores({
     };
   });
 
-  // Asignar negocios a medidores
-  NEGOCIOS_CONFIG.forEach(neg => {
-    const medId = neg.medidorIdConsorcio;
-    const simNeg = resultadosNegocios[neg.id];
-    if (mapaMedidores[medId]) {
-      mapaMedidores[medId].negociosAsignados.push(neg.nombre);
-      mapaMedidores[medId].kwhMes += simNeg.totalKwhMes;
-      mapaMedidores[medId].kwhDiario += simNeg.totalKwhDiario;
-      mapaMedidores[medId].kwhPeriodo += simNeg.kwhPeriodoCFE;
+  const medidorPorDefectoId = medidoresList[0]?.id || 'med_1';
+
+  // 3. Asignar el consumo de cada aparato de forma exacta a su medidor físico CFE
+  aparatos.forEach(ap => {
+    let medId = ap.medidorId;
+    if (!medId || !mapaMedidores[medId]) {
+      medId = medidorPorDefectoId;
+    }
+    const targetMed = mapaMedidores[medId];
+    if (!targetMed) return;
+
+    targetMed.aparatosAsignados.push(ap);
+
+    // Identificar el negocio operativo de este equipo
+    const infoNeg = identificarNegocioDeAparato(ap);
+    if (!targetMed.negociosAsignados.includes(infoNeg.negocioNombre)) {
+      targetMed.negociosAsignados.push(infoNeg.negocioNombre);
+    }
+
+    // Obtener consumo mensual simulado para este aparato
+    let kwhMesAp = kwhPorAparatoIdMes.get(ap.id);
+    if (kwhMesAp === undefined) {
+      const w = parseFloat(ap.watts) || 0;
+      const h = parseFloat(ap.horasAlta) || 2;
+      kwhMesAp = ((w * h) / 1000) * 30;
+    }
+
+    const kwhDiarioAp = kwhMesAp / 30;
+    const kwhPeriodoAp = kwhDiarioAp * diasPeriodo;
+
+    targetMed.kwhMes += kwhMesAp;
+    targetMed.kwhDiario += kwhDiarioAp;
+    targetMed.kwhPeriodo += kwhPeriodoAp;
+  });
+
+  // Asegurar que medidores sin aparatos muestren al menos su propio nombre
+  medidoresList.forEach(m => {
+    if (mapaMedidores[m.id] && mapaMedidores[m.id].negociosAsignados.length === 0) {
+      mapaMedidores[m.id].negociosAsignados.push(m.nombre || `Medidor ${m.numero}`);
     }
   });
 
-  // Sumar servicios comunes no asignados expresamente a otro medidor
-  const serviciosGenerales = aparatos.filter(ap => !ap.medidorId && (ap.tipo || '').toLowerCase().includes('[servicios]'));
-  let kwhServiciosPeriodo = 0;
-  serviciosGenerales.forEach(ap => {
-    const w = parseFloat(ap.watts) || 0;
-    const h = parseFloat(ap.horasAlta) || 2;
-    kwhServiciosPeriodo += ((w * h) / 1000) * diasPeriodo;
-  });
-  if (mapaMedidores['med_6']) {
-    mapaMedidores['med_6'].kwhPeriodo += kwhServiciosPeriodo;
-    mapaMedidores['med_6'].kwhDiario += kwhServiciosPeriodo / diasPeriodo;
-    mapaMedidores['med_6'].kwhMes += (kwhServiciosPeriodo / diasPeriodo) * 30;
-    if (serviciosGenerales.length > 0) {
-      mapaMedidores['med_6'].negociosAsignados.push('Servicios Comunes');
-    }
-  }
-
-  // Calcular cobro CFE escalonado independiente para cada medidor
+  // 4. Calcular cobro CFE escalonado independiente para cada medidor físico
   let totalKwhPeriodoConsorcio = 0;
   let totalFacturaConsorcio = 0;
 
@@ -535,3 +562,4 @@ export function simularConsorcioPorMedidores({
     totalFacturaConsorcio
   };
 }
+

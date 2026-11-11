@@ -17,6 +17,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { NEGOCIOS_CONFIG } from '../../utils/equiposNegocios';
+import { identificarNegocioDeAparato } from '../../utils/localHelpers';
 
 const ICON_MAP = {
   Shirt,
@@ -42,9 +43,31 @@ export default function SelectorEscenarioYNegocio({
   onChangeHorasTurno,
   onRestaurarCalibracion,
   hayEquiposFaltantes = false,
-  onSyncEquiposFaltantes
+  onSyncEquiposFaltantes,
+  medidores = [],
+  aparatos = [],
+  escenariosPorNegocio = {}
 }) {
   const negocioActual = NEGOCIOS_CONFIG.find(n => n.id === negocioActivoId) || NEGOCIOS_CONFIG[0];
+  const medidoresList = Array.isArray(medidores) && medidores.length > 0 
+    ? medidores 
+    : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1' }];
+  const medidoresCount = medidoresList.length;
+
+  // Medidores reales asignados a los aparatos del negocio actualmente seleccionado
+  const negocioActualMeds = [...new Set(
+    aparatos
+      .filter(ap => identificarNegocioDeAparato(ap).negocioId === negocioActual.id)
+      .map(ap => {
+        const m = medidoresList.find(med => med.id === ap.medidorId);
+        return m ? `Medidor ${m.numero || m.id.replace('med_', '')}` : null;
+      })
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  const textoMedidoresActual = negocioActualMeds.length > 0
+    ? (negocioActualMeds.length === 1 ? negocioActualMeds[0] : `Medidores ${negocioActualMeds.map(m => m.replace('Medidor ', '')).join(', ')}`)
+    : (negocioActual.medidorIdConsorcio ? `Medidor ${negocioActual.medidorIdConsorcio.replace('med_', '')}` : 'Medidor 1');
 
   return (
     <div className="space-y-4 no-print">
@@ -62,7 +85,7 @@ export default function SelectorEscenarioYNegocio({
             }`}
           >
             <Building2 size={16} />
-            Vista Consolidada (6 Medidores)
+            Vista Consolidada ({medidoresCount} Medidor{medidoresCount !== 1 ? 'es' : ''})
           </button>
 
           <div className="w-[1px] h-6 bg-slate-800 mx-1" />
@@ -70,6 +93,24 @@ export default function SelectorEscenarioYNegocio({
           {NEGOCIOS_CONFIG.map(neg => {
             const IconComp = ICON_MAP[neg.icono] || Building2;
             const isSelected = !vistaConsolidada && negocioActivoId === neg.id;
+
+            // Determinar a qué medidor(es) físico(s) están conectados los aparatos de este negocio
+            const medsDelNegocio = [...new Set(
+              aparatos
+                .filter(ap => identificarNegocioDeAparato(ap).negocioId === neg.id)
+                .map(ap => {
+                  const m = medidoresList.find(med => med.id === ap.medidorId);
+                  return m ? `M${m.numero || m.id.replace('med_', '')}` : null;
+                })
+                .filter(Boolean)
+            )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+            const badgeMeds = medsDelNegocio.length > 0
+              ? medsDelNegocio.join(',')
+              : (neg.medidorIdConsorcio ? neg.medidorIdConsorcio.replace('med_', 'M') : 'M1');
+
+            const escNegocio = escenariosPorNegocio[neg.id] || (negocioActivoId === neg.id ? escenarioActivo : 'medio');
+
             return (
               <button
                 key={neg.id}
@@ -86,9 +127,14 @@ export default function SelectorEscenarioYNegocio({
               >
                 <IconComp size={15} />
                 <span>{neg.nombre}</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950/60 text-slate-400 border border-slate-800">
-                  {neg.medidorIdConsorcio.replace('med_', 'M')}
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950/60 text-teal-400 border border-slate-800 font-bold">
+                  {badgeMeds}
                 </span>
+                {escNegocio && escNegocio !== 'medio' && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 capitalize font-medium">
+                    {escNegocio}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -102,18 +148,21 @@ export default function SelectorEscenarioYNegocio({
             <div className="flex items-center gap-2.5">
               <span className="px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
                 <Zap size={13} />
-                {vistaConsolidada ? 'Inmueble Completo' : (negocioActual.medidorIdConsorcio ? `Medidor ${negocioActual.medidorIdConsorcio.replace('med_', '')}` : 'Medidor 1')}
+                {vistaConsolidada ? `Inmueble Completo (${medidoresCount} Medidores)` : textoMedidoresActual}
               </span>
               <h3 className="text-lg font-black font-display text-white">
-                {vistaConsolidada ? 'Consorcio Gallegos González — Consolidado 6 Medidores' : negocioActual.nombre}
+                {vistaConsolidada 
+                  ? `Consorcio Gallegos González — Consolidado ${medidoresCount} Medidor${medidoresCount !== 1 ? 'es' : ''}` 
+                  : negocioActual.nombre}
               </h3>
             </div>
             <p className="text-xs text-slate-400 font-sans mt-1">
               {vistaConsolidada
-                ? 'Modelado simultáneo de los 7 negocios independientes agrupados en sus 6 acometidas CFE individuales.'
+                ? `Modelado simultáneo de los 7 negocios independientes distribuidos en sus ${medidoresCount} acometidas CFE físicas.`
                 : negocioActual.subtitulo}
             </p>
           </div>
+
 
           {/* Botón de Sincronización si faltan aparatos en el tablero real */}
           {hayEquiposFaltantes && !vistaConsolidada && (

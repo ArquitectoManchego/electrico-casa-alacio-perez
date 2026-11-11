@@ -431,8 +431,9 @@ export default function SimuladorFinanciero({
   medidores = [],
   aparatos = [],
   proyectoId = 'consorcio_general',
-  escenarioVentas = 'medio',
-  onEscenarioVentasChange
+  escenarioVentas = 'por_empresa',
+  onEscenarioVentasChange,
+  escenariosPorNegocio = {}
 }) {
   const [showConfig, setShowConfig] = useState(false);
   const [clienteNombre, setClienteNombre] = useState('RESIDENCIA CASA ALACIO PÉREZ');
@@ -444,19 +445,20 @@ export default function SimuladorFinanciero({
     ? medidores 
     : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
 
-  const esConsorcio = proyectoId === 'consorcio_general' || listaMedidores.length >= 6;
+  const esConsorcio = proyectoId === 'consorcio_general' || listaMedidores.length > 1;
 
   // Catálogo de Niveles de Ventas para el Recibo CFE
   const NIVELES_VENTA = [
-    { id: 'bajo', nombre: 'Venta Baja', sub: '~20% Cap.', desc: 'Mínima demanda comercial', color: 'sky' },
-    { id: 'tablas', nombre: 'Sales Tablas', sub: '~35% Cap.', desc: 'Punto de equilibrio operativo', color: 'amber' },
-    { id: 'medio', nombre: 'Venta Buena', sub: '~50% Cap.', desc: 'Demanda comercial regular', color: 'teal' },
+    { id: 'por_empresa', nombre: 'Por Empresa', sub: 'Guardado', desc: 'Cada empresa opera en su escenario configurado independientemente', color: 'teal' },
+    { id: 'bajo', nombre: 'Venta Baja', sub: '~20% Cap.', desc: 'Mínima demanda comercial global', color: 'sky' },
+    { id: 'tablas', nombre: 'Sales Tablas', sub: '~35% Cap.', desc: 'Punto de equilibrio operativo global', color: 'amber' },
+    { id: 'medio', nombre: 'Venta Buena', sub: '~50% Cap.', desc: 'Demanda comercial regular global', color: 'teal' },
     { id: 'alto', nombre: 'Venta Alta', sub: '80% Cap.', desc: 'Temporada alta y saturación laboral', color: 'emerald' },
     { id: 'muy_alto', nombre: 'Venta Muy Alta', sub: '95% Cap.', desc: 'Demanda pico máxima', color: 'purple' },
     { id: 'inventario', nombre: 'Aparatos Base', sub: 'Inventario', desc: 'Carga nominal estática de equipos', color: 'slate' }
   ];
 
-  const nivelActivoObj = NIVELES_VENTA.find(n => n.id === escenarioVentas) || NIVELES_VENTA[2];
+  const nivelActivoObj = NIVELES_VENTA.find(n => n.id === escenarioVentas) || NIVELES_VENTA[0];
 
   // Simulación según escenario de ventas
   const simConsorcioVentas = useMemo(() => {
@@ -464,6 +466,7 @@ export default function SimuladorFinanciero({
     if (esConsorcio) {
       return simularConsorcioPorMedidores({
         escenarioGlobal: escenarioVentas,
+        escenariosPorNegocio,
         aparatos,
         medidores: listaMedidores,
         tarifas,
@@ -472,7 +475,8 @@ export default function SimuladorFinanciero({
       });
     }
     return null;
-  }, [escenarioVentas, esConsorcio, aparatos, listaMedidores, tarifas, costosMEM, diasPeriodo]);
+  }, [escenarioVentas, esConsorcio, escenariosPorNegocio, aparatos, listaMedidores, tarifas, costosMEM, diasPeriodo]);
+
 
   const simNegocioIndividualVentas = useMemo(() => {
     if (escenarioVentas === 'inventario' || esConsorcio) return null;
@@ -597,12 +601,14 @@ export default function SimuladorFinanciero({
               const isSelected = escenarioVentas === nivel.id;
               let styleClass = 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-850';
               if (isSelected) {
-                if (nivel.id === 'bajo') styleClass = 'bg-sky-500/20 text-sky-300 font-extrabold border-sky-500/50 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/30';
+                if (nivel.id === 'por_empresa') styleClass = 'bg-teal-500/20 text-teal-300 font-black border-teal-500/50 shadow-md shadow-teal-500/10 ring-1 ring-teal-500/30';
+                else if (nivel.id === 'bajo') styleClass = 'bg-sky-500/20 text-sky-300 font-extrabold border-sky-500/50 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/30';
                 else if (nivel.id === 'tablas') styleClass = 'bg-amber-500/20 text-amber-300 font-extrabold border-amber-500/50 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/30';
                 else if (nivel.id === 'medio') styleClass = 'bg-teal-500/20 text-teal-300 font-extrabold border-teal-500/50 shadow-md shadow-teal-500/10 ring-1 ring-teal-500/30';
                 else if (nivel.id === 'alto') styleClass = 'bg-emerald-500/20 text-emerald-300 font-black border-emerald-500/50 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500/30';
                 else if (nivel.id === 'muy_alto') styleClass = 'bg-purple-500/20 text-purple-300 font-black border-purple-500/50 shadow-md shadow-purple-500/10 ring-1 ring-purple-500/30';
                 else styleClass = 'bg-slate-800 text-slate-200 font-extrabold border-slate-600';
+
               }
 
               return (

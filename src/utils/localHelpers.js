@@ -133,3 +133,41 @@ export function compactarMedidoresConsecutivos(medidoresList, aparatosList = [])
 
   return { compactedMedidores, compactedAparatos, idMap };
 }
+
+/**
+ * Identifica con precisión la unidad de negocio a la que pertenece un aparato según su local o prefijo,
+ * de forma totalmente independiente del medidorId físico donde esté conectado.
+ * 
+ * @param {object} aparato 
+ * @returns {{ negocioId: string, negocioNombre: string }}
+ */
+export function identificarNegocioDeAparato(aparato) {
+  if (!aparato) return { negocioId: 'imperia_uniformes', negocioNombre: 'Imperia Uniformes' };
+  const { local } = extraerLocalYTipoLimpio(aparato);
+  const loc = (local || '').toLowerCase();
+  const raw = `${aparato.tipo || ''} ${aparato.modelo || ''} ${loc}`.toLowerCase();
+
+  if (loc.includes('papeler') || loc.includes('arte') || raw.includes('[papelería]') || raw.includes('[papeleria]')) {
+    return { negocioId: 'papeleria_imperiarte', negocioNombre: 'Papelería ImperiArte' };
+  }
+  if (loc.includes('hawaiian') || loc.includes('hp') || loc.includes('paradise') || raw.includes('[hawaiian]')) {
+    return { negocioId: 'hawaiian_paradise', negocioNombre: 'Hawaiian Paradise Universidades' };
+  }
+  if (loc.includes('bordad') || raw.includes('[bordados]') || raw.includes('[bordado]')) {
+    return { negocioId: 'bordados_veracruz', negocioNombre: 'Bordados Veracruz' };
+  }
+  if (loc.includes('costura') || raw.includes('[costura]') || raw.includes('[taller]')) {
+    return { negocioId: 'taller_costura', negocioNombre: 'Taller de Costura Imperia' };
+  }
+  if (loc.includes('publi') || raw.includes('[publi-imperia]') || raw.includes('[publimperia]') || raw.includes('[sublimaci')) {
+    return { negocioId: 'publi_imperia', negocioNombre: 'Publi-Imperia' };
+  }
+  if (loc.includes('oficina') || loc.includes('consorcio') || raw.includes('[oficinas]') || raw.includes('[consorcio]')) {
+    return { negocioId: 'oficinas_consorcio', negocioNombre: 'Oficinas Consorcio' };
+  }
+  if (loc.includes('servicio') || raw.includes('[servicios]')) {
+    return { negocioId: 'servicios_comunes', negocioNombre: 'Servicios Comunes' };
+  }
+  return { negocioId: 'imperia_uniformes', negocioNombre: 'Imperia Uniformes' };
+}
+

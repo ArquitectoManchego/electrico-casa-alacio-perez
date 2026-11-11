@@ -3,6 +3,8 @@
  * Cada negocio se mapea a su respectivo Medidor CFE (med_1 a med_6) y perfil térmico/operativo.
  */
 
+import { identificarNegocioDeAparato } from './localHelpers.js';
+
 export const NEGOCIOS_CONFIG = [
   {
     id: 'imperia_uniformes',
@@ -995,14 +997,12 @@ export function vincularEquiposConInventario(negocioId, aparatos = [], esConsorc
   const equiposDef = negocio.equipos;
 
   // Filtrar aparatos candidatos:
-  // Si es consorcio, priorizar estrictamente por medidorId del contrato CFE.
-  // Solo si no tiene medidorId asignado se recurre al prefijo textual.
+  // Se asocian al negocio por su identidad operativa/local (identificarNegocioDeAparato),
+  // permitiendo que los equipos estén distribuidos libremente en cualquier medidor físico CFE.
   const aparatosCandidatos = esConsorcio
     ? aparatos.filter(ap => {
-        if (ap.medidorId) {
-          return ap.medidorId === negocio.medidorIdConsorcio;
-        }
-        return (ap.tipo || '').toLowerCase().includes(negocio.prefijoConsorcio.toLowerCase());
+        const info = identificarNegocioDeAparato(ap);
+        return info.negocioId === negocio.id;
       })
     : aparatos;
 

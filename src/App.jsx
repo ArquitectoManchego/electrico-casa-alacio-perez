@@ -219,12 +219,57 @@ export default function App() {
   // Estado para el consumo diario dinámico del simulador de ventas
   const [salesKwhDiario, setSalesKwhDiario] = useState(null);
 
+  // Escenarios independientes por unidad de negocio (Persistentes por proyecto)
+  const DEFAULT_ESCENARIOS_NEGOCIOS = useMemo(() => ({
+    imperia_uniformes: 'medio',
+    papeleria_imperiarte: 'tablas',
+    hawaiian_paradise: 'medio',
+    bordados_veracruz: 'medio',
+    taller_costura: 'medio',
+    publi_imperia: 'medio',
+    oficinas_consorcio: 'medio'
+  }), []);
+
+  const [escenariosPorNegocio, setEscenariosPorNegocio] = useState(() => {
+    try {
+      const pId = localStorage.getItem('sge_selected_proyecto_id') || 'consorcio_general';
+      const guardado = localStorage.getItem('sge_escenarios_por_negocio_' + pId);
+      if (guardado) return { ...DEFAULT_ESCENARIOS_NEGOCIOS, ...JSON.parse(guardado) };
+    } catch (e) {}
+    return DEFAULT_ESCENARIOS_NEGOCIOS;
+  });
+
+  // Sincronizar al cambiar de proyecto
+  useEffect(() => {
+    if (!currentProyectoId) return;
+    try {
+      const guardado = localStorage.getItem('sge_escenarios_por_negocio_' + currentProyectoId);
+      if (guardado) {
+        setEscenariosPorNegocio(prev => ({ ...DEFAULT_ESCENARIOS_NEGOCIOS, ...JSON.parse(guardado) }));
+      }
+    } catch (e) {}
+  }, [currentProyectoId, DEFAULT_ESCENARIOS_NEGOCIOS]);
+
+  const handleEscenarioNegocioChange = useCallback((negocioId, nuevoEscenario) => {
+    setEscenariosPorNegocio(prev => {
+      const updated = {
+        ...prev,
+        [negocioId]: nuevoEscenario
+      };
+      try {
+        const pId = currentProyectoId || localStorage.getItem('sge_selected_proyecto_id') || 'consorcio_general';
+        localStorage.setItem('sge_escenarios_por_negocio_' + pId, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  }, [currentProyectoId]);
+
   // Estado global para el nivel de ventas / ritmo operativo (compartido entre Recibo CFE y Consumo por Ventas)
   const [escenarioVentasGlobal, setEscenarioVentasGlobal] = useState(() => {
     try {
-      return localStorage.getItem('sge_escenario_ventas_global') || 'medio';
+      return localStorage.getItem('sge_escenario_ventas_global') || 'por_empresa';
     } catch (e) {
-      return 'medio';
+      return 'por_empresa';
     }
   });
 
@@ -234,6 +279,7 @@ export default function App() {
       localStorage.setItem('sge_escenario_ventas_global', nuevoEscenario);
     } catch (e) {}
   }, []);
+
 
   // Estado para forzar sistema trifásico bajo demanda de usuario
   const [forzarTrifasico, setForzarTrifasico] = useState(false);
@@ -2931,6 +2977,8 @@ export default function App() {
                 proyectoId={currentProyectoId}
                 escenarioVentas={escenarioVentasGlobal}
                 onEscenarioVentasChange={handleEscenarioGlobalChange}
+                escenariosPorNegocio={escenariosPorNegocio}
+                onEscenarioNegocioChange={handleEscenarioNegocioChange}
               />
             </div>
           )}
@@ -2970,9 +3018,12 @@ export default function App() {
                 medidores={medidores}
                 escenarioVentas={escenarioVentasGlobal}
                 onEscenarioVentasChange={handleEscenarioGlobalChange}
+                escenariosPorNegocio={escenariosPorNegocio}
+                onEscenarioNegocioChange={handleEscenarioNegocioChange}
               />
             </div>
           )}
+
 
           {/* PESTAÑA: FINANZAS Y RENTABILIDAD POR NEGOCIO */}
           {activeTab === 'finanzas' && (

@@ -29,7 +29,7 @@ export default function ComparativaMensualCFE({
                 <span className="text-sm font-bold text-slate-400 font-sans">MXN Total</span>
               </div>
               <span className="text-xs text-slate-400 mt-0.5 block font-mono">
-                Suma de los 6 Contratos / Medidores independientes: {Math.round(totalKwhPeriodoConsorcio).toLocaleString('es-MX')} kWh
+                Suma de los {Object.keys(mapaMedidores).length} Contratos / Medidores independientes: {Math.round(totalKwhPeriodoConsorcio).toLocaleString('es-MX')} kWh
               </span>
             </div>
 
@@ -44,12 +44,13 @@ export default function ComparativaMensualCFE({
           </div>
         </div>
 
-        {/* Tabla Matriz por los 6 Medidores */}
+        {/* Tabla Matriz por Medidores Reales */}
         <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 overflow-hidden">
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider font-display mb-3 flex items-center gap-2">
             <Building2 size={16} className="text-teal-400" />
-            Matriz de Consumo y Recibo CFE por Medidor Físico
+            Matriz de Consumo y Recibo CFE por Medidor Físico ({Object.keys(mapaMedidores).length} Medidores)
           </h4>
+
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
