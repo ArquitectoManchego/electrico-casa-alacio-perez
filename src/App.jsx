@@ -669,6 +669,142 @@ export default function App() {
           }
         }
 
+        // Calibración de régimen operativo real para Bordados Veracruz (Medidor 4):
+        // Detecta si las bordadoras siguen con 8h diarias a pesar de estar paradas en reparación, o si falta el clima de 18,000 BTU
+        const necesitaCalibrarBordados = datosFiltrados.some(ap =>
+          (ap.id === 'bv_1' && (ap.horasAlta === 8 || ap.diasUsoMes === undefined || ap.diasUsoMes > 5))
+        ) || !datosFiltrados.some(ap => ap.id === 'bv_4');
+
+        if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'bordados_veracruz') && necesitaCalibrarBordados) {
+          const mapaCalibracionBordados = {
+            bv_1: { diasUsoMes: 0, horasAlta: 0 },
+            bv_2: { diasUsoMes: 0, horasAlta: 0 },
+            bv_3: { diasUsoMes: 0, horasAlta: 0 }
+          };
+
+          datosFiltrados.forEach((ap, idx) => {
+            if (mapaCalibracionBordados[ap.id]) {
+              datosFiltrados[idx] = { ...ap, ...mapaCalibracionBordados[ap.id] };
+              cambioDetectado = true;
+            }
+          });
+
+          // Inyectar el Minisplit Inverter de 18,000 BTU para Bordados si no existía
+          if (!datosFiltrados.some(ap => ap.id === 'bv_4')) {
+            const medBordadosId = currentProyectoId === 'consorcio_general' ? 'med_4' : (finalMedidores[0]?.id || 'med_1');
+            const climaBordados = {
+              id: 'bv_4',
+              tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)',
+              modelo: '1.5 TR Inverter (18,000 BTU)',
+              watts: 1700,
+              fp: 0.95,
+              tipoCarga: 'bifasica',
+              fase: 'A-B',
+              diasUsoMes: 0,
+              horasAlta: 0,
+              precio: 13500,
+              mantenimiento: 900,
+              vidaUtil: 8,
+              medidorId: medBordadosId,
+              local: 'Bordados Veracruz',
+              tuberiaDiametro: '16 mm (1/2")',
+              tuberiaTipo: 'Pared Delgada',
+              longitudMetros: 15,
+              kaic: '10 kA',
+              variantes: [
+                {
+                  id: 'default',
+                  nombre: '1.5 TR Inverter (18,000 BTU)',
+                  watts: 1700,
+                  fp: 0.95,
+                  precio: 13500,
+                  mantenimiento: 900,
+                  vidaUtil: 8,
+                  horasAlta: 0,
+                  diasUsoMes: 0,
+                  durabilidadOption: 'estandar',
+                  tipoCarga: 'bifasica',
+                  usarVaDirecto: false
+                }
+              ],
+              activaVariantId: 'default'
+            };
+            datosFiltrados.push(climaBordados);
+            cambioDetectado = true;
+          }
+        }
+
+        // Calibración de régimen operativo real para Taller de Costura (Medidor 5):
+        // 2 costureras máximo simultáneas, plancha de vapor solo 1h/día, collaretera 4d/mes @ 0.75h
+        const necesitaCalibrarCostura = datosFiltrados.some(ap =>
+          (ap.id === 'tc_5' && ap.horasAlta === 6) || (ap.id === 'tc_3' && ap.horasAlta === 3 && ap.diasUsoMes === undefined)
+        );
+
+        if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'taller_costura') && necesitaCalibrarCostura) {
+          const mapaCalibracionCostura = {
+            tc_1: { diasUsoMes: 26, horasAlta: 5.5 },
+            tc_2: { diasUsoMes: 26, horasAlta: 4.0 },
+            tc_3: { diasUsoMes: 4, horasAlta: 0.75 },
+            tc_4: { diasUsoMes: 8, horasAlta: 1.5 },
+            tc_5: { diasUsoMes: 26, horasAlta: 1.0 },
+            tc_6: { diasUsoMes: 26, horasAlta: 8.0 },
+            tc_7: { diasUsoMes: 26, horasAlta: 8.5 }
+          };
+
+          datosFiltrados.forEach((ap, idx) => {
+            if (mapaCalibracionCostura[ap.id]) {
+              datosFiltrados[idx] = { ...ap, ...mapaCalibracionCostura[ap.id] };
+              cambioDetectado = true;
+            }
+          });
+        }
+
+        // Calibración de régimen operativo real para Papelería ImperiArte (Medidor 2):
+        // Fotocopiadora Xerox en arranque moderado (24d/mes @ 0.75h en vez de 5h/día continuas)
+        const necesitaCalibrarPapeleria = datosFiltrados.some(ap =>
+          (ap.id === 'pap_1' && ap.horasAlta === 5)
+        );
+
+        if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'papeleria_imperiarte') && necesitaCalibrarPapeleria) {
+          const mapaCalibracionPapeleria = {
+            pap_1: { diasUsoMes: 24, horasAlta: 0.75 },
+            pap_2: { diasUsoMes: 26, horasAlta: 8.0 },
+            pap_3: { diasUsoMes: 26, horasAlta: 8.5 },
+            pap_4: { diasUsoMes: 26, horasAlta: 9.0 }
+          };
+
+          datosFiltrados.forEach((ap, idx) => {
+            if (mapaCalibracionPapeleria[ap.id]) {
+              datosFiltrados[idx] = { ...ap, ...mapaCalibracionPapeleria[ap.id] };
+              cambioDetectado = true;
+            }
+          });
+        }
+
+        // Calibración de régimen operativo real para Oficinas Consorcio (Medidor 6):
+        // 3 a 4 veces por semana, 2 horas por vez (clima, laptop, luces a 15d @ 2h; módem 24/7)
+        const necesitaCalibrarOficinas = datosFiltrados.some(ap =>
+          (ap.id === 'oc_2' && ap.horasAlta === 3 && ap.diasUsoMes === undefined) ||
+          (ap.id === 'oc_1' && ap.horasAlta === 4)
+        );
+
+        if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'oficinas_consorcio') && necesitaCalibrarOficinas) {
+          const mapaCalibracionOficinas = {
+            oc_1: { diasUsoMes: 15, horasAlta: 2.0 },
+            oc_2: { diasUsoMes: 15, horasAlta: 2.0 },
+            oc_3: { diasUsoMes: 8, horasAlta: 1.5 },
+            oc_4: { diasUsoMes: 15, horasAlta: 2.0 },
+            oc_5: { diasUsoMes: 30, horasAlta: 24.0 }
+          };
+
+          datosFiltrados.forEach((ap, idx) => {
+            if (mapaCalibracionOficinas[ap.id]) {
+              datosFiltrados[idx] = { ...ap, ...mapaCalibracionOficinas[ap.id] };
+              cambioDetectado = true;
+            }
+          });
+        }
+
         // Pre-calcular acometida efectiva de cada medidor para normalizar fases y ranuras
         const acometidaPorMedidor = {};
         finalMedidores.forEach(med => {

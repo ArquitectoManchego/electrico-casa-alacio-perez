@@ -521,6 +521,22 @@ export const NEGOCIOS_CONFIG = [
         factorGap: 1.0,
         factorStandby: 0.0,
         keywords: ['alumbrado', 'bordados', 'led']
+      },
+      bv_ac: {
+        key: 'bv_ac',
+        nombre: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)',
+        tipoCatalogo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)',
+        wattsNominal: 1700,
+        fp: 0.95,
+        tipoCarga: 'bifasica',
+        faseSugerida: 'A-B',
+        cantidadParalela: 1,
+        rol: 'clima',
+        factorPrecalentamiento: 1.0,
+        factorTrabajo: 0.70,
+        factorGap: 0.50,
+        factorStandby: 0.05,
+        keywords: ['clima', 'minisplit', 'inverter', '18000', '18,000', '1.5 tr', 'aire']
       }
     }
   },

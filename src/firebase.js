@@ -128,28 +128,29 @@ export function generarSeedAparatos(proyectoId) {
   ];
 
   const papeleriaList = [
-    { id: 'pap_1', tipo: 'Fotocopiadora / Impresora Xerox DocuColor', modelo: 'DocuColor Láser Color', watts: 1500, fp: 0.92, tipoCarga: 'monofasica', fase: 'A', horasAlta: 5, precio: 55000, mantenimiento: 4500, vidaUtil: 8 },
-    { id: 'pap_2', tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)', modelo: '1.5 TR (18,000 BTU)', watts: 1700, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 13500, mantenimiento: 950, vidaUtil: 8 },
-    { id: 'pap_3', tipo: 'Computadora AIO TPV (All-in-One)', modelo: 'AIO 21.5" TPV', watts: 180, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 15000, mantenimiento: 350, vidaUtil: 6 },
-    { id: 'pap_4', tipo: 'Alumbrado LED Papelería (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 1900, mantenimiento: 100, vidaUtil: 10 }
+    { id: 'pap_1', tipo: 'Fotocopiadora / Impresora Xerox DocuColor', modelo: 'DocuColor Láser Color', watts: 1500, fp: 0.92, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 24, horasAlta: 0.75, precio: 55000, mantenimiento: 4500, vidaUtil: 8 },
+    { id: 'pap_2', tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)', modelo: '1.5 TR (18,000 BTU)', watts: 1700, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', diasUsoMes: 26, horasAlta: 8.0, precio: 13500, mantenimiento: 950, vidaUtil: 8 },
+    { id: 'pap_3', tipo: 'Computadora AIO TPV (All-in-One)', modelo: 'AIO 21.5" TPV', watts: 180, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 26, horasAlta: 8.5, precio: 15000, mantenimiento: 350, vidaUtil: 6 },
+    { id: 'pap_4', tipo: 'Alumbrado LED Papelería (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', diasUsoMes: 26, horasAlta: 9.0, precio: 1900, mantenimiento: 100, vidaUtil: 10 }
   ];
 
   const hawaiianList = EQUIPOS_HAWAIIAN_CANONICOS;
 
   const bordadosList = [
-    { id: 'bv_1', tipo: 'Bordadora Industrial AEMCO 220V Dahao (4 Cabezas)', modelo: 'AEMCO Cama Plana 4 Cabezas 220V', watts: 1800, fp: 0.85, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 95000, mantenimiento: 5500, vidaUtil: 15 },
-    { id: 'bv_2', tipo: 'Bordadora Industrial Melco EMC 6/4 (4 Cabezas, 6 Hilos)', modelo: 'Melco EMC 6/4 (4 Cabezas)', watts: 1500, fp: 0.82, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 85000, mantenimiento: 4800, vidaUtil: 15 },
-    { id: 'bv_3', tipo: 'Alumbrado LED Bordados (4 Luminarias)', modelo: '4x Lámparas LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 1900, mantenimiento: 100, vidaUtil: 10 }
+    { id: 'bv_1', tipo: 'Bordadora Industrial AEMCO 220V Dahao (4 Cabezas)', modelo: 'AEMCO Cama Plana 4 Cabezas 220V', watts: 1800, fp: 0.85, tipoCarga: 'bifasica', fase: 'A-B', diasUsoMes: 0, horasAlta: 0, precio: 95000, mantenimiento: 5500, vidaUtil: 15 },
+    { id: 'bv_2', tipo: 'Bordadora Industrial Melco EMC 6/4 (4 Cabezas, 6 Hilos)', modelo: 'Melco EMC 6/4 (4 Cabezas)', watts: 1500, fp: 0.82, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 0, horasAlta: 0, precio: 85000, mantenimiento: 4800, vidaUtil: 15 },
+    { id: 'bv_3', tipo: 'Alumbrado LED Bordados (4 Luminarias)', modelo: '4x Lámparas LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', diasUsoMes: 0, horasAlta: 0, precio: 1900, mantenimiento: 100, vidaUtil: 10 },
+    { id: 'bv_4', tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)', modelo: '1.5 TR Inverter (18,000 BTU)', watts: 1700, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', diasUsoMes: 0, horasAlta: 0, precio: 13500, mantenimiento: 900, vidaUtil: 8 }
   ];
 
   const costuraList = [
-    { id: 'tc_1', tipo: '2 Máquinas de Coser Recta Industrial Singer', modelo: '2x Singer Recta Industrial (550W c/u)', watts: 1100, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 33000, mantenimiento: 2400, vidaUtil: 12 },
-    { id: 'tc_2', tipo: 'Máquina Overlock Industrial (5 Hilos)', modelo: 'Overlock 5 Hilos (550W)', watts: 550, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', horasAlta: 8, precio: 18500, mantenimiento: 1400, vidaUtil: 12 },
-    { id: 'tc_3', tipo: 'Máquina Collaretera Industrial Singer', modelo: 'Collaretera Singer Industrial (550W)', watts: 550, fp: 0.80, tipoCarga: 'monofasica', fase: 'B', horasAlta: 3, precio: 22500, mantenimiento: 1600, vidaUtil: 12 },
-    { id: 'tc_4', tipo: 'Cortadora de Tela Industrial de Disco', modelo: 'Cortadora Octagonal 4"', watts: 300, fp: 0.75, tipoCarga: 'monofasica', fase: 'A', horasAlta: 3, precio: 4800, mantenimiento: 600, vidaUtil: 8 },
-    { id: 'tc_5', tipo: 'Plancha de Vapor Industrial con Caldera', modelo: 'Caldera de Vapor 1.6kW', watts: 1600, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 6, precio: 11000, mantenimiento: 1000, vidaUtil: 8 },
-    { id: 'tc_6', tipo: 'Minisplit Inverter (Área 4x3.5 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'tc_7', tipo: 'Alumbrado LED Taller de Costura (6 Luminarias)', modelo: '6x Paneles LED 18W', watts: 108, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 10, precio: 2800, mantenimiento: 150, vidaUtil: 10 }
+    { id: 'tc_1', tipo: '2 Máquinas de Coser Recta Industrial Singer', modelo: '2x Singer Recta Industrial (550W c/u)', watts: 1100, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 26, horasAlta: 5.5, precio: 33000, mantenimiento: 2400, vidaUtil: 12 },
+    { id: 'tc_2', tipo: 'Máquina Overlock Industrial (5 Hilos)', modelo: 'Overlock 5 Hilos (550W)', watts: 550, fp: 0.80, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 26, horasAlta: 4.0, precio: 18500, mantenimiento: 1400, vidaUtil: 12 },
+    { id: 'tc_3', tipo: 'Máquina Collaretera Industrial Singer', modelo: 'Collaretera Singer Industrial (550W)', watts: 550, fp: 0.80, tipoCarga: 'monofasica', fase: 'B', diasUsoMes: 4, horasAlta: 0.75, precio: 22500, mantenimiento: 1600, vidaUtil: 12 },
+    { id: 'tc_4', tipo: 'Cortadora de Tela Industrial de Disco', modelo: 'Cortadora Octagonal 4"', watts: 300, fp: 0.75, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 8, horasAlta: 1.5, precio: 4800, mantenimiento: 600, vidaUtil: 8 },
+    { id: 'tc_5', tipo: 'Plancha de Vapor Industrial con Caldera', modelo: 'Caldera de Vapor 1.6kW', watts: 1600, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', diasUsoMes: 26, horasAlta: 1.0, precio: 11000, mantenimiento: 1000, vidaUtil: 8 },
+    { id: 'tc_6', tipo: 'Minisplit Inverter Taller de Costura (220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', diasUsoMes: 26, horasAlta: 8.0, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
+    { id: 'tc_7', tipo: 'Alumbrado LED Taller de Costura (6 Luminarias)', modelo: '6x Paneles LED 18W', watts: 108, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', diasUsoMes: 26, horasAlta: 8.5, precio: 2800, mantenimiento: 150, vidaUtil: 10 }
   ];
 
   const publiList = [
@@ -338,11 +339,11 @@ export function generarSeedAparatos(proyectoId) {
   ];
 
   const oficinasList = [
-    { id: 'oc_1', tipo: 'Computadora Portátil (Laptop)', modelo: 'Laptop Directiva', watts: 65, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 16000, mantenimiento: 300, vidaUtil: 5 },
-    { id: 'oc_2', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 3, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'oc_3', tipo: 'Televisión Smart LED 32 Pulgadas', modelo: 'Smart TV 32" Juntas', watts: 55, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', horasAlta: 2, precio: 4200, mantenimiento: 150, vidaUtil: 7 },
-    { id: 'oc_4', tipo: 'Alumbrado LED Oficina Consorcio (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 1900, mantenimiento: 100, vidaUtil: 10 },
-    { id: 'oc_5', tipo: 'Módem de Internet & Router WiFi', modelo: 'Router WiFi Dual-Band', watts: 25, fp: 0.85, tipoCarga: 'monofasica', fase: 'A', horasAlta: 24, precio: 2500, mantenimiento: 150, vidaUtil: 6 }
+    { id: 'oc_1', tipo: 'Computadora Portátil (Laptop)', modelo: 'Laptop Directiva', watts: 65, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 15, horasAlta: 2.0, precio: 16000, mantenimiento: 300, vidaUtil: 5 },
+    { id: 'oc_2', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', diasUsoMes: 15, horasAlta: 2.0, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
+    { id: 'oc_3', tipo: 'Televisión Smart LED 32 Pulgadas', modelo: 'Smart TV 32" Juntas', watts: 55, fp: 0.95, tipoCarga: 'monofasica', fase: 'B', diasUsoMes: 8, horasAlta: 1.5, precio: 4200, mantenimiento: 150, vidaUtil: 7 },
+    { id: 'oc_4', tipo: 'Alumbrado LED Oficina Consorcio (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, fp: 0.95, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 15, horasAlta: 2.0, precio: 1900, mantenimiento: 100, vidaUtil: 10 },
+    { id: 'oc_5', tipo: 'Módem de Internet & Router WiFi', modelo: 'Router WiFi Dual-Band', watts: 25, fp: 0.85, tipoCarga: 'monofasica', fase: 'A', diasUsoMes: 30, horasAlta: 24.0, precio: 2500, mantenimiento: 150, vidaUtil: 6 }
   ];
 
   if (proyectoId === 'imperia_uniformes') return imperiaList.map(x => formatearAp({ ...x, local: 'Imperia Uniformes' }));

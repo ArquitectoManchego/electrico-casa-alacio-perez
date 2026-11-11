@@ -539,18 +539,19 @@ export const EQUIPOS_DEFAULT_POR_NEGOCIO = {
     { id: 'hp_andamar_c15', tipo: 'Smart TV LED 70" 4K UHD', modelo: 'DAW70UR / Daewoo', watts: 220, precio: 9999, vidaUtil: 7, medidorId: 'med_3' }
   ],
   bordados_veracruz: [
-    { id: 'bord_1', tipo: 'Bordadora Industrial Tajima / AEMCO 4C', modelo: 'AEMCO 4 Cabezas 12 Agujas', watts: 1200, precio: 95000, vidaUtil: 10, medidorId: 'med_4' },
-    { id: 'bord_2', tipo: 'Minisplit Inverter 1.5 TR (220V)', modelo: '1.5 TR (18,000 BTU)', watts: 1700, precio: 13500, vidaUtil: 8, medidorId: 'med_4' },
-    { id: 'bord_3', tipo: 'Computadora Diseño Bordado Wilcom', modelo: 'PC Core i7 + Monitor 27"', watts: 350, precio: 22000, vidaUtil: 6, medidorId: 'med_4' },
-    { id: 'bord_4', tipo: 'Compresor Silencioso Libre de Aceite', modelo: 'Compresor Dental 2 HP 50L', watts: 1500, precio: 6500, vidaUtil: 8, medidorId: 'med_4' }
+    { id: 'bv_1', tipo: 'Bordadora Industrial AEMCO 220V Dahao (4 Cabezas)', modelo: 'AEMCO Cama Plana 4 Cabezas 220V', watts: 1800, precio: 95000, vidaUtil: 15, medidorId: 'med_4' },
+    { id: 'bv_2', tipo: 'Bordadora Industrial Melco EMC 6/4 (4 Cabezas, 6 Hilos)', modelo: 'Melco EMC 6/4 (4 Cabezas)', watts: 1500, precio: 85000, vidaUtil: 15, medidorId: 'med_4' },
+    { id: 'bv_3', tipo: 'Alumbrado LED Bordados (4 Luminarias)', modelo: '4x Lámparas LED 18W', watts: 72, precio: 1900, vidaUtil: 10, medidorId: 'med_4' },
+    { id: 'bv_4', tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)', modelo: '1.5 TR Inverter (18,000 BTU)', watts: 1700, precio: 13500, vidaUtil: 8, medidorId: 'med_4' }
   ],
   taller_costura: [
-    { id: 'cost_1', tipo: 'Máquina Overlock 5 Hilos Siruba/Jack', modelo: 'Overlock Mecatrónica Direct Drive', watts: 550, precio: 16500, vidaUtil: 8, medidorId: 'med_5' },
-    { id: 'cost_2', tipo: 'Máquina Recta Industrial Automática Juki', modelo: 'Recta DDL-8700 con Remate', watts: 550, precio: 14500, vidaUtil: 8, medidorId: 'med_5' },
-    { id: 'cost_3', tipo: 'Máquina Collaretera Industrial Kansai/Jack', modelo: 'Collaretera Cama Plana 3 Agujas', watts: 550, precio: 18000, vidaUtil: 8, medidorId: 'med_5' },
-    { id: 'cost_4', tipo: 'Plancha de Vapor Industrial con Caldera Silver Star', modelo: 'Caldera Eléctrica Vapor Continuo', watts: 1300, precio: 8500, vidaUtil: 6, medidorId: 'med_5' },
-    { id: 'cost_5', tipo: 'Cortadora Vertical de Tela 8 Pulgadas Eastman', modelo: 'Cortadora Cuchilla Vertical 8"', watts: 500, precio: 7500, vidaUtil: 7, medidorId: 'med_5' },
-    { id: 'cost_6', tipo: 'Minisplit Inverter 2 TR (24,000 BTU - 220V)', modelo: '2 TR Confort Inverter', watts: 2300, precio: 17500, vidaUtil: 8, medidorId: 'med_5' }
+    { id: 'tc_1', tipo: '2 Máquinas de Coser Recta Industrial Singer', modelo: '2x Singer Recta Industrial (550W c/u)', watts: 1100, precio: 33000, vidaUtil: 12, medidorId: 'med_5' },
+    { id: 'tc_2', tipo: 'Máquina Overlock Industrial (5 Hilos)', modelo: 'Overlock 5 Hilos (550W)', watts: 550, precio: 18500, vidaUtil: 12, medidorId: 'med_5' },
+    { id: 'tc_3', tipo: 'Máquina Collaretera Industrial Singer', modelo: 'Collaretera Singer Industrial (550W)', watts: 550, precio: 22500, vidaUtil: 12, medidorId: 'med_5' },
+    { id: 'tc_4', tipo: 'Cortadora de Tela Industrial de Disco', modelo: 'Cortadora Octagonal 4"', watts: 300, precio: 4800, vidaUtil: 8, medidorId: 'med_5' },
+    { id: 'tc_5', tipo: 'Plancha de Vapor Industrial con Caldera', modelo: 'Caldera de Vapor 1.6kW', watts: 1600, precio: 11000, vidaUtil: 8, medidorId: 'med_5' },
+    { id: 'tc_6', tipo: 'Minisplit Inverter Taller de Costura (220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, precio: 9500, vidaUtil: 8, medidorId: 'med_5' },
+    { id: 'tc_7', tipo: 'Alumbrado LED Taller de Costura (6 Luminarias)', modelo: '6x Paneles LED 18W', watts: 108, precio: 2800, vidaUtil: 10, medidorId: 'med_5' }
   ],
   taller_publi_imperia: [
     { id: 'pi_1', tipo: 'Impresora de Sublimación Epson L120', modelo: 'Epson L120 Sublimación', watts: 20, precio: 4500, vidaUtil: 5, medidorId: 'med_6' },
@@ -568,9 +569,11 @@ export const EQUIPOS_DEFAULT_POR_NEGOCIO = {
     { id: 'pi_12', tipo: 'Alumbrado LED Taller Publi-Imperia (7 Luminarias)', modelo: '7x Lámparas LED 18W', watts: 126, precio: 3200, vidaUtil: 10, medidorId: 'med_6' }
   ],
   oficinas_consorcio: [
-    { id: 'ofi_1', tipo: '3x Minisplit Inverter 1 TR Oficinas', modelo: '3x Inverter 12,000 BTU', watts: 3450, precio: 28500, vidaUtil: 8, medidorId: 'med_6' },
-    { id: 'ofi_2', tipo: '4x Computadoras Administrativas y Servidor', modelo: '4x Dell Optiplex + NAS Synology', watts: 1200, precio: 56000, vidaUtil: 6, medidorId: 'med_6' },
-    { id: 'ofi_3', tipo: 'Conmutador Telefónico IP y Red Gigabit', modelo: 'Switch PoE 24 Puertos + PBX Grandstream', watts: 300, precio: 28000, vidaUtil: 6, medidorId: 'med_6' }
+    { id: 'oc_1', tipo: 'Computadora Portátil (Laptop)', modelo: 'Laptop Directiva', watts: 65, precio: 16000, vidaUtil: 5, medidorId: 'med_6' },
+    { id: 'oc_2', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, precio: 9500, vidaUtil: 8, medidorId: 'med_6' },
+    { id: 'oc_3', tipo: 'Televisión Smart LED 32 Pulgadas', modelo: 'Smart TV 32" Juntas', watts: 55, precio: 4200, vidaUtil: 7, medidorId: 'med_6' },
+    { id: 'oc_4', tipo: 'Alumbrado LED Oficina Consorcio (4 Luminarias)', modelo: '4x Tubos LED 18W', watts: 72, precio: 1900, vidaUtil: 10, medidorId: 'med_6' },
+    { id: 'oc_5', tipo: 'Módem de Internet & Router WiFi', modelo: 'Router WiFi Dual-Band', watts: 25, precio: 2500, vidaUtil: 6, medidorId: 'med_6' }
   ]
 };
 
