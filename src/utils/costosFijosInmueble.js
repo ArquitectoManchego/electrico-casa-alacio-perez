@@ -154,11 +154,11 @@ export const TABLA_HVAC_INMUEBLE = {
     areaClimatizadaM2: 48.95,
     alturaMetros: 3.80,
     volumenM3: 186.01,
-    fuentesCalor: 'Crepera (1.5kW), marquesitera (1.5kW), cafetera Breville (1.65kW), TV 70", afluencia pública',
-    cargaTermicaEstimadaBtu: 24000,
-    toneladasRefrigeracion: 2.0,
-    equipoRecomendado: 'Minisplit 2 TR (24,000 BTU) Inverter 220V',
-    kwhMensualEstimado: 450
+    fuentesCalor: 'Crepera (3.0kW), marquesitera (1.3kW), cafetera Gaggia Ruby (2.64kW), baño maría, licuadora, TV 70", flujo de clientes',
+    cargaTermicaEstimadaBtu: 36000,
+    toneladasRefrigeracion: 3.0,
+    equipoRecomendado: '2x Minisplit Inverter 1.5 TR (18,000 BTU c/u - 220V): #1 Clientes y #2 Cocina/Refuerzo',
+    kwhMensualEstimado: 520
   },
   imperia_uniformes: {
     negocioId: 'imperia_uniformes',

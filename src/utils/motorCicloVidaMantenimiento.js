@@ -536,7 +536,9 @@ export const EQUIPOS_DEFAULT_POR_NEGOCIO = {
     { id: 'hp_andamar_c12', tipo: 'Olla de Presión Eléctrica Multifuncional', modelo: '34508 / Hamilton Beach', watts: 1200, precio: 2519, vidaUtil: 6, medidorId: 'med_3' },
     { id: 'hp_andamar_c13', tipo: 'Maquina de Raspados', modelo: 'HSD100G / PAISE', watts: 370, precio: 4500, vidaUtil: 10, medidorId: 'med_3' },
     { id: 'hp_andamar_c14', tipo: 'Dispensador Eléctrico Automático', modelo: 'PR352729 / Comfeè', watts: 30, precio: 564, vidaUtil: 4, medidorId: 'med_3' },
-    { id: 'hp_andamar_c15', tipo: 'Smart TV LED 70" 4K UHD', modelo: 'DAW70UR / Daewoo', watts: 220, precio: 9999, vidaUtil: 7, medidorId: 'med_3' }
+    { id: 'hp_andamar_c15', tipo: 'Smart TV LED 70" 4K UHD', modelo: 'DAW70UR / Daewoo', watts: 220, precio: 9999, vidaUtil: 7, medidorId: 'med_3' },
+    { id: 'hp_andamar_c16', tipo: 'Minisplit Inverter 18k BTU #1 (Área Clientes)', modelo: '1.5 TR (18,000 BTU - 220V) #1', watts: 1700, precio: 13500, vidaUtil: 8, medidorId: 'med_3' },
+    { id: 'hp_andamar_c17', tipo: 'Minisplit Inverter 18k BTU #2 (Área Cocina / Refuerzo)', modelo: '1.5 TR (18,000 BTU - 220V) #2', watts: 1700, precio: 13500, vidaUtil: 8, medidorId: 'med_3' }
   ],
   bordados_veracruz: [
     { id: 'bv_1', tipo: 'Bordadora Industrial AEMCO 220V Dahao (4 Cabezas)', modelo: 'AEMCO Cama Plana 4 Cabezas 220V', watts: 1800, precio: 95000, vidaUtil: 15, medidorId: 'med_4' },

@@ -167,13 +167,14 @@ export default function SimuladorConsumoVentas({
       overridesUsuario: null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
+      mesActivo: mesSeleccionado,
       aparatos,
       esConsorcio,
       tarifas,
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simTablas = useMemo(() => {
     return simularNegocioCompleto({
@@ -182,13 +183,14 @@ export default function SimuladorConsumoVentas({
       overridesUsuario: null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
+      mesActivo: mesSeleccionado,
       aparatos,
       esConsorcio,
       tarifas,
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simMedio = useMemo(() => {
     return simularNegocioCompleto({
@@ -197,13 +199,14 @@ export default function SimuladorConsumoVentas({
       overridesUsuario: null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
+      mesActivo: mesSeleccionado,
       aparatos,
       esConsorcio,
       tarifas,
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simAlto = useMemo(() => {
     return simularNegocioCompleto({
@@ -212,13 +215,14 @@ export default function SimuladorConsumoVentas({
       overridesUsuario: null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
+      mesActivo: mesSeleccionado,
       aparatos,
       esConsorcio,
       tarifas,
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simMuyAlto = useMemo(() => {
     return simularNegocioCompleto({
@@ -227,13 +231,14 @@ export default function SimuladorConsumoVentas({
       overridesUsuario: null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
+      mesActivo: mesSeleccionado,
       aparatos,
       esConsorcio,
       tarifas,
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simActual = useMemo(() => {
     if (estadoActual.escenarioActivo === 'bajo') return simBajo;
@@ -248,13 +253,14 @@ export default function SimuladorConsumoVentas({
       overridesUsuario: estadoActual.overridesUsuario,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
+      mesActivo: mesSeleccionado,
       aparatos,
       esConsorcio,
       tarifas,
       costosMEM,
       diasPeriodo
     });
-  }, [estadoActual.escenarioActivo, estadoActual.overridesUsuario, estadoActual.diasLaborales, estadoActual.horasTurno, simBajo, simTablas, simMedio, simAlto, simMuyAlto, negocioActivoId, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [estadoActual.escenarioActivo, estadoActual.overridesUsuario, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, simBajo, simTablas, simMedio, simAlto, simMuyAlto, negocioActivoId, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   // Simulación agregada de Consorcio por los Medidores Reales CFE
   const simConsorcio = useMemo(() => {
@@ -266,9 +272,10 @@ export default function SimuladorConsumoVentas({
       medidores,
       tarifas,
       costosMEM,
-      diasPeriodo
+      diasPeriodo,
+      mesActivo: mesSeleccionado
     });
-  }, [esConsorcio, estadosNegocios, escenariosPorNegocio, aparatos, medidores, tarifas, costosMEM, diasPeriodo]);
+  }, [esConsorcio, estadosNegocios, escenariosPorNegocio, aparatos, medidores, tarifas, costosMEM, diasPeriodo, mesSeleccionado]);
 
   // Notificar al componente padre el kWh diario para el recibo físico CFE
   useEffect(() => {

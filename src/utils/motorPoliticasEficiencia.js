@@ -482,6 +482,50 @@ export const CATALOGO_POLITICAS_NEGOCIOS = {
             costoImplementacion: 0
           }
         ]
+      },
+      {
+        id: 'hp_ac_dual',
+        nombre: '2x Minisplit Inverter 18,000 BTU (Modulación Escalonada Clientes / Refuerzo)',
+        tipo: 'Climatización Inverter Dividida',
+        watts: 3400,
+        horasUsoDefault: 8.5,
+        icono: '❄️',
+        politicasActivas: [
+          {
+            id: 'hp_ac_termostato_programable',
+            tipo: 'activo',
+            titulo: 'Termostatos Programables Digitales a 24°C',
+            descripcion: 'Mantener la consigna en 24°C en ambos equipos. Cada grado menor a 24°C aumenta el consumo eléctrico un 8% en el compresor.',
+            ahorroKwhMes: 65.0,
+            ahorroPct: 18,
+            beneficioVidaUtil: 'Reduce el estrés térmico en el condensador y evita congelamiento del evaporador.',
+            costoImplementacion: 600
+          }
+        ],
+        politicasPasivas: [
+          {
+            id: 'hp_ac_cortina_aire',
+            tipo: 'pasivo',
+            titulo: 'Cortina de Aire en Acceso Principal del Local',
+            descripcion: 'Barrera aerodinámica invisible que evita el escape del aire frío hacia la calle durante la entrada y salida de clientes.',
+            ahorroKwhMes: 80.0,
+            ahorroPct: 22,
+            beneficioVidaUtil: 'Disminuye en 30% los ciclos de arranque a máxima potencia del inverter.',
+            costoImplementacion: 3200
+          }
+        ],
+        accionesUsuario: [
+          {
+            id: 'hp_ac_operacion_por_ventas',
+            tipo: 'usuario',
+            titulo: 'Protocolo de Operación según Ventas y Temporada',
+            descripcion: 'En días con pocas ventas o temporada fresca: encender ÚNICAMENTE la Unidad #1 (Área Clientes) vinculado al horario de apertura. En días con muchas ventas / alta afluencia o canícula: encender la Unidad #2 (Refuerzo Cocina) en simultáneo.',
+            ahorroKwhMes: 120.0,
+            ahorroPct: 35,
+            beneficioVidaUtil: 'Distribuye equitativamente las horas de desgaste y duplica la vida útil de los compresores.',
+            costoImplementacion: 0
+          }
+        ]
       }
     ]
   },

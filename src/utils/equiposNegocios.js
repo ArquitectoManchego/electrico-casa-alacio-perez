@@ -334,21 +334,39 @@ export const NEGOCIOS_CONFIG = [
         factorStandby: 0.0,
         keywords: ['dispensador', 'comfeè', 'pr352729', 'automático']
       },
-      hp_ac_24k: {
-        key: 'hp_ac_24k',
-        nombre: 'Minisplit Inverter 24,000 BTU (220V)',
-        tipoCatalogo: 'Minisplit Inverter 2 TR (24,000 BTU - 220V)',
-        wattsNominal: 2250,
+      hp_ac_18k_1: {
+        key: 'hp_ac_18k_1',
+        nombre: 'Minisplit Inverter 18,000 BTU #1 (Área Clientes)',
+        tipoCatalogo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V) #1',
+        wattsNominal: 1700,
         fp: 0.95,
         tipoCarga: 'bifasica',
         faseSugerida: 'A-B',
         cantidadParalela: 1,
         rol: 'clima',
+        unidadClima: 1, // Unidad Base: enciende durante el horario de apertura del local
         factorPrecalentamiento: 1.0,
-        factorTrabajo: 0.68,
-        factorGap: 0.68,
+        factorTrabajo: 0.65,
+        factorGap: 0.65,
         factorStandby: 0.05,
-        keywords: ['24,000', '24000', '2 tr', 'minisplit', 'inverter', 'clima']
+        keywords: ['18000', '18,000', '1.5 tr', 'minisplit', 'inverter', 'clima', '#1', 'unidad 1', 'clientes']
+      },
+      hp_ac_18k_2: {
+        key: 'hp_ac_18k_2',
+        nombre: 'Minisplit Inverter 18,000 BTU #2 (Área Cocina / Refuerzo Alta Demanda)',
+        tipoCatalogo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V) #2',
+        wattsNominal: 1700,
+        fp: 0.95,
+        tipoCarga: 'bifasica',
+        faseSugerida: 'B-C',
+        cantidadParalela: 1,
+        rol: 'clima',
+        unidadClima: 2, // Unidad Refuerzo: solo enciende en días con muchas ventas / alta demanda
+        factorPrecalentamiento: 1.0,
+        factorTrabajo: 0.65,
+        factorGap: 0.65,
+        factorStandby: 0.05,
+        keywords: ['18000', '18,000', '1.5 tr', 'minisplit', 'inverter', 'clima', '#2', 'unidad 2', 'refuerzo', 'cocina']
       },
       hp_tpv: {
         key: 'hp_tpv',

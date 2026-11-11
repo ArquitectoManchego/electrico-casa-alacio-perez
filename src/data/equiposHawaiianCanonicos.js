@@ -1,16 +1,17 @@
 /**
  * equiposHawaiianCanonicos.js
  * 
- * Instantánea estática desacoplada de los 15 circuitos canónicos de Hawaiian Paradise
+ * Instantánea estática desacoplada de los 17 circuitos canónicos de Hawaiian Paradise
  * extraída en modo solo lectura para su importación al medidor Hawaiian Paradise Universidades (med_3)
  * dentro del proyecto ELECTRICO CASA ALACIO PEREZ.
  * 
  * Especificaciones de Ingeniería Eléctrica:
- * - 15 Circuitos Derivados Normalizados bajo NOM-001-SEDE-2012
- * - Potencia Activa Total: 13,716 W
- * - Potencia Aparente Total: 14,695 VA
+ * - 17 Circuitos Derivados Normalizados bajo NOM-001-SEDE-2012
+ * - Potencia Activa Total: 17,116 W
+ * - Potencia Aparente Total: 18,274 VA
  * - Acometida: Trifásica 3F-1N (220V/127V)
- * - Desbalance UVIE: 0.05% (Óptimo, <= 5.0%)
+ * - Incluye 2 Minisplits Inverter 1.5 TR (18,000 BTU c/u - 220V): Unidad #1 Clientes y Unidad #2 Cocina/Refuerzo
+ * - Desbalance UVIE: Óptimo (<= 5.0%)
  */
 
 export const EQUIPOS_HAWAIIAN_CANONICOS = [
@@ -699,6 +700,100 @@ export const EQUIPOS_HAWAIIAN_CANONICOS = [
         consumoVariable: false,
         durabilidadOption: "estandar",
         tipoCarga: "monofasica",
+        usarVaDirecto: false
+      }
+    ],
+    activaVariantId: "default"
+  },
+  {
+    id: "hp_andamar_c16",
+    num: "C-16",
+    tipo: "Minisplit Inverter 18k BTU #1 (Área Clientes)",
+    modelo: "Minisplit Inverter 1.5 TR 18000 BTU (220V)",
+    watts: 1700,
+    fp: 0.95,
+    usarVaDirecto: false,
+    tipoCarga: "bifasica",
+    fase: "A-B",
+    slot: 18,
+    overrideCable: "12 AWG",
+    overrideBreaker: "20",
+    longitudMetros: 12,
+    tuberiaDiametro: '16 mm (1/2")',
+    tuberiaTipo: "Conduit Pared Gruesa",
+    kaic: "10 kA",
+    precio: 13500,
+    mantenimiento: 950,
+    vidaUtil: 8,
+    factorTemperatura: 1.0,
+    factorAgrupamiento: 1.0,
+    horasAlta: 8.5,
+    horasReposo: 0,
+    consumoVariable: false,
+    medidorId: "med_3",
+    local: "Hawaiian Paradise Universidades",
+    descripcionUso: "Unidad Base: Climatización de comensales. Encendido continuo durante el horario de apertura del local.",
+    variantes: [
+      {
+        id: "default",
+        nombre: "Minisplit Inverter 1.5 TR 18000 BTU (220V)",
+        watts: 1700,
+        fp: 0.95,
+        precio: 13500,
+        mantenimiento: 950,
+        vidaUtil: 8,
+        horasAlta: 8.5,
+        horasReposo: 0,
+        consumoVariable: false,
+        durabilidadOption: "estandar",
+        tipoCarga: "bifasica",
+        usarVaDirecto: false
+      }
+    ],
+    activaVariantId: "default"
+  },
+  {
+    id: "hp_andamar_c17",
+    num: "C-17",
+    tipo: "Minisplit Inverter 18k BTU #2 (Área Cocina / Refuerzo Alta Demanda)",
+    modelo: "Minisplit Inverter 1.5 TR 18000 BTU (220V)",
+    watts: 1700,
+    fp: 0.95,
+    usarVaDirecto: false,
+    tipoCarga: "bifasica",
+    fase: "B-C",
+    slot: 17,
+    overrideCable: "12 AWG",
+    overrideBreaker: "20",
+    longitudMetros: 14,
+    tuberiaDiametro: '16 mm (1/2")',
+    tuberiaTipo: "Conduit Pared Gruesa",
+    kaic: "10 kA",
+    precio: 13500,
+    mantenimiento: 950,
+    vidaUtil: 8,
+    factorTemperatura: 1.0,
+    factorAgrupamiento: 1.0,
+    horasAlta: 4.0,
+    horasReposo: 0,
+    consumoVariable: true,
+    medidorId: "med_3",
+    local: "Hawaiian Paradise Universidades",
+    descripcionUso: "Unidad de Refuerzo: Apagado en días con pocas ventas. Encendido en simultáneo con Unidad #1 en días con muchas ventas / alta afluencia o calor canicular.",
+    variantes: [
+      {
+        id: "default",
+        nombre: "Minisplit Inverter 1.5 TR 18000 BTU (220V)",
+        watts: 1700,
+        fp: 0.95,
+        precio: 13500,
+        mantenimiento: 950,
+        vidaUtil: 8,
+        horasAlta: 4.0,
+        horasReposo: 0,
+        consumoVariable: true,
+        durabilidadOption: "estandar",
+        tipoCarga: "bifasica",
         usarVaDirecto: false
       }
     ],

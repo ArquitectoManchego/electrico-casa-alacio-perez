@@ -7,6 +7,7 @@ import { NEGOCIOS_CONFIG, vincularEquiposConInventario } from './equiposNegocios
 import { PROCESOS_POR_NEGOCIO } from './procesosNegocios.js';
 import { calcularCobroCFECompleto } from './simuladorCFE.js';
 import { identificarNegocioDeAparato } from './localHelpers.js';
+import { MESES_INFO } from './motorTemporadasYEventos.js';
 
 /**
  * Calcula los minutos y kWh consumidos por un proceso productivo
@@ -261,6 +262,7 @@ export function simularNegocioCompleto({
   overridesUsuario = null,   // { cantidades: {}, lotes: {} }
   diasLaborales = 26,
   horasTurno = 8.0,
+  mesActivo = 8,             // 1 a 12 (Temporada del año, default Agosto)
   aparatos = [],
   esConsorcio = false,
   tarifas = {},
@@ -348,17 +350,55 @@ export function simularNegocioCompleto({
       kwhEquiposMes[eqKey] = (kwhEquiposMes[eqKey] || 0) + kwhMes;
       minutosEquiposMes[eqKey] = (minutosEquiposMes[eqKey] || 0) + (horasMes * 60);
     } else if (eq.rol === 'clima') {
-      // Modulación de clima según escenario de venta y horario del local
+      // Modulación de clima según:
+      // 1. Horario de apertura del local (vinculado a horasTurno o horasAlta configuradas)
+      // 2. Temporada del año (mesActivo: factor de calor/fresco en Veracruz)
+      // 3. Nivel de ventas / afluencia de clientes:
+      //    - Unidad 1 (Base / Área Clientes): Siempre encendida durante el horario de apertura del local.
+      //    - Unidad 2 (Refuerzo / Cocina): Con pocas ventas se mantiene APAGADA (0h); con muchas ventas se enciende junto con la Unidad 1.
+      const mesInfo = MESES_INFO.find(m => m.id === parseInt(mesActivo)) || MESES_INFO[7]; // Default Agosto (Canícula / Calor)
+      const factorEstacional = mesInfo?.factorClimaUso || 0.85;
+
+      const hAperturaLocal = eq.horasAlta !== undefined ? eq.horasAlta : horasTurno;
+      const horasTurnoClimaMes = diasLaborales * hAperturaLocal;
+
+      const esUnidadRefuerzo = eq.unidadClima === 2 || (eq.nombre && (eq.nombre.includes('#2') || eq.nombre.toLowerCase().includes('refuerzo')));
+
       let factorUso = 0.65;
-      if (escenarioActivo === 'bajo') factorUso = 0.50;
-      else if (escenarioActivo === 'tablas' || escenarioActivo === 'equilibrio') factorUso = 0.58;
-      else if (escenarioActivo === 'medio' || escenarioActivo === 'buena') factorUso = 0.65;
-      else if (escenarioActivo === 'alto') factorUso = 0.85;
-      else if (escenarioActivo === 'muy_alto') factorUso = 0.95;
-      const hTurnoClima = eq.horasAlta !== undefined ? eq.horasAlta : horasTurno;
-      const horasTurnoClimaMes = diasLaborales * hTurnoClima;
+
+      if (esUnidadRefuerzo) {
+        // AIRE ACONDICIONADO DE REFUERZO:
+        // En días con pocas ventas ('bajo'): ÚNICAMENTE se enciende 1 aire acondicionado (este se mantiene apagado)
+        if (escenarioActivo === 'bajo') {
+          factorUso = 0.0; // Totalmente APAGADO (0 horas, 0 kWh)
+        } else if (escenarioActivo === 'tablas' || escenarioActivo === 'equilibrio') {
+          // Ventas en tablas / punto de equilibrio: solo apoya brevemente si la temporada es canicular
+          factorUso = factorEstacional > 0.85 ? 0.15 : 0.0;
+        } else if (escenarioActivo === 'medio' || escenarioActivo === 'buena') {
+          // Buenas ventas / afluencia regular: apoya durante las horas pico de afluencia
+          factorUso = Math.min(0.80, 0.45 * (factorEstacional / 0.80));
+        } else if (escenarioActivo === 'alto') {
+          // Muchas ventas: se encienden los 2 aires en casi todo el horario comercial
+          factorUso = Math.min(0.95, 0.80 * (factorEstacional / 0.80));
+        } else if (escenarioActivo === 'muy_alto') {
+          // Demanda máxima: ambos aires a plena potencia
+          factorUso = Math.min(1.0, 0.95 * (factorEstacional / 0.80));
+        }
+      } else {
+        // AIRE ACONDICIONADO BASE (Unidad 1 o Clima Individual):
+        // Siempre encendido durante el horario de apertura del local, modulando su compresor
+        let baseModulacion = 0.65;
+        if (escenarioActivo === 'bajo') baseModulacion = 0.48;
+        else if (escenarioActivo === 'tablas' || escenarioActivo === 'equilibrio') baseModulacion = 0.58;
+        else if (escenarioActivo === 'medio' || escenarioActivo === 'buena') baseModulacion = 0.68;
+        else if (escenarioActivo === 'alto') baseModulacion = 0.85;
+        else if (escenarioActivo === 'muy_alto') baseModulacion = 0.95;
+
+        factorUso = Math.min(1.0, Math.max(0.20, baseModulacion * (factorEstacional / 0.80)));
+      }
+
       const horasEfectivasClima = horasTurnoClimaMes * factorUso;
-      const factorInverter = eq.factorTrabajo || 0.62;
+      const factorInverter = eq.factorTrabajo || 0.65;
       const kwhMes = ((watts * factorInverter * horasEfectivasClima) / 1000);
       kwhClimaMes += kwhMes;
       kwhEquiposMes[eqKey] = (kwhEquiposMes[eqKey] || 0) + kwhMes;
@@ -443,6 +483,7 @@ export function simularConsorcioPorMedidores({
   tarifas = {},
   costosMEM = {},
   diasPeriodo = 30,
+  mesActivo = 8,
   escenarioGlobal = null // 'bajo' | 'tablas' | 'medio' | 'alto' | 'muy_alto' | 'por_empresa'
 }) {
   const medidoresList = Array.isArray(medidores) && medidores.length > 0
@@ -467,6 +508,7 @@ export function simularConsorcioPorMedidores({
       overridesUsuario: (escenarioGlobal && escenarioGlobal !== 'por_empresa') ? null : (estado.overridesUsuario || null),
       diasLaborales: estado.diasLaborales || neg.diasLaboralesDefault,
       horasTurno: estado.horasTurno || neg.horasTurnoDefault,
+      mesActivo,
       aparatos,
       esConsorcio: true,
       tarifas,

@@ -637,13 +637,14 @@ export default function App() {
           datosFiltrados.push(ap);
         });
 
-        // Sustitución canónica de equipos para el medidor Hawaiian Paradise Universidades (med_3):
-        // Detectar si los aparatos de Hawaiian Paradise aún corresponden a la versión preliminar antigua (hp_1..hp_14) o falta el canónico
+        // Sustitución / Actualización canónica de equipos para el medidor Hawaiian Paradise Universidades (med_3):
+        // Detectar si los aparatos de Hawaiian Paradise aún corresponden a la versión preliminar antigua (hp_1..hp_14), falta el canónico o faltan los 2 aires 18k
         const tieneHpAntiguo = datosFiltrados.some(ap => 
           ((ap.medidorId || defaultMedId) === 'med_3' || ap.local === 'Hawaiian Paradise Universidades') &&
           (/^hp_\d+$/.test(ap.id) || ap.id === 'hp_1' || ap.id === 'hp_14')
         );
         const faltaHpCanonico = !datosFiltrados.some(ap => ap.id === 'hp_andamar_c1');
+        const faltanAiresHawaiian = !datosFiltrados.some(ap => ap.id === 'hp_andamar_c16') || !datosFiltrados.some(ap => ap.id === 'hp_andamar_c17');
 
         if ((currentProyectoId === 'consorcio_general' && (tieneHpAntiguo || faltaHpCanonico)) ||
             (currentProyectoId === 'hawaiian_paradise' && (tieneHpAntiguo || faltaHpCanonico))) {
@@ -655,7 +656,7 @@ export default function App() {
             return !(esMed3 && (esIdHpAntiguo || esLocalHp));
           });
 
-          // Inyectar los 15 circuitos canónicos independientes con sus especificaciones de ingeniería
+          // Inyectar los 17 circuitos canónicos independientes con sus especificaciones de ingeniería
           const nuevosHp = EQUIPOS_HAWAIIAN_CANONICOS.map(eq => ({
             ...eq,
             medidorId: currentProyectoId === 'consorcio_general' ? 'med_3' : (finalMedidores[0]?.id || 'med_1'),
@@ -668,6 +669,22 @@ export default function App() {
           } else {
             datosFiltrados.push(...sinHpAntiguo, ...nuevosHp);
           }
+          cambioDetectado = true;
+        } else if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'hawaiian_paradise') && faltanAiresHawaiian) {
+          // Si ya existen los circuitos canónicos pero faltan los 2 aires acondicionados de 18,000 BTU, agregarlos respetando el medidor asignado
+          const medidorHpExistente = datosFiltrados.find(ap => ap.local === 'Hawaiian Paradise Universidades' || ap.id.startsWith('hp_andamar_'))?.medidorId;
+          const targetMedId = medidorHpExistente || (currentProyectoId === 'consorcio_general' ? 'med_3' : (finalMedidores[0]?.id || 'med_1'));
+
+          const airesAAgregar = EQUIPOS_HAWAIIAN_CANONICOS.filter(eq => 
+            (eq.id === 'hp_andamar_c16' || eq.id === 'hp_andamar_c17') &&
+            !datosFiltrados.some(ap => ap.id === eq.id)
+          ).map(eq => ({
+            ...eq,
+            medidorId: targetMedId,
+            local: 'Hawaiian Paradise Universidades'
+          }));
+
+          datosFiltrados.push(...airesAAgregar);
           cambioDetectado = true;
         }
 
