@@ -22,7 +22,8 @@ import {
   DollarSign,
   Wrench,
   X,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 
 import { 
