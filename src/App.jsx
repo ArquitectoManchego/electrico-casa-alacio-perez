@@ -34,7 +34,7 @@ import {
   EQUIPOS_HAWAIIAN_CANONICOS 
 } from './firebase';
 import { NEGOCIOS_CONFIG } from './utils/equiposNegocios';
-import { extraerLocalYTipoLimpio } from './utils/localHelpers';
+import { extraerLocalYTipoLimpio, compactarMedidoresConsecutivos } from './utils/localHelpers';
 import { 
   determinarAcometida, 
   determinarAcometidaMedidor, 
@@ -556,19 +556,32 @@ export default function App() {
           await dbService.saveMedidores(currentProyectoId, finalMedidores);
         }
 
+        let cambioDetectado = false;
+        let datosBase = data;
+
+        // Auto-compactación y renumeración consecutiva (1, 2, 3...) si existen huecos o números discontinuos
+        const tieneDiscontinuidad = finalMedidores.some((m, idx) => m.numero !== idx + 1 || m.id !== `med_${idx + 1}`);
+        if (tieneDiscontinuidad) {
+          const { compactedMedidores, compactedAparatos } = compactarMedidoresConsecutivos(finalMedidores, data);
+          finalMedidores = compactedMedidores;
+          datosBase = compactedAparatos;
+          cambioDetectado = true;
+          await dbService.saveMedidores(currentProyectoId, finalMedidores);
+          await dbService.guardarTodosLosAparatos(currentProyectoId, datosBase);
+        }
+
         setMedidores(finalMedidores);
         if (!finalMedidores.some(m => m.id === activeMedidorId)) {
           setActiveMedidorId(finalMedidores[0].id);
         }
 
-        let cambioDetectado = false;
         const defaultMedId = finalMedidores[0]?.id || 'med_1';
 
         // Deduplicar únicamente por ID único (diferentes medidores pueden usar el mismo número de slot físico)
         const idsVistos = new Set();
         const datosFiltrados = [];
 
-        data.forEach(ap => {
+        datosBase.forEach(ap => {
           if (!ap.id) return;
           if (idsVistos.has(ap.id)) {
             cambioDetectado = true;
@@ -1048,17 +1061,19 @@ export default function App() {
         });
       }
     } else if (qty < updated.length) {
-      const maxId = updated[qty - 1]?.id || 'med_1';
-      const validIds = new Set(updated.slice(0, qty).map(m => m.id));
+      const remainingSlice = updated.slice(0, qty);
+      const maxId = remainingSlice[remainingSlice.length - 1]?.id || 'med_1';
+      const validIds = new Set(remainingSlice.map(m => m.id));
       const reasignados = aparatos.map(ap => {
         if (!validIds.has(ap.medidorId)) {
           return { ...ap, medidorId: maxId };
         }
         return ap;
       });
-      setAparatos(reasignados);
-      await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
-      updated = updated.slice(0, qty);
+      const { compactedMedidores, compactedAparatos } = compactarMedidoresConsecutivos(remainingSlice, reasignados);
+      setAparatos(compactedAparatos);
+      await dbService.guardarTodosLosAparatos(currentProyectoId, compactedAparatos);
+      updated = compactedMedidores;
     }
     setMedidores(updated);
     await dbService.saveMedidores(currentProyectoId, updated);
@@ -1136,14 +1151,16 @@ export default function App() {
       });
     }
 
-    setAparatos(reasignados);
-    await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
-    setMedidores(remaining);
-    await dbService.saveMedidores(currentProyectoId, remaining);
+    // Compactar y renumerar consecutivamente los medidores restantes (1, 2, 3...)
+    const { compactedMedidores, compactedAparatos, idMap } = compactarMedidoresConsecutivos(remaining, reasignados);
+    const targetActiveFallback = activeMedidorId === medId ? fallbackId : activeMedidorId;
+    const newActiveId = idMap.get(targetActiveFallback) || compactedMedidores[0].id;
 
-    if (activeMedidorId === medId) {
-      setActiveMedidorId(fallbackId);
-    }
+    setAparatos(compactedAparatos);
+    await dbService.guardarTodosLosAparatos(currentProyectoId, compactedAparatos);
+    setMedidores(compactedMedidores);
+    await dbService.saveMedidores(currentProyectoId, compactedMedidores);
+    setActiveMedidorId(newActiveId);
   };
 
   const handleConfigurar3Medidores = async () => {

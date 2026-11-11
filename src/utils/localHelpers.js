@@ -81,3 +81,55 @@ export function extraerLocalYTipoLimpio(aparato, medidorNombre = '') {
     tipoLimpio: tipo
   };
 }
+
+/**
+ * Compacta y renombra de forma consecutiva la lista de medidores (1, 2, 3...)
+ * al eliminar uno o más medidores, y reasigna los aparatos asociados al nuevo ID.
+ * 
+ * @param {Array} medidoresList - Lista de medidores (pueden tener números discontinuos)
+ * @param {Array} aparatosList - Lista de aparatos del proyecto
+ * @returns {{ compactedMedidores: Array, compactedAparatos: Array, idMap: Map }}
+ */
+export function compactarMedidoresConsecutivos(medidoresList, aparatosList = []) {
+  if (!Array.isArray(medidoresList) || medidoresList.length === 0) {
+    return {
+      compactedMedidores: [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }],
+      compactedAparatos: aparatosList,
+      idMap: new Map([['med_1', 'med_1']])
+    };
+  }
+
+  const idMap = new Map();
+  const compactedMedidores = medidoresList.map((m, idx) => {
+    const newNum = idx + 1;
+    const newId = `med_${newNum}`;
+    idMap.set(m.id, newId);
+
+    // Ajustar número visible si el nombre contiene "Medidor X" o "Medidor [0-9]+"
+    let newNombre = m.nombre || `Medidor ${newNum}`;
+    if (/^Medidor\s+\d+/i.test(newNombre)) {
+      newNombre = newNombre.replace(/^Medidor\s+\d+/i, `Medidor ${newNum}`);
+    }
+
+    return {
+      ...m,
+      id: newId,
+      numero: newNum,
+      nombre: newNombre
+    };
+  });
+
+  const validNewIds = new Set(compactedMedidores.map(m => m.id));
+  const fallbackNewId = compactedMedidores[0]?.id || 'med_1';
+
+  const compactedAparatos = (aparatosList || []).map(ap => {
+    const oldMedId = ap.medidorId || medidoresList[0]?.id;
+    const targetNewId = idMap.get(oldMedId) || (validNewIds.has(oldMedId) ? oldMedId : fallbackNewId);
+    return {
+      ...ap,
+      medidorId: targetNewId
+    };
+  });
+
+  return { compactedMedidores, compactedAparatos, idMap };
+}
