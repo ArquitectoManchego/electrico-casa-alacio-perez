@@ -553,11 +553,19 @@ export const EQUIPOS_DEFAULT_POR_NEGOCIO = {
     { id: 'cost_6', tipo: 'Minisplit Inverter 2 TR (24,000 BTU - 220V)', modelo: '2 TR Confort Inverter', watts: 2300, precio: 17500, vidaUtil: 8, medidorId: 'med_5' }
   ],
   taller_publi_imperia: [
-    { id: 'pub_1', tipo: 'Plotter de Corte Roland TrueVIS VG2 / CAMM-1', modelo: 'Plotter Corte Gran Formato 120cm', watts: 650, precio: 42000, vidaUtil: 7, medidorId: 'med_6' },
-    { id: 'pub_2', tipo: 'Plancha Térmica Plana Sublimación 40x60 cm', modelo: 'Estampadora Neumática 40x60', watts: 2200, precio: 12500, vidaUtil: 6, medidorId: 'med_6' },
-    { id: 'pub_3', tipo: 'Máquina Grabado y Corte Láser CO2 80W', modelo: 'Láser CO2 60x40 80W Chiller', watts: 1200, precio: 35000, vidaUtil: 6, medidorId: 'med_6' },
-    { id: 'pub_4', tipo: 'Computadora Diseño Gráfico Corel / Adobe', modelo: 'PC Workstation Ryzen 7', watts: 400, precio: 24000, vidaUtil: 6, medidorId: 'med_6' },
-    { id: 'pub_5', tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)', modelo: '1.5 TR Inverter', watts: 1700, precio: 13500, vidaUtil: 8, medidorId: 'med_6' }
+    { id: 'pi_1', tipo: 'Impresora de Sublimación Epson L120', modelo: 'Epson L120 Sublimación', watts: 20, precio: 4500, vidaUtil: 5, medidorId: 'med_6' },
+    { id: 'pi_2', tipo: 'Plancha de Sublimación de Tazas (Combo 3 en 1)', modelo: 'Cabezal Cilíndrico Intercambiable 11/15oz', watts: 350, precio: 3500, vidaUtil: 5, medidorId: 'med_6' },
+    { id: 'pi_3', tipo: 'Plancha de Sublimación y DTF Plana 28x32 cm (Combo 3 en 1)', modelo: 'Prensa Térmica Plana 1000W Intercambiable', watts: 1000, precio: 7500, vidaUtil: 6, medidorId: 'med_6' },
+    { id: 'pi_4', tipo: 'Plancha de Sublimación para Gorras (Combo 3 en 1)', modelo: 'Cabezal Curvo Gorras 400W Intercambiable', watts: 400, precio: 4200, vidaUtil: 5, medidorId: 'med_6' },
+    { id: 'pi_mini_ront', tipo: 'Miniplancha Térmica HTV RONT (Tallas y Etiquetas DTF)', modelo: 'Mi1 120VAC 6x10cm (250W)', watts: 250, precio: 1200, vidaUtil: 6, medidorId: 'med_6' },
+    { id: 'pi_5', tipo: 'Bordadora Computarizada Brother PE770', modelo: 'Brother PE770 1 Cabeza', watts: 75, precio: 16000, vidaUtil: 7, medidorId: 'med_6' },
+    { id: 'pi_6', tipo: 'Cortadora de Vinil Brother ScanNCut', modelo: 'ScanNCut SDX125', watts: 50, precio: 12500, vidaUtil: 6, medidorId: 'med_6' },
+    { id: 'pi_7', tipo: 'Cortadora y Grabadora Láser Atomstack A20', modelo: 'Atomstack A20 Pro 20W Óptico', watts: 120, precio: 21000, vidaUtil: 5, medidorId: 'med_6' },
+    { id: 'pi_8', tipo: 'Reveladora de Serigrafía (8 Tubos Fluorescentes 32W)', modelo: 'Mesa Insoladora 8x32W (256W)', watts: 256, precio: 8500, vidaUtil: 8, medidorId: 'med_6' },
+    { id: 'pi_9', tipo: 'Plancha de Calor Serigrafía 80x100 cm (220V)', modelo: 'Prensa Gran Formato 80x100 3.6kW', watts: 3600, precio: 48000, vidaUtil: 10, medidorId: 'med_6' },
+    { id: 'pi_10', tipo: 'PC Diseño Gráfico + Monitor de Alta Gama', modelo: 'Workstation i7 + GPU', watts: 450, precio: 26000, vidaUtil: 6, medidorId: 'med_6' },
+    { id: 'pi_11', tipo: 'Minisplit Inverter Publi-Imperia (220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, precio: 9500, vidaUtil: 8, medidorId: 'med_6' },
+    { id: 'pi_12', tipo: 'Alumbrado LED Taller Publi-Imperia (7 Luminarias)', modelo: '7x Lámparas LED 18W', watts: 126, precio: 3200, vidaUtil: 10, medidorId: 'med_6' }
   ],
   oficinas_consorcio: [
     { id: 'ofi_1', tipo: '3x Minisplit Inverter 1 TR Oficinas', modelo: '3x Inverter 12,000 BTU', watts: 3450, precio: 28500, vidaUtil: 8, medidorId: 'med_6' },

@@ -3,33 +3,71 @@
  */
 
 /**
- * Calcula el consumo de energía diario en kiloWatt-horas (kWh) de un aparato.
+ * Calcula las horas totales efectivas al mes que opera un aparato.
+ * Soporta frecuencia mensual flexible (días al mes y horas por día de trabajo),
+ * horas directas al mes, o régimen continuo 24/7.
  * @param {object} aparato - Objeto con datos del aparato.
- * @returns {number} Consumo diario en kWh.
+ * @returns {number} Horas mensuales equivalentes al 100% de carga.
  */
-export function calcularKwhDiarioAparato(aparato) {
-  const watts = parseFloat(aparato.watts) || 0;
-  
-  // Si consumoVariable está ACTIVADO
+export function calcularHorasMesAparato(aparato) {
+  if (!aparato) return 0;
+  const nombreLower = (aparato.tipo || '').toLowerCase();
+  const es24h = nombreLower.includes('refrigerador') || 
+                nombreLower.includes('congeladora') || 
+                nombreLower.includes('enfriador') || 
+                nombreLower.includes('chiller') ||
+                nombreLower.includes('módem') ||
+                nombreLower.includes('router');
+
+  // Si se definieron explícitamente horas al mes directas
+  if (aparato.horasMes !== undefined && aparato.horasMes !== null && !isNaN(aparato.horasMes)) {
+    return Math.max(0, parseFloat(aparato.horasMes));
+  }
+
+  // Días de uso al mes (si es 24h continuo = 30 días, si viene diasUsoMes usarlo, sino defecto 26 comercial)
+  let diasMes = 26;
+  if (es24h) {
+    diasMes = 30;
+  } else if (aparato.diasUsoMes !== undefined && aparato.diasUsoMes !== null && !isNaN(aparato.diasUsoMes)) {
+    diasMes = Math.max(0, Math.min(31, parseFloat(aparato.diasUsoMes)));
+  }
+
   if (aparato.consumoVariable) {
     const tAlta = parseFloat(aparato.horasAlta) || 0;
     const tReposo = parseFloat(aparato.horasReposo) || 0;
-    
-    // En periodo de alta demanda: 100% de Watts
-    // En periodo de reposo: 20% de Watts
-    const whDiario = (watts * tAlta) + (watts * 0.20 * tReposo);
-    return whDiario / 1000;
+    const horasDiaEquivalentes = tAlta + (0.20 * tReposo);
+    return horasDiaEquivalentes * diasMes;
   }
-  
-  // Si consumoVariable está DESACTIVADO
-  let tStd = parseFloat(aparato.horasAlta) || 0;
-  const nombreLower = (aparato.tipo || '').toLowerCase();
-  if (nombreLower.includes('refrigerador') || nombreLower.includes('congeladora') || nombreLower.includes('enfriador') || nombreLower.includes('chiller')) {
-    tStd = 24;
-  }
-  
-  const whDiario = watts * tStd;
-  return whDiario / 1000;
+
+  const tStd = es24h ? 24 : (parseFloat(aparato.horasAlta) || 0);
+  return tStd * diasMes;
+}
+
+/**
+ * Calcula el consumo mensual en kiloWatt-horas (kWh) de un aparato considerando días de uso al mes.
+ * @param {object} aparato - Objeto con datos del aparato.
+ * @returns {number} Consumo mensual en kWh.
+ */
+export function calcularKwhMesAparato(aparato) {
+  const watts = parseFloat(aparato?.watts) || 0;
+  if (watts <= 0) return 0;
+  const horasMes = calcularHorasMesAparato(aparato);
+  return (watts * horasMes) / 1000;
+}
+
+/**
+ * Calcula el consumo de energía diario en kiloWatt-horas (kWh) de un aparato
+ * distribuyendo su consumo mensual real en el periodo de 30 días.
+ * De esta forma, multiplicar este consumo diario por 30 (mes) o por 60 (bimestre CFE)
+ * refleja con exactitud matemática el consumo de aparatos de uso intermitente u ocasional.
+ * @param {object} aparato - Objeto con datos del aparato.
+ * @param {number} [diasMesReferencia=30] - Días del mes para promediar.
+ * @returns {number} Consumo diario en kWh.
+ */
+export function calcularKwhDiarioAparato(aparato, diasMesReferencia = 30) {
+  const kwhMes = calcularKwhMesAparato(aparato);
+  const dias = Math.max(1, parseFloat(diasMesReferencia) || 30);
+  return kwhMes / dias;
 }
 
 /**

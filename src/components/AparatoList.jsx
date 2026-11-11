@@ -1,6 +1,7 @@
 import React from 'react';
-import { Trash2, AlertCircle, Info, RefreshCw } from 'lucide-react';
+import { Trash2, AlertCircle, Info, RefreshCw, Calendar, Clock } from 'lucide-react';
 import { calcularVA } from '../utils/electricalCalculations';
+import { calcularHorasMesAparato, calcularKwhMesAparato } from '../utils/simuladorCFE';
 
 export default function AparatoList({ aparatos, systemFasesDisponibles, onUpdateFase, onDeleteAparato }) {
   
@@ -36,7 +37,7 @@ export default function AparatoList({ aparatos, systemFasesDisponibles, onUpdate
               <th className="p-4">Watts (P)</th>
               <th className="p-4">F.P.</th>
               <th className="p-4">Aparente (S)</th>
-              <th className="p-4">Uso Diario</th>
+              <th className="p-4">Régimen y Consumo</th>
               <th className="p-4 text-center">Fase Asignada</th>
               <th className="p-4 text-center">Acciones</th>
             </tr>
@@ -78,13 +79,29 @@ export default function AparatoList({ aparatos, systemFasesDisponibles, onUpdate
                     {Math.round(va).toLocaleString('es-MX')} VA
                   </td>
 
-                  {/* Horas de Uso */}
+                  {/* Régimen y Consumo */}
                   <td className="p-4">
-                    <div className="text-xs">
-                      <span className="text-emerald-400 font-semibold">{ap.horasAlta}h</span> alta /{' '}
-                      <span className="text-slate-400 font-semibold">{ap.horasReposo}h</span> reposo
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Total: {horasTotal}h/día</div>
+                    {(() => {
+                      const horasMes = calcularHorasMesAparato(ap);
+                      const kwhMes = calcularKwhMesAparato(ap);
+                      const diasUso = ap.diasUsoMes !== undefined ? ap.diasUsoMes : 26;
+                      return (
+                        <div>
+                          <div className="text-xs font-semibold text-slate-200">
+                            <span className="text-teal-400 font-bold">{diasUso} d/mes</span>
+                            <span className="text-slate-500 mx-1">×</span>
+                            <span className="text-emerald-400 font-bold">{ap.horasAlta !== undefined ? ap.horasAlta : 0}h/d</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 font-mono">
+                            <span>{horasMes < 1 ? horasMes.toFixed(2) : horasMes.toFixed(1)} h/mes</span>
+                            <span className="text-slate-600">•</span>
+                            <span className="text-amber-400 font-semibold font-mono">
+                              {kwhMes < 1 ? kwhMes.toFixed(3) : Math.round(kwhMes)} kWh/mes
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </td>
 
                   {/* Fase Selector */}

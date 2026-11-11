@@ -74,6 +74,16 @@ export const DEFAULT_MEDIDORES_CONSORCIO = [
 // Generador de semillas de inventario para cada negocio
 export function generarSeedAparatos(proyectoId) {
   const formatearAp = (item) => {
+    const valHorasAlta = item.horasAlta !== undefined && item.horasAlta !== null && !isNaN(item.horasAlta)
+      ? parseFloat(item.horasAlta)
+      : 8;
+    const valHorasReposo = item.horasReposo !== undefined && item.horasReposo !== null && !isNaN(item.horasReposo)
+      ? parseFloat(item.horasReposo)
+      : 0;
+    const valDiasUsoMes = item.diasUsoMes !== undefined && item.diasUsoMes !== null && !isNaN(item.diasUsoMes)
+      ? parseFloat(item.diasUsoMes)
+      : 26;
+
     const baseVariant = {
       id: 'default',
       nombre: item.modelo || 'Modelo Base',
@@ -82,8 +92,9 @@ export function generarSeedAparatos(proyectoId) {
       precio: parseFloat(item.precio) || 0,
       mantenimiento: parseFloat(item.mantenimiento) || 0,
       vidaUtil: parseFloat(item.vidaUtil) || 8,
-      horasAlta: parseFloat(item.horasAlta) || 8,
-      horasReposo: parseFloat(item.horasReposo) || 0,
+      horasAlta: valHorasAlta,
+      horasReposo: valHorasReposo,
+      diasUsoMes: valDiasUsoMes,
       consumoVariable: !!item.consumoVariable,
       durabilidadOption: item.durabilidadOption || 'estandar',
       tipoCarga: item.tipoCarga || 'monofasica',
@@ -101,7 +112,10 @@ export function generarSeedAparatos(proyectoId) {
       medidorId: item.medidorId || 'med_1',
       variantes: [baseVariant],
       activaVariantId: 'default',
-      ...item
+      ...item,
+      horasAlta: valHorasAlta,
+      horasReposo: valHorasReposo,
+      diasUsoMes: valDiasUsoMes
     };
   };
 
@@ -139,18 +153,188 @@ export function generarSeedAparatos(proyectoId) {
   ];
 
   const publiList = [
-    { id: 'pi_1', tipo: 'Impresora de Sublimación Epson L120', modelo: 'Epson L120 Sublimación', watts: 20, fp: 0.85, tipoCarga: 'monofasica', fase: 'B', horasAlta: 5, precio: 4500, mantenimiento: 400, vidaUtil: 5 },
-    { id: 'pi_2', tipo: 'Plancha de Sublimación de Tazas (350W)', modelo: 'Prensa Cilíndrica 11/15oz', watts: 350, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 3500, mantenimiento: 250, vidaUtil: 5 },
-    { id: 'pi_3', tipo: 'Plancha de Sublimación Plana (30x30 cm - 1000W)', modelo: 'Prensa Térmica Plana 1000W', watts: 1000, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 5, precio: 7500, mantenimiento: 500, vidaUtil: 6 },
-    { id: 'pi_4', tipo: 'Plancha de Sublimación para Gorras (400W)', modelo: 'Prensa Curva Gorras 400W', watts: 400, fp: 1.0, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 4200, mantenimiento: 250, vidaUtil: 5 },
-    { id: 'pi_5', tipo: 'Bordadora Computarizada Brother PE770', modelo: 'Brother PE770 1 Cabeza', watts: 75, fp: 0.80, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 16000, mantenimiento: 900, vidaUtil: 7 },
-    { id: 'pi_6', tipo: 'Cortadora de Vinil Brother ScanNCut', modelo: 'ScanNCut SDX125', watts: 50, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 12500, mantenimiento: 400, vidaUtil: 6 },
-    { id: 'pi_7', tipo: 'Cortadora y Grabadora Láser Atomstack A20', modelo: 'Atomstack A20 Pro 20W Óptico', watts: 120, fp: 0.88, tipoCarga: 'monofasica', fase: 'A', horasAlta: 4, precio: 21000, mantenimiento: 850, vidaUtil: 5 },
-    { id: 'pi_8', tipo: 'Reveladora de Serigrafía (8 Tubos Fluorescentes 32W)', modelo: 'Mesa Insoladora 8x32W (256W)', watts: 256, fp: 0.90, tipoCarga: 'monofasica', fase: 'A', horasAlta: 2, precio: 8500, mantenimiento: 400, vidaUtil: 8 },
-    { id: 'pi_9', tipo: 'Plancha de Calor Serigrafía 80x100 cm (220V)', modelo: 'Prensa Gran Formato 80x100 3.6kW', watts: 3600, fp: 1.0, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 3, precio: 48000, mantenimiento: 2200, vidaUtil: 10 },
-    { id: 'pi_10', tipo: 'PC Diseño Gráfico + Monitor de Alta Gama', modelo: 'Workstation i7 + GPU', watts: 450, fp: 0.90, tipoCarga: 'monofasica', fase: 'B', horasAlta: 8, precio: 26000, mantenimiento: 600, vidaUtil: 6 },
-    { id: 'pi_11', tipo: 'Minisplit Inverter (Área 4x4 m - 220V)', modelo: '1 TR (12,000 BTU)', watts: 1150, fp: 0.95, tipoCarga: 'bifasica', fase: 'A-B', horasAlta: 8, precio: 9500, mantenimiento: 800, vidaUtil: 8 },
-    { id: 'pi_12', tipo: 'Alumbrado LED Taller Publi-Imperia (7 Luminarias)', modelo: '7x Lámparas LED 18W', watts: 126, fp: 0.95, tipoCarga: 'monofasica', fase: 'A', horasAlta: 10, precio: 3200, mantenimiento: 180, vidaUtil: 10 }
+    { 
+      id: 'pi_1', 
+      tipo: 'Impresora de Sublimación Epson L120', 
+      modelo: 'Epson L120 Sublimación', 
+      watts: 20, 
+      fp: 0.85, 
+      tipoCarga: 'monofasica', 
+      fase: 'B', 
+      diasUsoMes: 10, 
+      horasAlta: 0.15, 
+      precio: 4500, 
+      mantenimiento: 400, 
+      vidaUtil: 5 
+    },
+    { 
+      id: 'pi_2', 
+      tipo: 'Plancha de Sublimación de Tazas (Combo 3 en 1)', 
+      modelo: 'Cabezal Cilíndrico Intercambiable 11/15oz', 
+      watts: 350, 
+      fp: 1.0, 
+      tipoCarga: 'monofasica', 
+      fase: 'A', 
+      diasUsoMes: 0, 
+      horasAlta: 0, 
+      precio: 3500, 
+      mantenimiento: 250, 
+      vidaUtil: 5 
+    },
+    { 
+      id: 'pi_3', 
+      tipo: 'Plancha de Sublimación y DTF Plana 28x32 cm (Combo 3 en 1)', 
+      modelo: 'Prensa Térmica Plana 1000W Intercambiable', 
+      watts: 1000, 
+      fp: 1.0, 
+      tipoCarga: 'monofasica', 
+      fase: 'A', 
+      diasUsoMes: 3, 
+      horasAlta: 0.8, 
+      precio: 7500, 
+      mantenimiento: 500, 
+      vidaUtil: 6 
+    },
+    { 
+      id: 'pi_4', 
+      tipo: 'Plancha de Sublimación para Gorras (Combo 3 en 1)', 
+      modelo: 'Cabezal Curvo Gorras 400W Intercambiable', 
+      watts: 400, 
+      fp: 1.0, 
+      tipoCarga: 'monofasica', 
+      fase: 'B', 
+      diasUsoMes: 0, 
+      horasAlta: 0, 
+      precio: 4200, 
+      mantenimiento: 250, 
+      vidaUtil: 5 
+    },
+    { 
+      id: 'pi_mini_ront', 
+      tipo: 'Miniplancha Térmica HTV RONT (Tallas y Etiquetas DTF)', 
+      modelo: 'Mi1 120VAC 6x10cm (250W)', 
+      watts: 250, 
+      fp: 1.0, 
+      tipoCarga: 'monofasica', 
+      fase: 'A', 
+      diasUsoMes: 10, 
+      horasAlta: 0.05, 
+      precio: 1200, 
+      mantenimiento: 150, 
+      vidaUtil: 6 
+    },
+    { 
+      id: 'pi_5', 
+      tipo: 'Bordadora Computarizada Brother PE770', 
+      modelo: 'Brother PE770 1 Cabeza', 
+      watts: 75, 
+      fp: 0.80, 
+      tipoCarga: 'monofasica', 
+      fase: 'B', 
+      diasUsoMes: 3, 
+      horasAlta: 1.5, 
+      precio: 16000, 
+      mantenimiento: 900, 
+      vidaUtil: 7 
+    },
+    { 
+      id: 'pi_6', 
+      tipo: 'Cortadora de Vinil Brother ScanNCut', 
+      modelo: 'ScanNCut SDX125', 
+      watts: 50, 
+      fp: 0.90, 
+      tipoCarga: 'monofasica', 
+      fase: 'B', 
+      diasUsoMes: 3, 
+      horasAlta: 0.5, 
+      precio: 12500, 
+      mantenimiento: 400, 
+      vidaUtil: 6 
+    },
+    { 
+      id: 'pi_7', 
+      tipo: 'Cortadora y Grabadora Láser Atomstack A20', 
+      modelo: 'Atomstack A20 Pro 20W Óptico', 
+      watts: 120, 
+      fp: 0.88, 
+      tipoCarga: 'monofasica', 
+      fase: 'A', 
+      diasUsoMes: 4, 
+      horasAlta: 1.55, 
+      precio: 21000, 
+      mantenimiento: 850, 
+      vidaUtil: 5 
+    },
+    { 
+      id: 'pi_8', 
+      tipo: 'Reveladora de Serigrafía (8 Tubos Fluorescentes 32W)', 
+      modelo: 'Mesa Insoladora 8x32W (256W)', 
+      watts: 256, 
+      fp: 0.90, 
+      tipoCarga: 'monofasica', 
+      fase: 'A', 
+      diasUsoMes: 1, 
+      horasAlta: 0.25, 
+      precio: 8500, 
+      mantenimiento: 400, 
+      vidaUtil: 8 
+    },
+    { 
+      id: 'pi_9', 
+      tipo: 'Plancha de Calor Serigrafía 80x100 cm (220V)', 
+      modelo: 'Prensa Gran Formato 80x100 3.6kW', 
+      watts: 3600, 
+      fp: 1.0, 
+      tipoCarga: 'bifasica', 
+      fase: 'A-B', 
+      diasUsoMes: 0.5, 
+      horasAlta: 0.5, 
+      precio: 48000, 
+      mantenimiento: 2200, 
+      vidaUtil: 10 
+    },
+    { 
+      id: 'pi_10', 
+      tipo: 'PC Diseño Gráfico + Monitor de Alta Gama', 
+      modelo: 'Workstation i7 + GPU', 
+      watts: 450, 
+      fp: 0.90, 
+      tipoCarga: 'monofasica', 
+      fase: 'B', 
+      diasUsoMes: 12, 
+      horasAlta: 4.0, 
+      precio: 26000, 
+      mantenimiento: 600, 
+      vidaUtil: 6 
+    },
+    { 
+      id: 'pi_11', 
+      tipo: 'Minisplit Inverter Publi-Imperia (220V)', 
+      modelo: '1 TR (12,000 BTU)', 
+      watts: 1150, 
+      fp: 0.95, 
+      tipoCarga: 'bifasica', 
+      fase: 'A-B', 
+      diasUsoMes: 10, 
+      horasAlta: 4.0, 
+      precio: 9500, 
+      mantenimiento: 800, 
+      vidaUtil: 8 
+    },
+    { 
+      id: 'pi_12', 
+      tipo: 'Alumbrado LED Taller Publi-Imperia (7 Luminarias)', 
+      modelo: '7x Lámparas LED 18W', 
+      watts: 126, 
+      fp: 0.95, 
+      tipoCarga: 'monofasica', 
+      fase: 'A', 
+      diasUsoMes: 10, 
+      horasAlta: 4.0, 
+      precio: 3200, 
+      mantenimiento: 180, 
+      vidaUtil: 10 
+    }
   ];
 
   const oficinasList = [
@@ -226,8 +410,9 @@ const localStore = {
             precio: parseFloat(ap.precio) || 0,
             mantenimiento: parseFloat(ap.mantenimiento) || 0,
             vidaUtil: parseFloat(ap.vidaUtil) || 8,
-            horasAlta: parseFloat(ap.horasAlta) || 8,
-            horasReposo: parseFloat(ap.horasReposo) || 0,
+            horasAlta: ap.horasAlta !== undefined && ap.horasAlta !== null && !isNaN(ap.horasAlta) ? parseFloat(ap.horasAlta) : 8,
+            horasReposo: ap.horasReposo !== undefined && ap.horasReposo !== null && !isNaN(ap.horasReposo) ? parseFloat(ap.horasReposo) : 0,
+            diasUsoMes: ap.diasUsoMes !== undefined && ap.diasUsoMes !== null && !isNaN(ap.diasUsoMes) ? parseFloat(ap.diasUsoMes) : 26,
             consumoVariable: !!ap.consumoVariable,
             durabilidadOption: ap.durabilidadOption || 'estandar',
             tipoCarga: ap.tipoCarga || 'monofasica',
@@ -237,6 +422,9 @@ const localStore = {
           };
           ap.variantes = [baseVariant];
           ap.activaVariantId = 'default';
+        }
+        if (ap.diasUsoMes === undefined) {
+          ap.diasUsoMes = 26;
         }
         // Migración inteligente para consorcio_general a los 6 medidores según negocio y asignación de local
         const t = (ap.tipo || '').toLowerCase();
@@ -479,8 +667,9 @@ export const dbService = {
               precio: parseFloat(ap.precio) || 0,
               mantenimiento: parseFloat(ap.mantenimiento) || 0,
               vidaUtil: parseFloat(ap.vidaUtil) || 8,
-              horasAlta: parseFloat(ap.horasAlta) || 8,
-              horasReposo: parseFloat(ap.horasReposo) || 0,
+              horasAlta: ap.horasAlta !== undefined && ap.horasAlta !== null && !isNaN(ap.horasAlta) ? parseFloat(ap.horasAlta) : 8,
+              horasReposo: ap.horasReposo !== undefined && ap.horasReposo !== null && !isNaN(ap.horasReposo) ? parseFloat(ap.horasReposo) : 0,
+              diasUsoMes: ap.diasUsoMes !== undefined && ap.diasUsoMes !== null && !isNaN(ap.diasUsoMes) ? parseFloat(ap.diasUsoMes) : 26,
               consumoVariable: !!ap.consumoVariable,
               durabilidadOption: ap.durabilidadOption || 'estandar',
               tipoCarga: ap.tipoCarga || 'monofasica',
@@ -490,6 +679,9 @@ export const dbService = {
             };
             ap.variantes = [baseVariant];
             ap.activaVariantId = 'default';
+          }
+          if (ap.diasUsoMes === undefined) {
+            ap.diasUsoMes = 26;
           }
           if (!ap.medidorId) {
             ap.medidorId = 'med_1';

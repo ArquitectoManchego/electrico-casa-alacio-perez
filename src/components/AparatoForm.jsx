@@ -22,6 +22,7 @@ const PRESETS = CATALOGO_RESIDENCIAL.map((item) => {
     usarVaDirecto: item.fp === 1.0,
     tipoCarga: tipoCarga,
     horasAlta: item.tipo.toLowerCase().includes('clima') || item.tipo.toLowerCase().includes('minisplit') ? 8 : (item.tipo.toLowerCase().includes('refrigerador') ? 24 : 4),
+    diasUsoMes: item.tipo.toLowerCase().includes('refrigerador') ? 30 : 26,
     horasReposo: 0,
     consumoVariable: false,
     precio: item.precio,
@@ -244,8 +245,11 @@ export default function AparatoForm({
     if (!formData.tipo.trim() || timeWarning) return;
 
     // Si es equipo crítico y no es variable, forzar a 24 horas estándar (se guarda en horasAlta)
-    const finalHorasAlta = esEquipoCritico(formData.tipo) && !formData.consumoVariable ? 24 : formData.horasAlta;
-    const finalHorasReposo = formData.consumoVariable ? formData.horasReposo : 0;
+    const finalHorasAlta = esEquipoCritico(formData.tipo) && !formData.consumoVariable ? 24 : parseFloat(formData.horasAlta) || 0;
+    const finalHorasReposo = formData.consumoVariable ? parseFloat(formData.horasReposo) || 0 : 0;
+    const finalDiasUsoMes = esEquipoCritico(formData.tipo) 
+      ? 30 
+      : (formData.diasUsoMes !== undefined && formData.diasUsoMes !== '' ? parseFloat(formData.diasUsoMes) : 26);
 
     const baseVariant = {
       id: 'default',
@@ -257,6 +261,7 @@ export default function AparatoForm({
       vidaUtil: parseFloat(formData.vidaUtil) || 5,
       horasAlta: finalHorasAlta,
       horasReposo: finalHorasReposo,
+      diasUsoMes: finalDiasUsoMes,
       consumoVariable: formData.consumoVariable,
       durabilidadOption: formData.durabilidadOption,
       tipoCarga: formData.tipoCarga,
@@ -272,6 +277,7 @@ export default function AparatoForm({
       medidorId: targetMedidorId,
       horasAlta: finalHorasAlta,
       horasReposo: finalHorasReposo,
+      diasUsoMes: finalDiasUsoMes,
       fase: selectedFase,
       variantes: [baseVariant],
       activaVariantId: 'default'
@@ -642,11 +648,74 @@ export default function AparatoForm({
           </div>
         </div>
 
-        {/* --- DYNAMIC OPERATION HOURS CONFIGURATION --- */}
+        {/* --- DYNAMIC OPERATION HOURS & MONTHLY FREQUENCY CONFIGURATION --- */}
         <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800 space-y-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
-            <Clock size={14} className="text-teal-400" />
-            <span>Perfil Horario de Operación (Diario)</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+              <Clock size={14} className="text-teal-400" />
+              <span>Régimen de Operación y Frecuencia Mensual</span>
+            </div>
+            <span className="text-[10px] text-teal-400 font-mono">
+              Frecuencia Flexible
+            </span>
+          </div>
+
+          {/* Días de Uso al Mes */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[10px] text-slate-400 uppercase font-medium">
+                Días de Operación al Mes
+              </label>
+              <span className="text-[10px] font-mono text-slate-400">
+                {isCritical ? '30 días (Continuo 24/7)' : `${formData.diasUsoMes !== undefined ? formData.diasUsoMes : 26} días/mes`}
+              </span>
+            </div>
+
+            {isCritical ? (
+              <input
+                type="number"
+                value={30}
+                disabled
+                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs text-emerald-400 font-bold"
+              />
+            ) : (
+              <div className="space-y-1.5">
+                <input
+                  type="number"
+                  name="diasUsoMes"
+                  value={formData.diasUsoMes !== undefined ? formData.diasUsoMes : 26}
+                  onChange={handleChange}
+                  min="0"
+                  max="31"
+                  step="0.5"
+                  className="w-full px-2.5 py-1.5 rounded-lg glass-input text-xs font-bold text-slate-200 font-mono"
+                  placeholder="26"
+                />
+                <div className="flex flex-wrap gap-1 text-[10px]">
+                  {[
+                    { label: 'Diario (30d)', val: 30 },
+                    { label: 'Comercial (26d)', val: 26 },
+                    { label: '10 días/mes', val: 10 },
+                    { label: '3-4 días/mes', val: 3 },
+                    { label: '1 día/mes', val: 1 },
+                    { label: 'Inactivo (0d)', val: 0 }
+                  ].map(p => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, diasUsoMes: p.val }))}
+                      className={`px-1.5 py-0.5 rounded border transition-colors ${
+                        (formData.diasUsoMes !== undefined ? formData.diasUsoMes : 26) === p.val
+                          ? 'bg-teal-500/20 text-teal-300 border-teal-500/40 font-bold'
+                          : 'bg-slate-950/40 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-300'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {formData.consumoVariable ? (
@@ -654,7 +723,7 @@ export default function AparatoForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] text-slate-400 mb-1 uppercase font-medium">
-                  {"Demanda Alta ($T_{alta}$)"}
+                  {"Horas Alta ($T_{alta}$)"}
                 </label>
                 <input
                   type="number"
@@ -663,12 +732,13 @@ export default function AparatoForm({
                   onChange={handleChange}
                   min="0"
                   max="24"
+                  step="any"
                   className="w-full px-2.5 py-1.5 rounded-lg glass-input text-xs"
                 />
               </div>
               <div>
                 <label className="block text-[10px] text-slate-400 mb-1 uppercase font-medium">
-                  {"Reposo/Bajo ($T_{reposo}$)"}
+                  {"Horas Reposo ($T_{reposo}$)"}
                 </label>
                 <input
                   type="number"
@@ -677,6 +747,7 @@ export default function AparatoForm({
                   onChange={handleChange}
                   min="0"
                   max="24"
+                  step="any"
                   className="w-full px-2.5 py-1.5 rounded-lg glass-input text-xs"
                 />
               </div>
@@ -684,9 +755,14 @@ export default function AparatoForm({
           ) : (
             // Modo Consumo Constante (Despliega horas estándar)
             <div>
-              <label className="block text-[10px] text-slate-400 mb-1 uppercase font-medium">
-                {"Horas Estándar ($T_{std}$)"}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] text-slate-400 uppercase font-medium">
+                  Horas por Día de Uso
+                </label>
+                <span className="text-[9px] text-slate-500">
+                  (Ej: 0.5h = 30min, 0.25h = 15min)
+                </span>
+              </div>
               {isCritical ? (
                 <div>
                   <input
@@ -700,18 +776,77 @@ export default function AparatoForm({
                   </p>
                 </div>
               ) : (
-                <input
-                  type="number"
-                  name="horasAlta"
-                  value={formData.horasAlta}
-                  onChange={handleChange}
-                  min="0"
-                  max="24"
-                  className="w-full px-2.5 py-1.5 rounded-lg glass-input text-xs"
-                />
+                <div className="space-y-1.5">
+                  <input
+                    type="number"
+                    name="horasAlta"
+                    value={formData.horasAlta}
+                    onChange={handleChange}
+                    min="0"
+                    max="24"
+                    step="any"
+                    className="w-full px-2.5 py-1.5 rounded-lg glass-input text-xs"
+                  />
+                  <div className="flex flex-wrap gap-1 text-[10px]">
+                    {[
+                      { label: '8 hrs', val: 8 },
+                      { label: '4 hrs', val: 4 },
+                      { label: '1 hr', val: 1 },
+                      { label: '30 min (0.5h)', val: 0.5 },
+                      { label: '15 min (0.25h)', val: 0.25 },
+                      { label: '3 min (0.05h)', val: 0.05 }
+                    ].map(p => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, horasAlta: p.val }))}
+                        className={`px-1.5 py-0.5 rounded border transition-colors ${
+                          parseFloat(formData.horasAlta) === p.val
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                            : 'bg-slate-950/40 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-300'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
+
+          {/* Impacto mensual proyectado */}
+          {(() => {
+            const diasVal = isCritical ? 30 : (formData.diasUsoMes !== undefined ? parseFloat(formData.diasUsoMes) || 0 : 26);
+            const horasVal = formData.consumoVariable
+              ? ((parseFloat(formData.horasAlta) || 0) + 0.2 * (parseFloat(formData.horasReposo) || 0))
+              : (isCritical ? 24 : (parseFloat(formData.horasAlta) || 0));
+            const horasTotalesMes = diasVal * horasVal;
+            const kwhMesCalc = ((parseFloat(formData.watts) || 0) * horasTotalesMes) / 1000;
+            const pesosMesCalc = Math.round(kwhMesCalc * 3.85);
+
+            return (
+              <div className="p-2.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Consumo Proyectado Real:</span>
+                  <span className="font-semibold text-white font-mono">
+                    ~{kwhMesCalc < 1 ? kwhMesCalc.toFixed(3) : kwhMesCalc.toFixed(1)} kWh/mes
+                  </span>
+                  <span className="text-[10px] text-slate-400 ml-1.5 font-mono">
+                    ({horasTotalesMes.toFixed(1)} hrs/mes)
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-teal-400 font-mono font-bold block">
+                    ~${pesosMesCalc.toLocaleString()} MXN/mes
+                  </span>
+                  <span className="text-[9px] text-slate-400 font-sans">
+                    {diasVal} d/mes × {horasVal} h/d
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Time Validation Warning */}
           {timeWarning && (

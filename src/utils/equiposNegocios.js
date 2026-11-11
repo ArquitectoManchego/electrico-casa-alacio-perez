@@ -774,6 +774,22 @@ export const NEGOCIOS_CONFIG = [
         factorStandby: 0.04,
         keywords: ['atomstack', 'láser', 'grabado', 'corte']
       },
+      pi_mini_ront: {
+        key: 'pi_mini_ront',
+        nombre: 'Miniplancha Térmica HTV RONT Mi1',
+        tipoCatalogo: 'Miniplancha Térmica HTV RONT (Tallas y Etiquetas DTF)',
+        wattsNominal: 250,
+        fp: 1.0,
+        tipoCarga: 'monofasica',
+        faseSugerida: 'A',
+        cantidadParalela: 1,
+        rol: 'produccion',
+        factorPrecalentamiento: 1.0,
+        factorTrabajo: 0.85,
+        factorGap: 0.15,
+        factorStandby: 0.0,
+        keywords: ['htv', 'ront', 'miniplancha', 'mi1', 'etiquetas', 'tallas']
+      },
       pi_reveladora: {
         key: 'pi_reveladora',
         nombre: 'Revelado Serigrafía (8 Tubos 32W - 256W)',

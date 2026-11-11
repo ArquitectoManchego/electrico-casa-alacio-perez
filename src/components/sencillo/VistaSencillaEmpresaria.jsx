@@ -102,33 +102,43 @@ export default function VistaSencillaEmpresaria({
     if (apsReales.length > 0) {
       return apsReales.map(ap => {
         const watts = parseFloat(ap.watts) || 0;
-        const horas = parseFloat(ap.horasAlta) || negocioInfo?.horasTurnoDefault || 8.5;
+        const diasUso = ap.diasUsoMes !== undefined ? parseFloat(ap.diasUsoMes) : 26;
+        const horasDia = ap.horasAlta !== undefined ? parseFloat(ap.horasAlta) : 8;
         const kwhDiario = calcularKwhDiarioAparato(ap);
-        const kwhMes = kwhDiario * (negocioInfo?.diasLaboralesDefault || 26);
+        const kwhMes = kwhDiario * 30;
         const pesosMes = Math.round(kwhMes * 3.85);
 
         let nivelConsumo = 'Bajo';
         let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-        if (watts > 1800) {
+        if (diasUso === 0 || kwhMes < 1) {
+          nivelConsumo = diasUso === 0 ? 'Inactivo / Standby' : 'Consumo Mínimo';
+          badgeColor = 'bg-slate-500/10 text-slate-400 border-slate-500/30';
+        } else if (kwhMes > 60) {
           nivelConsumo = 'Consumo Fuerte';
           badgeColor = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
-        } else if (watts > 700) {
+        } else if (kwhMes > 15) {
           nivelConsumo = 'Consumo Moderado';
           badgeColor = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
         }
+
+        const horasTexto = diasUso === 0 
+          ? '0h (Inactivo)' 
+          : `${diasUso}d × ${horasDia}h (${(diasUso * horasDia).toFixed(1)} h/mes)`;
 
         return {
           key: ap.id,
           nombre: ap.tipo + (ap.modelo ? ` (${ap.modelo})` : ''),
           watts,
           pesosMes,
-          kwhMes: Math.round(kwhMes),
-          horas,
+          kwhMes: kwhMes < 1 ? Number(kwhMes.toFixed(2)) : Math.round(kwhMes),
+          horas: horasTexto,
           nivelConsumo,
           badgeColor,
-          consejo: watts > 1000 
-            ? 'Equipo de potencia alta: Mantener apagado cuando no esté en producción para ahorrar hasta un 25%.'
-            : 'Equipo eficiente: Impacto ligero en tu recibo mensual de CFE.'
+          consejo: diasUso === 0
+            ? 'Equipo sin uso en este periodo: No genera costo activo en el recibo de CFE.'
+            : (kwhMes > 40 
+              ? 'Equipo de impacto principal en tu recibo: Optimizar tiempos para mantener tarifa básica.'
+              : 'Equipo de bajo impacto energético mensual.')
         };
       });
     }
@@ -226,8 +236,7 @@ export default function VistaSencillaEmpresaria({
     let kwhMes = 0;
     if (apsReales.length > 0) {
       const kwhDiarioTotal = apsReales.reduce((sum, ap) => sum + calcularKwhDiarioAparato(ap), 0);
-      const diasMes = negocioInfo?.diasLaboralesDefault || 26;
-      kwhMes = kwhDiarioTotal * diasMes * factorEscenario;
+      kwhMes = kwhDiarioTotal * 30 * factorEscenario;
     } else {
       const equiposNegocio = negocioInfo?.equipos ? Object.values(negocioInfo.equipos) : [];
       const wattsTotales = equiposNegocio.reduce((acc, eq) => acc + (eq.wattsNominal || 0), 0) || 2500;

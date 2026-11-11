@@ -591,6 +591,84 @@ export default function App() {
           cambioDetectado = true;
         }
 
+        // Calibración de régimen operativo real para Publi-Imperia (Medidor 6):
+        // Detecta si Publi-Imperia contiene las horas sobredimensionadas anteriores (ej: plancha 80x100 con 3h/día o Epson con 5h/día) o falta pi_mini_ront
+        const necesitaCalibrarPubli = datosFiltrados.some(ap => 
+          (ap.id === 'pi_9' && (ap.horasAlta === 3 || ap.diasUsoMes === undefined || ap.diasUsoMes > 5)) ||
+          (ap.id === 'pi_1' && ap.horasAlta === 5)
+        ) || !datosFiltrados.some(ap => ap.id === 'pi_mini_ront');
+
+        if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'taller_publi_imperia') && necesitaCalibrarPubli) {
+          const mapaCalibracionPubli = {
+            pi_1: { diasUsoMes: 10, horasAlta: 0.15 },
+            pi_2: { diasUsoMes: 0, horasAlta: 0, tipo: 'Plancha de Sublimación de Tazas (Combo 3 en 1)' },
+            pi_3: { diasUsoMes: 3, horasAlta: 0.8, tipo: 'Plancha de Sublimación y DTF Plana 28x32 cm (Combo 3 en 1)' },
+            pi_4: { diasUsoMes: 0, horasAlta: 0, tipo: 'Plancha de Sublimación para Gorras (Combo 3 en 1)' },
+            pi_5: { diasUsoMes: 3, horasAlta: 1.5 },
+            pi_6: { diasUsoMes: 3, horasAlta: 0.5 },
+            pi_7: { diasUsoMes: 4, horasAlta: 1.55 },
+            pi_8: { diasUsoMes: 1, horasAlta: 0.25 },
+            pi_9: { diasUsoMes: 0.5, horasAlta: 0.5 },
+            pi_10: { diasUsoMes: 12, horasAlta: 4.0 },
+            pi_11: { diasUsoMes: 10, horasAlta: 4.0 },
+            pi_12: { diasUsoMes: 10, horasAlta: 4.0 }
+          };
+
+          datosFiltrados.forEach((ap, idx) => {
+            if (mapaCalibracionPubli[ap.id]) {
+              datosFiltrados[idx] = {
+                ...ap,
+                ...mapaCalibracionPubli[ap.id]
+              };
+              cambioDetectado = true;
+            }
+          });
+
+          // Inyectar la miniplancha HTV RONT si no existía en el inventario
+          if (!datosFiltrados.some(ap => ap.id === 'pi_mini_ront')) {
+            const medPubliId = currentProyectoId === 'consorcio_general' ? 'med_6' : (finalMedidores[0]?.id || 'med_1');
+            const miniRont = {
+              id: 'pi_mini_ront',
+              tipo: 'Miniplancha Térmica HTV RONT (Tallas y Etiquetas DTF)',
+              modelo: 'Mi1 120VAC 6x10cm (250W)',
+              watts: 250,
+              fp: 1.0,
+              tipoCarga: 'monofasica',
+              fase: 'A',
+              diasUsoMes: 10,
+              horasAlta: 0.05,
+              precio: 1200,
+              mantenimiento: 150,
+              vidaUtil: 6,
+              medidorId: medPubliId,
+              local: 'Publi-Imperia',
+              tuberiaDiametro: '16 mm (1/2")',
+              tuberiaTipo: 'Pared Delgada',
+              longitudMetros: 15,
+              kaic: '10 kA',
+              variantes: [
+                {
+                  id: 'default',
+                  nombre: 'Mi1 120VAC 6x10cm (250W)',
+                  watts: 250,
+                  fp: 1.0,
+                  precio: 1200,
+                  mantenimiento: 150,
+                  vidaUtil: 6,
+                  horasAlta: 0.05,
+                  diasUsoMes: 10,
+                  durabilidadOption: 'estandar',
+                  tipoCarga: 'monofasica',
+                  usarVaDirecto: true
+                }
+              ],
+              activaVariantId: 'default'
+            };
+            datosFiltrados.push(miniRont);
+            cambioDetectado = true;
+          }
+        }
+
         // Pre-calcular acometida efectiva de cada medidor para normalizar fases y ranuras
         const acometidaPorMedidor = {};
         finalMedidores.forEach(med => {
