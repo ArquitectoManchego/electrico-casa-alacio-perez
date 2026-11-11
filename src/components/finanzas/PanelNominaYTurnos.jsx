@@ -27,6 +27,7 @@ import {
   calcularHorasExtrasLFT,
   calcularNominaNegocio
 } from '../../utils/nominaYTurnosNegocios.js';
+import FormularioHorarioSemanal from './FormularioHorarioSemanal';
 
 export default function PanelNominaYTurnos({
   configNomina,
@@ -35,10 +36,12 @@ export default function PanelNominaYTurnos({
   salarioMinimoMensual = SALARIO_MINIMO_CONFIG.mensual,
   onUpdateConfigNomina,
   onResetNomina,
-  onUpdateSalarioMinimo
+  onUpdateSalarioMinimo,
+  onUpdateDiasLaborales
 }) {
   const [editingSalarioMinimo, setEditingSalarioMinimo] = useState(false);
   const [tempSMG, setTempSMG] = useState(salarioMinimoMensual);
+  const [showHorarioModal, setShowHorarioModal] = useState(false);
 
   // Cálculo en vivo de la nómina completa con horas extras y carga IMSS
   const resumenNomina = calcularNominaNegocio({
@@ -73,9 +76,23 @@ export default function PanelNominaYTurnos({
     });
   };
 
+  const handleSaveHorarioSemanal = (datosHorario) => {
+    onUpdateConfigNomina({
+      ...configNomina,
+      horarioApertura: datosHorario.horarioApertura,
+      horarioCierre: datosHorario.horarioCierre,
+      diasLaboralesSemana: datosHorario.diasAbiertosSemana,
+      diasLaborales: datosHorario.diasLaboralesMes,
+      horasJornada: datosHorario.horasPromedioDia
+    });
+    if (onUpdateDiasLaborales) {
+      onUpdateDiasLaborales(datosHorario.diasLaboralesMes);
+    }
+  };
+
   const handleTurnosChange = (turnos) => {
-    const nuevosTurnos = Math.max(1, parseInt(turnos) || 1);
-    const personalPorTurno = configNomina?.empleadosPorTurno || empleadosPorTurno || 1;
+    const nuevosTurnos = Math.max(0, parseInt(turnos) || 0);
+    const personalPorTurno = nuevosTurnos === 0 ? 0 : (configNomina?.empleadosPorTurno !== undefined ? configNomina.empleadosPorTurno : (empleadosPorTurno || 1));
     const nuevaPlantilla = sincronizarPlantillaEmpleados({
       empleadosActuales: configNomina?.empleados || [],
       turnosPorDia: nuevosTurnos,
@@ -93,8 +110,8 @@ export default function PanelNominaYTurnos({
   };
 
   const handleEmpleadosPorTurnoChange = (num) => {
-    const nuevosPorTurno = Math.max(1, parseInt(num) || 1);
-    const turnosActuales = configNomina?.turnosPorDia || turnosPorDia || 1;
+    const nuevosPorTurno = Math.max(0, parseInt(num) || 0);
+    const turnosActuales = nuevosPorTurno === 0 ? 0 : (configNomina?.turnosPorDia !== undefined ? configNomina.turnosPorDia : (turnosPorDia || 1));
     const nuevaPlantilla = sincronizarPlantillaEmpleados({
       empleadosActuales: configNomina?.empleados || [],
       turnosPorDia: turnosActuales,
@@ -131,6 +148,7 @@ export default function PanelNominaYTurnos({
     });
   };
 
+
   // Handlers para modificar empleados individuales
   const handleEmpleadoFieldChange = (empId, campo, valor) => {
     const nuevosEmpleados = (configNomina?.empleados || []).map(emp => {
@@ -160,11 +178,12 @@ export default function PanelNominaYTurnos({
     };
 
     const nuevaLista = [...(configNomina?.empleados || []), nuevoEmpleado];
-    const turnos = configNomina?.turnosPorDia || 1;
+    const turnos = (configNomina?.turnosPorDia === 0 || !configNomina?.turnosPorDia) ? 1 : configNomina.turnosPorDia;
     const nuevosPorTurno = Math.max(1, Math.ceil(nuevaLista.length / turnos));
 
     onUpdateConfigNomina({
       ...configNomina,
+      turnosPorDia: turnos,
       empleados: nuevaLista,
       empleadosPorTurno: nuevosPorTurno
     });
@@ -172,11 +191,12 @@ export default function PanelNominaYTurnos({
 
   const handleRemoveEmpleado = (empId) => {
     const filtrados = (configNomina?.empleados || []).filter(emp => emp.id !== empId);
-    const turnos = configNomina?.turnosPorDia || 1;
-    const nuevosPorTurno = Math.max(1, Math.ceil(filtrados.length / turnos));
+    const turnos = filtrados.length === 0 ? 0 : (configNomina?.turnosPorDia || 1);
+    const nuevosPorTurno = filtrados.length === 0 ? 0 : Math.max(1, Math.ceil(filtrados.length / (turnos || 1)));
 
     onUpdateConfigNomina({
       ...configNomina,
+      turnosPorDia: turnos,
       empleados: filtrados,
       empleadosPorTurno: nuevosPorTurno
     });
@@ -212,6 +232,14 @@ export default function PanelNominaYTurnos({
 
         {/* Acciones de Cabecera */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowHorarioModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 transition cursor-pointer"
+            title="Abrir formulario de horario semanal día x día"
+          >
+            <Calendar size={13} />
+            Horario Semanal
+          </button>
           <button
             onClick={handleAddEmpleado}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/30 transition cursor-pointer"
@@ -288,10 +316,21 @@ export default function PanelNominaYTurnos({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-950/70 border border-slate-800 p-4 rounded-xl">
         {/* Horario Apertura / Cierre */}
         <div className="space-y-1">
-          <label className="text-[10px] text-slate-400 font-mono uppercase flex items-center gap-1">
-            <Clock size={11} className="text-teal-400" />
-            Horario de Operación
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-slate-400 font-mono uppercase flex items-center gap-1">
+              <Clock size={11} className="text-teal-400" />
+              Horario de Operación
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowHorarioModal(true)}
+              className="text-[10px] text-blue-400 hover:text-blue-300 font-mono flex items-center gap-0.5 underline cursor-pointer"
+              title="Configurar horario semanal día x día con aperturas partidas"
+            >
+              <Calendar size={10} />
+              Día x Día
+            </button>
+          </div>
           <div className="flex items-center gap-1.5">
             <input
               type="time"
@@ -324,12 +363,15 @@ export default function PanelNominaYTurnos({
             onChange={(e) => handleTurnosChange(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-white font-mono text-xs cursor-pointer focus:outline-none focus:border-teal-400"
           >
+            <option value="0">0 Turnos (Sin Personal / Inversionista)</option>
             <option value="1">1 Turno (Jornada Continua)</option>
             <option value="2">2 Turnos (Matutino / Vespertino)</option>
             <option value="3">3 Turnos (Rotativo continuo)</option>
           </select>
           <div className="text-[10px] text-slate-400">
-            {turnosPorDia === 1 
+            {turnosPorDia === 0
+              ? '🏢 Oficina / Local sin empleados'
+              : turnosPorDia === 1 
               ? (superaJornadaLegal ? '⚠️ 1 turno genera horas extras' : '1 turno sin horas extras')
               : `${turnosPorDia} turnos de ${(horasJornada / turnosPorDia).toFixed(1)} hrs`}
           </div>
@@ -342,14 +384,14 @@ export default function PanelNominaYTurnos({
           </label>
           <input
             type="number"
-            min="1"
+            min="0"
             max="15"
             value={empleadosPorTurno}
             onChange={(e) => handleEmpleadosPorTurnoChange(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-teal-400"
           />
           <div className="text-[10px] text-slate-500">
-            {empleadosPorTurno} trabajador(es) activos por turno
+            {empleadosPorTurno === 0 ? '0 trabajadores (Sin costo laboral)' : `${empleadosPorTurno} trabajador(es) activos por turno`}
           </div>
         </div>
 
@@ -362,7 +404,9 @@ export default function PanelNominaYTurnos({
             {totalEmpleados} <span className="text-xs text-teal-300 font-normal">empleados sincronizados</span>
           </div>
           <div className="text-[10px] text-teal-400 font-mono">
-            {turnosPorDia} turno(s) &times; {empleadosPorTurno} emp/turno = {plantillaRequerida} plazas
+            {turnosPorDia === 0 || empleadosPorTurno === 0
+              ? '0 plazas laborales (Inversionista / Sin nómina)'
+              : `${turnosPorDia} turno(s) × ${empleadosPorTurno} emp/turno = ${plantillaRequerida} plazas`}
           </div>
         </div>
       </div>
@@ -504,7 +548,31 @@ export default function PanelNominaYTurnos({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
-              {empleados.map((emp) => {
+              {empleados.length === 0 ? (
+                <tr>
+                  <td colSpan={tieneHorasExtras ? 7 : 5} className="py-8 text-center text-slate-400 font-sans">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-slate-800/80 flex items-center justify-center text-teal-400">
+                        <Users size={20} />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-300">
+                        Sin empleados asignados (0 trabajadores)
+                      </p>
+                      <p className="text-xs text-slate-500 max-w-md">
+                        Esta área u oficina opera directamente por el inversionista / propietario o no cuenta con personal subordinado. No genera gasto laboral ni cuotas IMSS patronales.
+                      </p>
+                      <button
+                        onClick={handleAddEmpleado}
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/30 transition cursor-pointer"
+                      >
+                        <UserPlus size={13} />
+                        Agregar Primer Empleado
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                empleados.map((emp) => {
                 const smmEquiv = emp.salariosMinimosEquivalentes;
                 const esMenorSM = smmEquiv < 1.0;
 
@@ -613,7 +681,7 @@ export default function PanelNominaYTurnos({
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-700 bg-slate-950/80 font-mono font-bold text-xs text-white">
@@ -656,6 +724,15 @@ export default function PanelNominaYTurnos({
           El total de nómina mensual (<strong className="text-white font-mono">${Math.round(totalGastoLaboral).toLocaleString('es-MX')} MXN</strong>, que incluye <strong className="text-white font-mono">${Math.round(totalSueldosBrutos).toLocaleString('es-MX')}</strong> de sueldos base{tieneHorasExtras ? `, ` + `<strong class="text-amber-300 font-mono">$${Math.round(totalHorasExtras).toLocaleString('es-MX')}</strong> de horas extras LFT 2027` : ''} y <strong className="text-cyan-300 font-mono">${Math.round(totalImssPatronal).toLocaleString('es-MX')}</strong> de cuotas patronales de Seguro Social) se suma directamente a los gastos fijos del negocio. En consecuencia, el volumen de ventas para el punto de equilibrio y para alcanzar los <strong className="text-white font-mono">$20,000 MXN libres</strong> se calibra automáticamente.
         </div>
       </div>
+
+      {/* Modal Interactivo de Horario Semanal Día por Día vinculado al Negocio */}
+      <FormularioHorarioSemanal
+        isOpen={showHorarioModal}
+        onClose={() => setShowHorarioModal(false)}
+        negocioId={negocioId}
+        negocioNombre={negocioNombre}
+        onSave={handleSaveHorarioSemanal}
+      />
     </div>
   );
 }

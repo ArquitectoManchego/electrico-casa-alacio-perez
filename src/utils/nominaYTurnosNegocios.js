@@ -101,19 +101,18 @@ export const PLANTILLA_DEFAULT_NEGOCIOS = {
     ]
   },
 
-  // 7. OFICINAS CORPORATIVO
+  // 7. OFICINAS CORPORATIVO (Consorcio / Inversionista)
   oficinas_consorcio: {
     negocioId: 'oficinas_consorcio',
     nombreNegocio: 'Oficinas Corporativo (Consorcio)',
     horarioApertura: '09:00',
     horarioCierre: '16:00',
-    turnosPorDia: 1,
-    empleadosPorTurno: 1,
-    empleados: [
-      { id: 'oc_emp_1', nombre: 'Auxiliar Administrativo / Fiscal', puesto: 'Gestión Contable, Facturación y Licitaciones', turno: 1, sueldoMensual: 10000 }
-    ]
+    turnosPorDia: 0,
+    empleadosPorTurno: 0,
+    empleados: []
   }
 };
+
 
 /**
  * Calcula los salarios mínimos mensuales a los que equivale un sueldo dado.
@@ -219,14 +218,20 @@ export function sincronizarPlantillaEmpleados({
   negocioId = 'hawaiian_paradise',
   sueldoBaseSugerido = 8000
 }) {
-  const metaTotal = Math.max(1, (parseInt(turnosPorDia) || 1) * (parseInt(empleadosPorTurno) || 1));
-  const plantillaDefecto = PLANTILLA_DEFAULT_NEGOCIOS[negocioId]?.empleados || [];
+  const turnos = Math.max(0, parseInt(turnosPorDia) || 0);
+  const porTurno = Math.max(0, parseInt(empleadosPorTurno) || 0);
+  const metaTotal = turnos * porTurno;
 
+  if (metaTotal === 0) {
+    return [];
+  }
+
+  const plantillaDefecto = PLANTILLA_DEFAULT_NEGOCIOS[negocioId]?.empleados || [];
   const nuevaLista = [];
 
   for (let i = 0; i < metaTotal; i++) {
-    const turnoAsignado = Math.floor(i / (parseInt(empleadosPorTurno) || 1)) + 1;
-    const numEnTurno = (i % (parseInt(empleadosPorTurno) || 1)) + 1;
+    const turnoAsignado = Math.floor(i / (porTurno || 1)) + 1;
+    const numEnTurno = (i % (porTurno || 1)) + 1;
 
     if (i < empleadosActuales.length) {
       // Conservar el empleado existente pero asegurar que su turno coincida
@@ -266,9 +271,29 @@ export function calcularNominaNegocio({
   tasaImss = TASA_IMSS_PATRONAL_DEFAULT
 }) {
   const plantilla = configNegocio || PLANTILLA_DEFAULT_NEGOCIOS[negocioId] || PLANTILLA_DEFAULT_NEGOCIOS.hawaiian_paradise;
-  const turnosPorDia = Math.max(1, parseInt(plantilla.turnosPorDia) || 1);
-  const empleadosPorTurno = Math.max(1, parseInt(plantilla.empleadosPorTurno) || 1);
-  const empleados = plantilla.empleados || [];
+  const turnosPorDia = Math.max(0, parseInt(plantilla.turnosPorDia !== undefined ? plantilla.turnosPorDia : 1));
+  const empleadosPorTurno = Math.max(0, parseInt(plantilla.empleadosPorTurno !== undefined ? plantilla.empleadosPorTurno : 1));
+  const plantillaRequerida = turnosPorDia * empleadosPorTurno;
+
+  let empleadosBase = plantilla.empleados || [];
+
+  // Si turnosPorDia o empleadosPorTurno es 0, no hay empleados en nómina
+  if (plantillaRequerida === 0) {
+    empleadosBase = [];
+  } else if (empleadosBase.length > plantillaRequerida) {
+    // Si la lista guardada tiene más empleados que las plazas requeridas (ej: 4 empleados cuando solo se eligió 1 turno y 1 personal),
+    // recortar estrictamente a plantillaRequerida
+    empleadosBase = empleadosBase.slice(0, plantillaRequerida);
+  } else if (empleadosBase.length < plantillaRequerida) {
+    // Si faltan empleados para cubrir las plazas
+    empleadosBase = sincronizarPlantillaEmpleados({
+      empleadosActuales: empleadosBase,
+      turnosPorDia,
+      empleadosPorTurno,
+      negocioId,
+      sueldoBaseSugerido: salarioMinimoMensual
+    });
+  }
 
   // Cálculo de horas de jornada a partir del horario
   let horasJornada = 8;
@@ -286,11 +311,36 @@ export function calcularNominaNegocio({
   const superaJornadaLegal = horasJornada > 8;
   const sugiereDosTurnos = superaJornadaLegal && turnosPorDia === 1;
 
+  // Si no hay empleados (ej. Oficinas del inversionista)
+  if (plantillaRequerida === 0 || empleadosBase.length === 0) {
+    return {
+      negocioId,
+      nombreNegocio: plantilla.nombreNegocio,
+      horarioApertura: plantilla.horarioApertura || '09:00',
+      horarioCierre: plantilla.horarioCierre || '17:00',
+      horasJornada,
+      turnosPorDia: 0,
+      empleadosPorTurno: 0,
+      plantillaRequerida: 0,
+      totalEmpleados: 0,
+      superaJornadaLegal: false,
+      sugiereDosTurnos: false,
+      totalSueldosBrutos: 0,
+      totalHorasExtras: 0,
+      totalPercepciones: 0,
+      totalImssPatronal: 0,
+      totalGastoLaboral: 0,
+      empleados: [],
+      salarioMinimoMensual
+    };
+  }
+
+
   let totalSueldosBrutos = 0;
   let totalHorasExtras = 0;
   let totalImssPatronal = 0;
 
-  const empleadosDetalle = empleados.map(emp => {
+  const empleadosDetalle = empleadosBase.map(emp => {
     const sueldo = parseFloat(emp.sueldoMensual) || 0;
     const smmEquiv = calcularSalariosMinimosEquivalentes(sueldo, salarioMinimoMensual);
 
@@ -334,7 +384,7 @@ export function calcularNominaNegocio({
     turnosPorDia,
     empleadosPorTurno,
     plantillaRequerida: turnosPorDia * empleadosPorTurno,
-    totalEmpleados: empleados.length,
+    totalEmpleados: empleadosDetalle.length,
     superaJornadaLegal,
     sugiereDosTurnos,
     totalSueldosBrutos,

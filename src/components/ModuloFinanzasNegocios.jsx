@@ -136,6 +136,16 @@ export default function ModuloFinanzasNegocios({
     } catch (e) {}
   }, [productosOverrides]);
 
+  // Sincronizar días laborales al mes cuando cambia el negocio según su configuración de horario o plantilla
+  useEffect(() => {
+    if (negocioSeleccionado && negocioSeleccionado !== 'consolidado') {
+      const cfg = configNominaPorNegocio[negocioSeleccionado];
+      if (cfg?.diasLaborales) {
+        setDiasLaborales(cfg.diasLaborales);
+      }
+    }
+  }, [negocioSeleccionado, configNominaPorNegocio]);
+
   // Artículos vendidos en la jornada del día para el simulador interactivo
   const [articulosVendidosMap, setArticulosVendidosMap] = useState({});
 
@@ -660,6 +670,7 @@ export default function ModuloFinanzasNegocios({
               onUpdateConfigNomina={handleUpdateConfigNomina}
               onResetNomina={handleResetNomina}
               onUpdateSalarioMinimo={setSalarioMinimoMensual}
+              onUpdateDiasLaborales={setDiasLaborales}
             />
           )}
 
