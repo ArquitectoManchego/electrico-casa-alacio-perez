@@ -30,6 +30,7 @@ import {
   dbService, 
   DEFAULT_MEDIDORES_CONSORCIO, 
   DEFAULT_MEDIDORES_3_CONSORCIO, 
+  DEFAULT_MEDIDORES_6_CONSORCIO,
   generarSeedAparatos, 
   EQUIPOS_HAWAIIAN_CANONICOS 
 } from './firebase';
@@ -190,7 +191,13 @@ const asignarSlotParaFase = (fase, slotsOcupados, currentSlot, fasesDisponibles 
 
 export default function App() {
   const [proyectos, setProyectos] = useState([]);
-  const [currentProyectoId, setCurrentProyectoId] = useState('');
+  const [currentProyectoId, setCurrentProyectoId] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sge_selected_proyecto_id');
+      if (saved) return saved;
+    } catch (e) {}
+    return 'consorcio_general';
+  });
   const [aparatos, setAparatos] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -475,7 +482,19 @@ export default function App() {
   const [cajetinEscala, setCajetinEscala] = useState("S/E");
 
   // Multi-medidor state
-  const [medidores, setMedidores] = useState(DEFAULT_MEDIDORES_CONSORCIO);
+  const [medidores, setMedidores] = useState(() => {
+    try {
+      const pId = localStorage.getItem('sge_selected_proyecto_id') || 'consorcio_general';
+      const data = localStorage.getItem('electrico_casa_medidores_' + pId);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_MEDIDORES_3_CONSORCIO;
+  });
   const [activeMedidorId, setActiveMedidorId] = useState('med_1');
 
   // Metadatos de lámina de plano CAD 90x60
@@ -724,7 +743,9 @@ export default function App() {
 
           // Inyectar la miniplancha HTV RONT si no existía en el inventario
           if (!datosFiltrados.some(ap => ap.id === 'pi_mini_ront')) {
-            const medPubliId = currentProyectoId === 'consorcio_general' ? 'med_6' : (finalMedidores[0]?.id || 'med_1');
+            const medPubliId = currentProyectoId === 'consorcio_general'
+              ? (finalMedidores.some(m => m.id === 'med_3') ? 'med_3' : (finalMedidores[finalMedidores.length - 1]?.id || 'med_1'))
+              : (finalMedidores[0]?.id || 'med_1');
             const miniRont = {
               id: 'pi_mini_ront',
               tipo: 'Miniplancha Térmica HTV RONT (Tallas y Etiquetas DTF)',
@@ -789,7 +810,9 @@ export default function App() {
 
           // Inyectar el Minisplit Inverter de 18,000 BTU para Bordados si no existía
           if (!datosFiltrados.some(ap => ap.id === 'bv_4')) {
-            const medBordadosId = currentProyectoId === 'consorcio_general' ? 'med_4' : (finalMedidores[0]?.id || 'med_1');
+            const medBordadosId = currentProyectoId === 'consorcio_general'
+              ? (finalMedidores.some(m => m.id === 'med_2') ? 'med_2' : (finalMedidores[0]?.id || 'med_1'))
+              : (finalMedidores[0]?.id || 'med_1');
             const climaBordados = {
               id: 'bv_4',
               tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)',
@@ -1262,7 +1285,7 @@ export default function App() {
 
   const handleConfigurar6Medidores = async () => {
     if (!currentProyectoId) return;
-    const medidores6 = DEFAULT_MEDIDORES_CONSORCIO;
+    const medidores6 = DEFAULT_MEDIDORES_6_CONSORCIO;
     const reasignados = aparatos.map(ap => {
       const loc = (ap.local || '').toLowerCase();
       let targetMed = 'med_6';
@@ -1309,8 +1332,17 @@ export default function App() {
           return { ...ap, medidorId: targetMed };
         });
       } else if (modo === '6_medidores') {
-        targetMedidores = DEFAULT_MEDIDORES_CONSORCIO;
-        targetAparatos = semilla;
+        targetMedidores = DEFAULT_MEDIDORES_6_CONSORCIO;
+        targetAparatos = semilla.map(ap => {
+          const loc = (ap.local || '').toLowerCase();
+          let targetMed = 'med_6';
+          if (loc.includes('imperia') && !loc.includes('publi') && !loc.includes('costura')) targetMed = 'med_1';
+          else if (loc.includes('papeler') || loc.includes('arte')) targetMed = 'med_2';
+          else if (loc.includes('hawaiian') || loc.includes('hp')) targetMed = 'med_3';
+          else if (loc.includes('bordad')) targetMed = 'med_4';
+          else if (loc.includes('costura')) targetMed = 'med_5';
+          return { ...ap, medidorId: targetMed };
+        });
       } else {
         // 'faltantes': mantener medidores actuales y agregar únicamente los equipos ausentes
         const existingIds = new Set(aparatos.map(a => a.id));

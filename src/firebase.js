@@ -62,19 +62,21 @@ export const DEFAULT_MEDIDORES = [
   { id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }
 ];
 
-export const DEFAULT_MEDIDORES_CONSORCIO = [
+export const DEFAULT_MEDIDORES_3_CONSORCIO = [
+  { id: 'med_1', numero: 1, nombre: 'Imperia & Costura', forzarTrifasico: false },
+  { id: 'med_2', numero: 2, nombre: 'Papelería & Bordados', forzarTrifasico: false },
+  { id: 'med_3', numero: 3, nombre: 'Hawaiian, Publi & Consorcio', forzarTrifasico: false }
+];
+
+export const DEFAULT_MEDIDORES_CONSORCIO = DEFAULT_MEDIDORES_3_CONSORCIO;
+
+export const DEFAULT_MEDIDORES_6_CONSORCIO = [
   { id: 'med_1', numero: 1, nombre: 'Imperia Uniformes', forzarTrifasico: false },
   { id: 'med_2', numero: 2, nombre: 'Papelería ImperiArte', forzarTrifasico: false },
   { id: 'med_3', numero: 3, nombre: 'Hawaiian Paradise Universidades', forzarTrifasico: false },
   { id: 'med_4', numero: 4, nombre: 'Bordados Veracruz', forzarTrifasico: false },
   { id: 'med_5', numero: 5, nombre: 'Taller de Costura Imperia', forzarTrifasico: false },
   { id: 'med_6', numero: 6, nombre: 'Publi-Imperia & Consorcio', forzarTrifasico: false }
-];
-
-export const DEFAULT_MEDIDORES_3_CONSORCIO = [
-  { id: 'med_1', numero: 1, nombre: 'Imperia & Costura', forzarTrifasico: false },
-  { id: 'med_2', numero: 2, nombre: 'Papelería & Bordados', forzarTrifasico: false },
-  { id: 'med_3', numero: 3, nombre: 'Hawaiian, Publi & Consorcio', forzarTrifasico: false }
 ];
 
 // Generador de semillas de inventario para cada negocio
@@ -360,17 +362,17 @@ export function generarSeedAparatos(proyectoId) {
   if (proyectoId === 'taller_publi_imperia') return publiList.map(x => formatearAp({ ...x, local: 'Publi-Imperia' }));
   if (proyectoId === 'oficinas_consorcio') return oficinasList.map(x => formatearAp({ ...x, local: 'Oficinas Consorcio' }));
 
-  // Proyecto Maestro: Consorcio General (Inmueble Completo)
+  // Proyecto Maestro: Consorcio General (Inmueble Completo - 3 Medidores Oficiales)
   const consolidado = [
     ...imperiaList.map(x => ({ ...x, local: 'Imperia Uniformes', medidorId: 'med_1' })),
+    ...costuraList.map(x => ({ ...x, local: 'Taller de Costura Imperia', medidorId: 'med_1' })),
     ...papeleriaList.map(x => ({ ...x, local: 'Papelería ImperiArte', medidorId: 'med_2' })),
+    ...bordadosList.map(x => ({ ...x, local: 'Bordados Veracruz', medidorId: 'med_2' })),
     ...hawaiianList.map(x => ({ ...x, local: 'Hawaiian Paradise Universidades', medidorId: 'med_3' })),
-    ...bordadosList.map(x => ({ ...x, local: 'Bordados Veracruz', medidorId: 'med_4' })),
-    ...costuraList.map(x => ({ ...x, local: 'Taller de Costura Imperia', medidorId: 'med_5' })),
-    ...publiList.map(x => ({ ...x, local: 'Publi-Imperia', medidorId: 'med_6' })),
-    ...oficinasList.map(x => ({ ...x, local: 'Oficinas Consorcio', medidorId: 'med_6' })),
-    { id: 'gen_1', tipo: 'Bomba Presurizadora / Hidroneumático (1 HP)', local: 'Servicios Comunes', modelo: 'Bomba 1 HP 127V', watts: 850, fp: 0.82, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 600, vidaUtil: 7, medidorId: 'med_6' },
-    { id: 'gen_2', tipo: 'Contactos GFCI Sanitarios y Pasillos', local: 'Servicios Comunes', modelo: 'Receptáculos GFCI 20A', watts: 1800, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 2, precio: 3200, mantenimiento: 300, vidaUtil: 15, medidorId: 'med_6' }
+    ...publiList.map(x => ({ ...x, local: 'Publi-Imperia', medidorId: 'med_3' })),
+    ...oficinasList.map(x => ({ ...x, local: 'Oficinas Consorcio', medidorId: 'med_3' })),
+    { id: 'gen_1', tipo: 'Bomba Presurizadora / Hidroneumático (1 HP)', local: 'Servicios Comunes', modelo: 'Bomba 1 HP 127V', watts: 850, fp: 0.82, tipoCarga: 'monofasica', fase: 'B', horasAlta: 4, precio: 7500, mantenimiento: 600, vidaUtil: 7, medidorId: 'med_3' },
+    { id: 'gen_2', tipo: 'Contactos GFCI Sanitarios y Pasillos', local: 'Servicios Comunes', modelo: 'Receptáculos GFCI 20A', watts: 1800, fp: 1.0, tipoCarga: 'monofasica', fase: 'A', horasAlta: 2, precio: 3200, mantenimiento: 300, vidaUtil: 15, medidorId: 'med_3' }
   ];
 
   return consolidado.map(formatearAp);
@@ -497,9 +499,10 @@ const localStore = {
       return (proyectoId === 'consorcio_general') ? DEFAULT_MEDIDORES_CONSORCIO : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
     }
   },
-  saveMedidores: (proyectoId, medidores) => {
+  saveMedidores: (proyectoId, medidores, timestamp = Date.now()) => {
     try {
       localStorage.setItem('electrico_casa_medidores_' + proyectoId, JSON.stringify(medidores));
+      localStorage.setItem('electrico_casa_medidores_ts_' + proyectoId, String(timestamp));
     } catch (e) {}
   }
 };
@@ -619,28 +622,52 @@ export const dbService = {
   // --- GESTIÓN DE MEDIDORES POR PROYECTO ---
 
   async getMedidores(proyectoId) {
+    const localData = localStore.getMedidores(proyectoId);
+    let localTimestamp = 0;
+    try {
+      localTimestamp = parseInt(localStorage.getItem('electrico_casa_medidores_ts_' + proyectoId) || '0', 10);
+    } catch (e) {}
+
     if (db) {
       try {
         const docSnap = await getDoc(doc(db, 'proyectos_residenciales', proyectoId));
         if (docSnap.exists() && docSnap.data().medidores) {
-          const m = docSnap.data().medidores;
-          if (Array.isArray(m) && m.length > 0) {
-            localStore.saveMedidores(proyectoId, m);
-            return m;
+          const remoteMeds = docSnap.data().medidores;
+          const remoteTimestamp = docSnap.data().medidoresUpdatedAt || 0;
+          if (Array.isArray(remoteMeds) && remoteMeds.length > 0) {
+            // Protección contra sobreescritura de 6 medidores obsoletos de Firestore sobre la configuración de 3 medidores:
+            // Si el remoto tiene 6 medidores pero el local tiene 3 (o si localTimestamp > remoteTimestamp), prevalece local.
+            const remotoEsObsoleto6 = remoteMeds.length === 6 && (!remoteTimestamp || remoteTimestamp < 1700000000000);
+            if (remotoEsObsoleto6 && localData && localData.length === 3) {
+              await this.saveMedidores(proyectoId, localData);
+              return localData;
+            }
+
+            if (remoteTimestamp >= localTimestamp) {
+              localStore.saveMedidores(proyectoId, remoteMeds, remoteTimestamp);
+              return remoteMeds;
+            } else {
+              await this.saveMedidores(proyectoId, localData);
+              return localData;
+            }
           }
         }
       } catch (error) {
         console.warn('Error leyendo medidores de Firestore, usando localStore:', error);
       }
     }
-    return localStore.getMedidores(proyectoId);
+    return localData;
   },
 
   async saveMedidores(proyectoId, medidores) {
-    localStore.saveMedidores(proyectoId, medidores);
+    const timestamp = Date.now();
+    localStore.saveMedidores(proyectoId, medidores, timestamp);
     if (db) {
       try {
-        await updateDoc(doc(db, 'proyectos_residenciales', proyectoId), { medidores });
+        await setDoc(doc(db, 'proyectos_residenciales', proyectoId), {
+          medidores,
+          medidoresUpdatedAt: timestamp
+        }, { merge: true });
       } catch (error) {
         console.warn('Error guardando medidores en Firestore:', error);
       }
