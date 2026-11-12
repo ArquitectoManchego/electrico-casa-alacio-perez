@@ -10,7 +10,8 @@ export default function ComparativaMensualCFE({
   simulacionMuyAlto,
   vistaConsolidada = false,
   simulacionConsorcio = null,
-  diasPeriodo = 30
+  diasPeriodo = 30,
+  validacionEscenario = { hayAjustes: false, dentro: true, escenarioResultante: null }
 }) {
   if (vistaConsolidada && simulacionConsorcio) {
     const { mapaMedidores, totalKwhPeriodoConsorcio, totalFacturaConsorcio } = simulacionConsorcio;
@@ -178,6 +179,18 @@ export default function ComparativaMensualCFE({
             else borderClass = 'border-teal-500/80 bg-slate-900/80 ring-2 ring-teal-500/30';
           }
 
+          // Validación de ajustes manuales (volumen / tamaño de lote)
+          let estadoValidacion = null; // 'fuera' | 'dentro'
+          if (validacionEscenario.hayAjustes) {
+            if (!validacionEscenario.dentro && isSelected) estadoValidacion = 'fuera';
+            else if (validacionEscenario.escenarioResultante === c.key) estadoValidacion = 'dentro';
+          }
+          if (estadoValidacion === 'fuera') {
+            borderClass = 'border-rose-500 bg-rose-950/30 ring-2 ring-rose-500/50 shadow-lg shadow-rose-500/20';
+          } else if (estadoValidacion === 'dentro') {
+            borderClass = 'border-emerald-400 bg-emerald-950/30 ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-500/20';
+          }
+
           return (
             <div 
               key={c.key}
@@ -190,6 +203,16 @@ export default function ComparativaMensualCFE({
                     {isSelected && (
                       <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-teal-500 text-slate-950 uppercase">
                         Activo
+                      </span>
+                    )}
+                    {estadoValidacion === 'fuera' && (
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500 text-white uppercase">
+                        Fuera de rango
+                      </span>
+                    )}
+                    {estadoValidacion === 'dentro' && (
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-400 text-slate-950 uppercase">
+                        {isSelected ? 'En rango' : 'Aquí cae el cálculo'}
                       </span>
                     )}
                   </h4>

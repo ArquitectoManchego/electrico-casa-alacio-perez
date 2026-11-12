@@ -9,6 +9,39 @@ import { calcularCobroCFECompleto } from './simuladorCFE.js';
 import { identificarNegocioDeAparato } from './localHelpers.js';
 import { MESES_INFO } from './motorTemporadasYEventos.js';
 
+export const ESCENARIOS_ORDEN = ['bajo', 'tablas', 'medio', 'alto', 'muy_alto'];
+
+/** Normaliza alias de escenario ('equilibrio' -> 'tablas', 'buena' -> 'medio') */
+export function normalizarEscenario(esc) {
+  if (esc === 'equilibrio') return 'tablas';
+  if (esc === 'buena') return 'medio';
+  return esc;
+}
+
+/** Devuelve los ajustes (volumen/lote) guardados para el escenario indicado de un negocio */
+export function obtenerOverridesEscenario(estado = {}, escenario) {
+  const esc = normalizarEscenario(escenario);
+  if (esc === 'custom') return estado.overridesUsuario || null;
+  return estado.overridesPorEscenario?.[esc] || null;
+}
+
+/**
+ * Determina a qué escenario corresponde un resultado calculado.
+ * Los rangos se delimitan en el punto medio entre los valores calibrados de escenarios contiguos.
+ * @param {number} valor - métrica del escenario modificado
+ * @param {Object} base - { bajo, tablas, medio, alto, muy_alto } métricas calibradas (sin ajustes)
+ * @param {number} techo - valor máximo admitido para 'muy_alto' (ej. 100 % de capacidad)
+ * @returns {string|null} escenario donde cae el valor, o null si excede el techo
+ */
+export function clasificarEscenarioPorValor(valor, base = {}, techo = Infinity) {
+  const vals = ESCENARIOS_ORDEN.map(k => base[k] || 0);
+  for (let i = 0; i < ESCENARIOS_ORDEN.length; i++) {
+    const sup = i < ESCENARIOS_ORDEN.length - 1 ? (vals[i] + vals[i + 1]) / 2 : techo;
+    if (valor <= sup) return ESCENARIOS_ORDEN[i];
+  }
+  return null;
+}
+
 /**
  * Calcula los minutos y kWh consumidos por un proceso productivo
  */
@@ -280,18 +313,12 @@ export function simularNegocioCompleto({
   const lotesEfectivos = {};
 
   procesos.forEach(p => {
-    if (escenarioActivo === 'custom' && overridesUsuario) {
-      cantidadesEfectivas[p.id] = overridesUsuario.cantidades?.[p.id] !== undefined
-        ? overridesUsuario.cantidades[p.id]
-        : calibraciones.medio.cantidades[p.id] || 10;
-      lotesEfectivos[p.id] = overridesUsuario.lotes?.[p.id] !== undefined
-        ? overridesUsuario.lotes[p.id]
-        : calibraciones.medio.lotes[p.id] || 1;
-    } else {
-      const baseEsc = calibraciones[escenarioActivo] || calibraciones.medio;
-      cantidadesEfectivas[p.id] = baseEsc.cantidades[p.id] || 10;
-      lotesEfectivos[p.id] = baseEsc.lotes[p.id] || 1;
-    }
+    // Base: calibración automática del escenario (en 'custom' se parte de 'medio')
+    const baseEsc = (escenarioActivo === 'custom' ? calibraciones.medio : calibraciones[escenarioActivo]) || calibraciones.medio;
+    const ovCant = overridesUsuario?.cantidades?.[p.id];
+    const ovLote = overridesUsuario?.lotes?.[p.id];
+    cantidadesEfectivas[p.id] = ovCant !== undefined ? ovCant : (baseEsc.cantidades[p.id] || 10);
+    lotesEfectivos[p.id] = ovLote !== undefined ? ovLote : (baseEsc.lotes[p.id] || 1);
   });
 
   // 1. Simular procesos productivos
@@ -505,7 +532,7 @@ export function simularConsorcioPorMedidores({
     const resNeg = simularNegocioCompleto({
       negocioId: neg.id,
       escenarioActivo: escActivo,
-      overridesUsuario: (escenarioGlobal && escenarioGlobal !== 'por_empresa') ? null : (estado.overridesUsuario || null),
+      overridesUsuario: (escenarioGlobal && escenarioGlobal !== 'por_empresa') ? null : obtenerOverridesEscenario(estado, escActivo),
       diasLaborales: estado.diasLaborales || neg.diasLaboralesDefault,
       horasTurno: estado.horasTurno || neg.horasTurnoDefault,
       mesActivo,

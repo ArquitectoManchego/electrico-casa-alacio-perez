@@ -3,7 +3,10 @@ import { NEGOCIOS_CONFIG, vincularEquiposConInventario } from '../utils/equiposN
 import { PROCESOS_POR_NEGOCIO } from '../utils/procesosNegocios';
 import { 
   simularNegocioCompleto, 
-  simularConsorcioPorMedidores 
+  simularConsorcioPorMedidores,
+  ESCENARIOS_ORDEN,
+  normalizarEscenario,
+  clasificarEscenarioPorValor
 } from '../utils/motorSimulacionVentas';
 import SelectorEscenarioYNegocio from './ventas/SelectorEscenarioYNegocio';
 import ComparativaMensualCFE from './ventas/ComparativaMensualCFE';
@@ -164,7 +167,7 @@ export default function SimuladorConsumoVentas({
     return simularNegocioCompleto({
       negocioId: negocioActivoId,
       escenarioActivo: 'bajo',
-      overridesUsuario: null,
+      overridesUsuario: estadoActual.overridesPorEscenario?.['bajo'] || null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
       mesActivo: mesSeleccionado,
@@ -174,13 +177,13 @@ export default function SimuladorConsumoVentas({
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.overridesPorEscenario, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simTablas = useMemo(() => {
     return simularNegocioCompleto({
       negocioId: negocioActivoId,
       escenarioActivo: 'tablas',
-      overridesUsuario: null,
+      overridesUsuario: estadoActual.overridesPorEscenario?.['tablas'] || null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
       mesActivo: mesSeleccionado,
@@ -190,13 +193,13 @@ export default function SimuladorConsumoVentas({
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.overridesPorEscenario, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simMedio = useMemo(() => {
     return simularNegocioCompleto({
       negocioId: negocioActivoId,
       escenarioActivo: 'medio',
-      overridesUsuario: null,
+      overridesUsuario: estadoActual.overridesPorEscenario?.['medio'] || null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
       mesActivo: mesSeleccionado,
@@ -206,13 +209,13 @@ export default function SimuladorConsumoVentas({
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.overridesPorEscenario, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simAlto = useMemo(() => {
     return simularNegocioCompleto({
       negocioId: negocioActivoId,
       escenarioActivo: 'alto',
-      overridesUsuario: null,
+      overridesUsuario: estadoActual.overridesPorEscenario?.['alto'] || null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
       mesActivo: mesSeleccionado,
@@ -222,13 +225,13 @@ export default function SimuladorConsumoVentas({
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.overridesPorEscenario, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simMuyAlto = useMemo(() => {
     return simularNegocioCompleto({
       negocioId: negocioActivoId,
       escenarioActivo: 'muy_alto',
-      overridesUsuario: null,
+      overridesUsuario: estadoActual.overridesPorEscenario?.['muy_alto'] || null,
       diasLaborales: estadoActual.diasLaborales,
       horasTurno: estadoActual.horasTurno,
       mesActivo: mesSeleccionado,
@@ -238,7 +241,7 @@ export default function SimuladorConsumoVentas({
       costosMEM,
       diasPeriodo
     });
-  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+  }, [negocioActivoId, estadoActual.overridesPorEscenario, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
 
   const simActual = useMemo(() => {
     if (estadoActual.escenarioActivo === 'bajo') return simBajo;
@@ -261,6 +264,59 @@ export default function SimuladorConsumoVentas({
       diasPeriodo
     });
   }, [estadoActual.escenarioActivo, estadoActual.overridesUsuario, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, simBajo, simTablas, simMedio, simAlto, simMuyAlto, negocioActivoId, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+
+  // Valores calibrados automáticamente (sin ajustes del usuario) de cada escenario: definen los rangos
+  const baseEscenarios = useMemo(() => {
+    const out = {};
+    ESCENARIOS_ORDEN.forEach(esc => {
+      out[esc] = simularNegocioCompleto({
+        negocioId: negocioActivoId,
+        escenarioActivo: esc,
+        overridesUsuario: null,
+        diasLaborales: estadoActual.diasLaborales,
+        horasTurno: estadoActual.horasTurno,
+        mesActivo: mesSeleccionado,
+        aparatos,
+        esConsorcio,
+        tarifas,
+        costosMEM,
+        diasPeriodo
+      });
+    });
+    return out;
+  }, [negocioActivoId, estadoActual.diasLaborales, estadoActual.horasTurno, mesSeleccionado, aparatos, esConsorcio, tarifas, costosMEM, diasPeriodo]);
+
+  // Validación: ¿el resultado de los valores modificados sigue dentro del rango del escenario elegido?
+  const escActivoNorm = normalizarEscenario(estadoActual.escenarioActivo);
+  const ajustesEscActivo = estadoActual.overridesPorEscenario?.[escActivoNorm] || null;
+  const validacionEscenario = useMemo(() => {
+    const hayAjustes = !!ajustesEscActivo && (
+      Object.keys(ajustesEscActivo.cantidades || {}).length > 0 ||
+      Object.keys(ajustesEscActivo.lotes || {}).length > 0
+    );
+    if (!hayAjustes || !ESCENARIOS_ORDEN.includes(escActivoNorm)) {
+      return { hayAjustes: false, dentro: true, escenarioResultante: escActivoNorm };
+    }
+    const sats = {};
+    const kwhs = {};
+    ESCENARIOS_ORDEN.forEach(esc => {
+      sats[esc] = baseEscenarios[esc]?.maxSaturacion || 0;
+      kwhs[esc] = baseEscenarios[esc]?.totalKwhMes || 0;
+    });
+    // Métrica principal: saturación del equipo cuello de botella. Si los escenarios no se distinguen por ella
+    // (p. ej. oficina de baja ocupación) se usa el consumo mensual como métrica.
+    const spread = Math.max(...Object.values(sats)) - Math.min(...Object.values(sats));
+    const usaSaturacion = spread >= 1;
+    const base = usaSaturacion ? sats : kwhs;
+    const valor = usaSaturacion ? (simActual.maxSaturacion || 0) : (simActual.totalKwhMes || 0);
+    const techo = usaSaturacion ? 100 : kwhs.muy_alto + (kwhs.muy_alto - kwhs.alto) / 2;
+    const escenarioResultante = clasificarEscenarioPorValor(valor, base, techo);
+    return {
+      hayAjustes: true,
+      dentro: escenarioResultante === escActivoNorm,
+      escenarioResultante
+    };
+  }, [ajustesEscActivo, escActivoNorm, baseEscenarios, simActual]);
 
   // Simulación agregada de Consorcio por los Medidores Reales CFE
   const simConsorcio = useMemo(() => {
@@ -329,56 +385,68 @@ export default function SimuladorConsumoVentas({
     }));
   };
 
+  // Restaura la calibración automática del escenario activo (borra solo sus ajustes)
   const handleRestaurarCalibracion = () => {
-    setEstadosNegocios(prev => ({
-      ...prev,
-      [negocioActivoId]: {
-        ...prev[negocioActivoId],
-        escenarioActivo: 'medio',
-        overridesUsuario: null
+    setEstadosNegocios(prev => {
+      const negEstado = prev[negocioActivoId] || {};
+      const esc = normalizarEscenario(negEstado.escenarioActivo);
+      if (esc === 'custom') {
+        return {
+          ...prev,
+          [negocioActivoId]: { ...negEstado, escenarioActivo: 'medio', overridesUsuario: null }
+        };
       }
-    }));
+      const restantes = { ...(negEstado.overridesPorEscenario || {}) };
+      delete restantes[esc];
+      return {
+        ...prev,
+        [negocioActivoId]: { ...negEstado, overridesPorEscenario: restantes }
+      };
+    });
   };
 
-  const handleChangeCantidad = (procesoId, valor) => {
+  // Guarda un ajuste (volumen o lote) dentro del escenario seleccionado
+  const guardarAjusteProceso = (campo, procesoId, valor) => {
     setEstadosNegocios(prev => {
       const negEstado = prev[negocioActivoId] || {};
-      const cantidadesPrev = negEstado.overridesUsuario?.cantidades || simActual.cantidadesEfectivas || {};
-      const lotesPrev = negEstado.overridesUsuario?.lotes || simActual.lotesEfectivos || {};
+      const esc = normalizarEscenario(negEstado.escenarioActivo);
 
+      // Compatibilidad: estado 'custom' heredado
+      if (esc === 'custom') {
+        const cantidadesPrev = negEstado.overridesUsuario?.cantidades || simActual.cantidadesEfectivas || {};
+        const lotesPrev = negEstado.overridesUsuario?.lotes || simActual.lotesEfectivos || {};
+        return {
+          ...prev,
+          [negocioActivoId]: {
+            ...negEstado,
+            overridesUsuario: {
+              cantidades: campo === 'cantidades' ? { ...cantidadesPrev, [procesoId]: valor } : cantidadesPrev,
+              lotes: campo === 'lotes' ? { ...lotesPrev, [procesoId]: valor } : lotesPrev
+            }
+          }
+        };
+      }
+
+      const actuales = negEstado.overridesPorEscenario?.[esc] || { cantidades: {}, lotes: {} };
       return {
         ...prev,
         [negocioActivoId]: {
           ...negEstado,
-          escenarioActivo: 'custom',
-          overridesUsuario: {
-            cantidades: { ...cantidadesPrev, [procesoId]: valor },
-            lotes: lotesPrev
+          overridesPorEscenario: {
+            ...(negEstado.overridesPorEscenario || {}),
+            [esc]: {
+              cantidades: { ...(actuales.cantidades || {}) },
+              lotes: { ...(actuales.lotes || {}) },
+              [campo]: { ...(actuales[campo] || {}), [procesoId]: valor }
+            }
           }
         }
       };
     });
   };
 
-  const handleChangeLote = (procesoId, valor) => {
-    setEstadosNegocios(prev => {
-      const negEstado = prev[negocioActivoId] || {};
-      const cantidadesPrev = negEstado.overridesUsuario?.cantidades || simActual.cantidadesEfectivas || {};
-      const lotesPrev = negEstado.overridesUsuario?.lotes || simActual.lotesEfectivos || {};
-
-      return {
-        ...prev,
-        [negocioActivoId]: {
-          ...negEstado,
-          escenarioActivo: 'custom',
-          overridesUsuario: {
-            cantidades: cantidadesPrev,
-            lotes: { ...lotesPrev, [procesoId]: valor }
-          }
-        }
-      };
-    });
-  };
+  const handleChangeCantidad = (procesoId, valor) => guardarAjusteProceso('cantidades', procesoId, valor);
+  const handleChangeLote = (procesoId, valor) => guardarAjusteProceso('lotes', procesoId, valor);
 
   // Verificar si hay equipos del negocio que no están en el inventario real del proyecto
   const mapaEquiposActual = simActual.mapaEquipos || {};
@@ -464,6 +532,7 @@ export default function SimuladorConsumoVentas({
         vistaConsolidada={vistaConsolidada}
         simulacionConsorcio={simConsorcio}
         diasPeriodo={diasPeriodo}
+        validacionEscenario={validacionEscenario}
       />
 
       {/* 3. Vistas Específicas del Negocio (Solo visibles si no estamos en la vista consolidada completa) */}
@@ -479,6 +548,10 @@ export default function SimuladorConsumoVentas({
             resultadosProcesos={simActual.resultadosProcesos}
             diasLaborales={estadoActual.diasLaborales}
             mapaEquipos={mapaEquiposActual}
+            escenarioActivo={escActivoNorm}
+            ajustes={ajustesEscActivo}
+            validacion={validacionEscenario}
+            onRestaurar={handleRestaurarCalibracion}
           />
 
           {/* Monitoreo de Capacidad y Cuello de Botella */}

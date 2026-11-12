@@ -9,8 +9,21 @@ export default function TablaProcesosRecetas({
   onChangeLote,
   resultadosProcesos = [],
   diasLaborales = 26,
-  mapaEquipos = {}
+  mapaEquipos = {},
+  escenarioActivo = 'medio',
+  ajustes = null,
+  validacion = { hayAjustes: false, dentro: true },
+  onRestaurar
 }) {
+  const fueraDeRango = validacion.hayAjustes && !validacion.dentro;
+  // Un valor se considera "modificado" si el usuario lo ajustó dentro del escenario activo
+  const esModificado = (campo, id) => ajustes?.[campo]?.[id] !== undefined;
+  const claseInput = (campo, id, base) => {
+    if (!esModificado(campo, id)) return base + ' text-white border-slate-800';
+    return fueraDeRango
+      ? base + ' text-rose-400 border-rose-500 bg-rose-950/40'
+      : base + ' text-emerald-300 border-emerald-500/60';
+  };
   const [recetaExpandidaId, setRecetaExpandidaId] = useState(null);
 
   const toggleReceta = (id) => {
@@ -35,12 +48,32 @@ export default function TablaProcesosRecetas({
             Catálogo de Procesos Productivos y Recetas de Consumo
           </h3>
           <p className="text-[11px] text-slate-400 font-sans mt-0.5">
-            Ajusta el volumen mensual y el tamaño de lote (producción en serie vs. pieza suelta) para ver la reducción inmediata de precalentamientos y energía.
+            Los volúmenes y lotes mostrados corresponden al escenario seleccionado y se guardan en él. Si los modificas y el resultado sale del rango del escenario, los números se marcan en rojo.
           </p>
         </div>
-        <span className="text-[10px] font-mono px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-400">
-          Base: {diasLaborales} días laborales/mes
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {validacion.hayAjustes && (
+            <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded border ${
+              fueraDeRango
+                ? 'bg-rose-500/10 text-rose-400 border-rose-500/40'
+                : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40'
+            }`}>
+              {fueraDeRango ? 'Fuera del rango del escenario' : 'Dentro del rango del escenario'}
+            </span>
+          )}
+          {validacion.hayAjustes && onRestaurar && (
+            <button
+              type="button"
+              onClick={onRestaurar}
+              className="text-[10px] font-mono px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
+            >
+              Restaurar valores automáticos
+            </button>
+          )}
+          <span className="text-[10px] font-mono px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-400">
+            Base: {diasLaborales} días laborales/mes
+          </span>
+        </div>
       </div>
 
       <div className="space-y-3 pt-2">
@@ -92,7 +125,7 @@ export default function TablaProcesosRecetas({
                         max="500"
                         value={loteActual}
                         onChange={(e) => onChangeLote(proceso.id, parseInt(e.target.value) || 1)}
-                        className="w-14 text-center text-xs font-bold font-mono text-white bg-slate-950 border border-slate-800 rounded px-1.5 py-1"
+                        className={claseInput('lotes', proceso.id, 'w-14 text-center text-xs font-bold font-mono bg-slate-950 border rounded px-1.5 py-1')}
                       />
                       <span className="text-[10px] font-mono text-slate-500">pzas/lote</span>
                     </div>
@@ -119,7 +152,7 @@ export default function TablaProcesosRecetas({
                         min="0"
                         value={cantActual}
                         onChange={(e) => onChangeCantidad(proceso.id, parseInt(e.target.value) || 0)}
-                        className="w-16 text-center text-xs font-bold font-mono text-white bg-slate-950 border border-slate-800 rounded py-1"
+                        className={claseInput('cantidades', proceso.id, 'w-16 text-center text-xs font-bold font-mono bg-slate-950 border rounded py-1')}
                       />
                       <button
                         type="button"
