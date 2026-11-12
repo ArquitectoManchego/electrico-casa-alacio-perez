@@ -9,20 +9,20 @@ import {
   deleteDoc, 
   doc, 
   setDoc,
-  writeBatch
+  onSnapshot
 } from 'firebase/firestore';
 import { EQUIPOS_HAWAIIAN_CANONICOS } from './data/equiposHawaiianCanonicos.js';
 export { EQUIPOS_HAWAIIAN_CANONICOS };
 
-// Configuración de Firebase
+// Configuración de Firebase (con respaldo integrado para despliegues en Vercel / multi-equipo)
 const viteEnv = import.meta?.env || {};
 const firebaseConfig = {
-  apiKey: viteEnv.VITE_FIREBASE_API_KEY,
-  authDomain: viteEnv.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: viteEnv.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: viteEnv.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: viteEnv.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: viteEnv.VITE_FIREBASE_APP_ID
+  apiKey: viteEnv.VITE_FIREBASE_API_KEY || "AIzaSyDesu5QCfn5XQLV1gVHopB2r9yCDITqTXg",
+  authDomain: viteEnv.VITE_FIREBASE_AUTH_DOMAIN || "electrico-e2896.firebaseapp.com",
+  projectId: viteEnv.VITE_FIREBASE_PROJECT_ID || "electrico-e2896",
+  storageBucket: viteEnv.VITE_FIREBASE_STORAGE_BUCKET || "electrico-e2896.firebasestorage.app",
+  messagingSenderId: viteEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || "395232750843",
+  appId: viteEnv.VITE_FIREBASE_APP_ID || "1:395232750843:web:4c2550b4017b58c430e01e"
 };
 
 const isFirebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
@@ -379,133 +379,250 @@ export function generarSeedAparatos(proyectoId) {
 }
 
 // ==========================================
-// MOTOR LOCAL STORAGE
+// NORMALIZADOR CANÓNICO DE APARATOS
+// ==========================================
+function normalizarAparato(ap, proyectoId = 'consorcio_general', idx = 0) {
+  if (!ap) return null;
+  const copy = { ...ap };
+  if (!copy.id) {
+    copy.id = `ap_${idx + 1}_${Math.random().toString(36).slice(2, 7)}`;
+  }
+
+  if (!copy.variantes || copy.variantes.length === 0) {
+    const baseVariant = {
+      id: 'default',
+      nombre: copy.modelo || 'Modelo Base',
+      watts: parseFloat(copy.watts) || 0,
+      fp: parseFloat(copy.fp) || 1.0,
+      precio: parseFloat(copy.precio) || 0,
+      mantenimiento: parseFloat(copy.mantenimiento) || 0,
+      vidaUtil: parseFloat(copy.vidaUtil) || 8,
+      horasAlta: copy.horasAlta !== undefined && copy.horasAlta !== null && !isNaN(copy.horasAlta) ? parseFloat(copy.horasAlta) : 8,
+      horasReposo: copy.horasReposo !== undefined && copy.horasReposo !== null && !isNaN(copy.horasReposo) ? parseFloat(copy.horasReposo) : 0,
+      diasUsoMes: copy.diasUsoMes !== undefined && copy.diasUsoMes !== null && !isNaN(copy.diasUsoMes) ? parseFloat(copy.diasUsoMes) : 26,
+      consumoVariable: !!copy.consumoVariable,
+      durabilidadOption: copy.durabilidadOption || 'estandar',
+      tipoCarga: copy.tipoCarga || 'monofasica',
+      usarVaDirecto: !!copy.usarVaDirecto,
+      criteriosDurabilidad: copy.criteriosDurabilidad || '',
+      criteriosMantenimiento: copy.criteriosMantenimiento || ''
+    };
+    copy.variantes = [baseVariant];
+    copy.activaVariantId = 'default';
+  }
+
+  if (copy.diasUsoMes === undefined) {
+    copy.diasUsoMes = 26;
+  }
+
+  const t = (copy.tipo || '').toLowerCase();
+  if (proyectoId === 'consorcio_general') {
+    if (t.includes('[imperia]')) { if (!copy.local) copy.local = 'Imperia Uniformes'; if (!copy.medidorId) copy.medidorId = 'med_1'; }
+    else if (t.includes('[papelería]') || t.includes('[papeleria]')) { if (!copy.local) copy.local = 'Papelería ImperiArte'; if (!copy.medidorId) copy.medidorId = 'med_2'; }
+    else if (t.includes('[hawaiian]')) { if (!copy.local) copy.local = 'Hawaiian Paradise Universidades'; if (!copy.medidorId) copy.medidorId = 'med_3'; }
+    else if (t.includes('[bordados]')) { if (!copy.local) copy.local = 'Bordados Veracruz'; if (!copy.medidorId) copy.medidorId = 'med_2'; }
+    else if (t.includes('[costura]')) { if (!copy.local) copy.local = 'Taller de Costura Imperia'; if (!copy.medidorId) copy.medidorId = 'med_1'; }
+    else if (t.includes('[publi-imperia]')) { if (!copy.local) copy.local = 'Publi-Imperia'; if (!copy.medidorId) copy.medidorId = 'med_3'; }
+    else if (t.includes('[consorcio]')) { if (!copy.local) copy.local = 'Oficinas Consorcio'; if (!copy.medidorId) copy.medidorId = 'med_3'; }
+    else if (t.includes('[servicios]')) { if (!copy.local) copy.local = 'Servicios Comunes'; if (!copy.medidorId) copy.medidorId = 'med_3'; }
+  }
+
+  if (!copy.medidorId) {
+    copy.medidorId = 'med_1';
+  }
+
+  if (!copy.local) {
+    const match = (copy.tipo || '').match(/^(\[|\()([^\)\]]+)(\]|\))\s*/);
+    if (match) {
+      const raw = match[2].toLowerCase();
+      if (raw.includes('imperia') && !raw.includes('publi')) copy.local = 'Imperia Uniformes';
+      else if (raw.includes('papeler') || raw.includes('arte')) copy.local = 'Papelería ImperiArte';
+      else if (raw.includes('hawaiian') || raw.includes('hp')) copy.local = 'Hawaiian Paradise Universidades';
+      else if (raw.includes('bordad')) copy.local = 'Bordados Veracruz';
+      else if (raw.includes('costura')) copy.local = 'Taller de Costura Imperia';
+      else if (raw.includes('publi')) copy.local = 'Publi-Imperia';
+      else if (raw.includes('consorcio') || raw.includes('oficina')) copy.local = 'Oficinas Consorcio';
+      else if (raw.includes('servicio')) copy.local = 'Servicios Comunes';
+      else copy.local = match[2].trim();
+    } else {
+      copy.local = DEFAULT_PROJECTS_LIST.find(p => p.id === proyectoId)?.nombre || 'Imperia Uniformes';
+    }
+  }
+
+  if (copy.tipo) {
+    copy.tipo = copy.tipo.replace(/^(\[|\()([^\)\]]+)(\]|\))\s*/, '').trim();
+  }
+
+  return copy;
+}
+
+// Acceso seguro a localStorage (con respaldo en memoria para entornos restringidos o Node)
+const memoryStore = new Map();
+function safeGetItem(key) {
+  try {
+    if (typeof localStorage !== 'undefined') return localStorage.getItem(key);
+  } catch (e) {}
+  return memoryStore.has(key) ? memoryStore.get(key) : null;
+}
+function safeSetItem(key, val) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, val);
+      return;
+    }
+  } catch (e) {}
+  memoryStore.set(key, String(val));
+}
+function safeRemoveItem(key) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  } catch (e) {}
+  memoryStore.delete(key);
+}
+
+// Detecta si una lista local de medidores corresponde a los 6 medidores obsoletos por defecto
+function esConfiguracion6MedidoresObsoleta(proyectoId, medidores) {
+  if (proyectoId !== 'consorcio_general' || !Array.isArray(medidores)) return false;
+  if (medidores.length !== 6) return false;
+  if (safeGetItem('sge_explicit_6_medidores_' + proyectoId) === 'true') {
+    return false;
+  }
+  return true;
+}
+
+// ==========================================
+// MOTOR LOCAL STORAGE (CACHÉ SINCRONIZADO)
 // ==========================================
 const localStore = {
   getProyectos: () => {
     try {
-      const data = localStorage.getItem(STORAGE_PROJECTS_KEY);
+      const data = safeGetItem(STORAGE_PROJECTS_KEY);
       return data ? JSON.parse(data) : DEFAULT_PROJECTS_LIST;
     } catch (e) {
       return DEFAULT_PROJECTS_LIST;
     }
   },
   saveProyectos: (lista) => {
-    try {
-      localStorage.setItem(STORAGE_PROJECTS_KEY, JSON.stringify(lista));
-    } catch (e) {}
+    safeSetItem(STORAGE_PROJECTS_KEY, JSON.stringify(lista));
   },
-  getAparatos: (proyectoId) => {
+  hasCustomAparatos: (proyectoId) => {
     try {
-      const data = localStorage.getItem('electrico_casa_aparatos_' + proyectoId);
-      if (!data) {
-        const semilla = generarSeedAparatos(proyectoId);
-        localStore.saveAparatos(proyectoId, semilla);
-        return semilla;
+      const raw = safeGetItem('electrico_casa_aparatos_' + proyectoId);
+      if (!raw) return false;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list) || list.length === 0) return false;
+      // Si tiene aparatos asignados a med_4, med_5 o med_6 y no se activó explícitamente 6 medidores, es caché viejo obsoleto
+      if (proyectoId === 'consorcio_general' && safeGetItem('sge_explicit_6_medidores_' + proyectoId) !== 'true') {
+        const tieneMedsViejos = list.some(ap => ap.medidorId === 'med_4' || ap.medidorId === 'med_5' || ap.medidorId === 'med_6');
+        if (tieneMedsViejos) return false;
       }
-      const list = JSON.parse(data);
-      if (list.length === 0) {
-        const semilla = generarSeedAparatos(proyectoId);
-        localStore.saveAparatos(proyectoId, semilla);
-        return semilla;
-      }
-      return list.map(ap => {
-        if (!ap.variantes || ap.variantes.length === 0) {
-          const baseVariant = {
-            id: 'default',
-            nombre: ap.modelo || 'Modelo Base',
-            watts: parseFloat(ap.watts) || 0,
-            fp: parseFloat(ap.fp) || 1.0,
-            precio: parseFloat(ap.precio) || 0,
-            mantenimiento: parseFloat(ap.mantenimiento) || 0,
-            vidaUtil: parseFloat(ap.vidaUtil) || 8,
-            horasAlta: ap.horasAlta !== undefined && ap.horasAlta !== null && !isNaN(ap.horasAlta) ? parseFloat(ap.horasAlta) : 8,
-            horasReposo: ap.horasReposo !== undefined && ap.horasReposo !== null && !isNaN(ap.horasReposo) ? parseFloat(ap.horasReposo) : 0,
-            diasUsoMes: ap.diasUsoMes !== undefined && ap.diasUsoMes !== null && !isNaN(ap.diasUsoMes) ? parseFloat(ap.diasUsoMes) : 26,
-            consumoVariable: !!ap.consumoVariable,
-            durabilidadOption: ap.durabilidadOption || 'estandar',
-            tipoCarga: ap.tipoCarga || 'monofasica',
-            usarVaDirecto: !!ap.usarVaDirecto,
-            criteriosDurabilidad: ap.criteriosDurabilidad || '',
-            criteriosMantenimiento: ap.criteriosMantenimiento || ''
-          };
-          ap.variantes = [baseVariant];
-          ap.activaVariantId = 'default';
-        }
-        if (ap.diasUsoMes === undefined) {
-          ap.diasUsoMes = 26;
-        }
-        // Migración inteligente para consorcio_general a los 6 medidores según negocio y asignación de local
-        const t = (ap.tipo || '').toLowerCase();
-        if (proyectoId === 'consorcio_general') {
-          if (t.includes('[imperia]')) { if (!ap.local) ap.local = 'Imperia Uniformes'; if (!ap.medidorId) ap.medidorId = 'med_1'; }
-          else if (t.includes('[papelería]') || t.includes('[papeleria]')) { if (!ap.local) ap.local = 'Papelería ImperiArte'; if (!ap.medidorId) ap.medidorId = 'med_2'; }
-          else if (t.includes('[hawaiian]')) { if (!ap.local) ap.local = 'Hawaiian Paradise Universidades'; if (!ap.medidorId) ap.medidorId = 'med_3'; }
-          else if (t.includes('[bordados]')) { if (!ap.local) ap.local = 'Bordados Veracruz'; if (!ap.medidorId) ap.medidorId = 'med_4'; }
-          else if (t.includes('[costura]')) { if (!ap.local) ap.local = 'Taller de Costura Imperia'; if (!ap.medidorId) ap.medidorId = 'med_5'; }
-          else if (t.includes('[publi-imperia]')) { if (!ap.local) ap.local = 'Publi-Imperia'; if (!ap.medidorId) ap.medidorId = 'med_6'; }
-          else if (t.includes('[consorcio]')) { if (!ap.local) ap.local = 'Oficinas Consorcio'; if (!ap.medidorId) ap.medidorId = 'med_6'; }
-          else if (t.includes('[servicios]')) { if (!ap.local) ap.local = 'Servicios Comunes'; if (!ap.medidorId) ap.medidorId = 'med_6'; }
-        }
-        if (!ap.medidorId) {
-          ap.medidorId = 'med_1';
-        }
-        if (!ap.local) {
-          const match = (ap.tipo || '').match(/^(\[|\()([^\)\]]+)(\]|\))\s*/);
-          if (match) {
-            const raw = match[2].toLowerCase();
-            if (raw.includes('imperia') && !raw.includes('publi')) ap.local = 'Imperia Uniformes';
-            else if (raw.includes('papeler') || raw.includes('arte')) ap.local = 'Papelería ImperiArte';
-            else if (raw.includes('hawaiian') || raw.includes('hp')) ap.local = 'Hawaiian Paradise Universidades';
-            else if (raw.includes('bordad')) ap.local = 'Bordados Veracruz';
-            else if (raw.includes('costura')) ap.local = 'Taller de Costura Imperia';
-            else if (raw.includes('publi')) ap.local = 'Publi-Imperia';
-            else if (raw.includes('consorcio') || raw.includes('oficina')) ap.local = 'Oficinas Consorcio';
-            else if (raw.includes('servicio')) ap.local = 'Servicios Comunes';
-            else ap.local = match[2].trim();
-          } else {
-            ap.local = DEFAULT_PROJECTS_LIST.find(p => p.id === proyectoId)?.nombre || 'Imperia Uniformes';
-          }
-        }
-        if (ap.tipo) {
-          ap.tipo = ap.tipo.replace(/^(\[|\()([^\)\]]+)(\]|\))\s*/, '').trim();
-        }
-        return ap;
+      const seed = generarSeedAparatos(proyectoId);
+      if (list.length !== seed.length) return true;
+      const seedMap = new Map(seed.map(s => [s.id, s]));
+      return list.some(ap => {
+        const s = seedMap.get(ap.id);
+        if (!s) return true;
+        return ap.medidorId !== s.medidorId || ap.local !== s.local || Number(ap.watts) !== Number(s.watts) || ap.tipo !== s.tipo;
       });
+    } catch (e) {
+      return false;
+    }
+  },
+  getAparatos: (proyectoId, persistDefault = false) => {
+    try {
+      const data = safeGetItem('electrico_casa_aparatos_' + proyectoId);
+      if (data) {
+        const list = JSON.parse(data);
+        if (Array.isArray(list) && list.length > 0) {
+          // Purgar si viene de la configuración obsoleta de 6 medidores no solicitada
+          if (proyectoId === 'consorcio_general' && safeGetItem('sge_explicit_6_medidores_' + proyectoId) !== 'true') {
+            const medsLocalRaw = safeGetItem('electrico_casa_medidores_' + proyectoId);
+            const medsLocal = medsLocalRaw ? JSON.parse(medsLocalRaw) : null;
+            if (esConfiguracion6MedidoresObsoleta(proyectoId, medsLocal)) {
+              safeRemoveItem('electrico_casa_aparatos_' + proyectoId);
+              safeRemoveItem('electrico_casa_medidores_' + proyectoId);
+              safeRemoveItem('electrico_casa_medidores_ts_' + proyectoId);
+              safeRemoveItem('electrico_casa_aparatos_ts_' + proyectoId);
+              const semilla = generarSeedAparatos(proyectoId);
+              return semilla;
+            }
+          }
+          return list.map((ap, i) => normalizarAparato(ap, proyectoId, i)).filter(Boolean);
+        }
+      }
+      const semilla = generarSeedAparatos(proyectoId);
+      if (persistDefault) {
+        localStore.saveAparatos(proyectoId, semilla, 0);
+      }
+      return semilla;
     } catch (e) {
       return generarSeedAparatos(proyectoId);
     }
   },
-  saveAparatos: (proyectoId, data) => {
-    try {
-      localStorage.setItem('electrico_casa_aparatos_' + proyectoId, JSON.stringify(data));
-    } catch (e) {}
+  saveAparatos: (proyectoId, data, timestamp = Date.now()) => {
+    safeSetItem('electrico_casa_aparatos_' + proyectoId, JSON.stringify(data));
+    if (timestamp > 0) {
+      safeSetItem('electrico_casa_aparatos_ts_' + proyectoId, String(timestamp));
+    }
   },
-  getMedidores: (proyectoId) => {
+  hasCustomMedidores: (proyectoId) => {
     try {
-      const data = localStorage.getItem('electrico_casa_medidores_' + proyectoId);
+      const data = safeGetItem('electrico_casa_medidores_' + proyectoId);
+      if (!data) return false;
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed) || parsed.length === 0) return false;
+      if (esConfiguracion6MedidoresObsoleta(proyectoId, parsed)) return false;
+      if (proyectoId === 'consorcio_general' && parsed.length === 3) {
+        const esDefault3 = parsed.every((m, idx) => {
+          const def = DEFAULT_MEDIDORES_3_CONSORCIO[idx];
+          return def && m.id === def.id && m.nombre === def.nombre && !m.forzarTrifasico && !m.fasesHabilitadas;
+        });
+        if (esDefault3 && !localStore.hasCustomAparatos(proyectoId)) {
+          return false;
+        }
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
+  getMedidores: (proyectoId, persistDefault = false) => {
+    try {
+      const data = safeGetItem('electrico_casa_medidores_' + proyectoId);
       if (data) {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          if (esConfiguracion6MedidoresObsoleta(proyectoId, parsed)) {
+            safeRemoveItem('electrico_casa_medidores_' + proyectoId);
+            safeRemoveItem('electrico_casa_medidores_ts_' + proyectoId);
+          } else {
+            return parsed;
+          }
         }
       }
-      if (proyectoId === 'consorcio_general') {
-        localStore.saveMedidores(proyectoId, DEFAULT_MEDIDORES_CONSORCIO);
-        return DEFAULT_MEDIDORES_CONSORCIO;
+      const fallback = proyectoId === 'consorcio_general'
+        ? DEFAULT_MEDIDORES_CONSORCIO
+        : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+      if (persistDefault) {
+        localStore.saveMedidores(proyectoId, fallback, 0);
       }
-      return [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+      return fallback;
     } catch (e) {
       return (proyectoId === 'consorcio_general') ? DEFAULT_MEDIDORES_CONSORCIO : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
     }
   },
   saveMedidores: (proyectoId, medidores, timestamp = Date.now()) => {
-    try {
-      localStorage.setItem('electrico_casa_medidores_' + proyectoId, JSON.stringify(medidores));
-      localStorage.setItem('electrico_casa_medidores_ts_' + proyectoId, String(timestamp));
-    } catch (e) {}
+    safeSetItem('electrico_casa_medidores_' + proyectoId, JSON.stringify(medidores));
+    if (timestamp > 0) {
+      safeSetItem('electrico_casa_medidores_ts_' + proyectoId, String(timestamp));
+    }
   }
 };
+
+// Registro de última escritura originada en esta sesión para evitar bucles con onSnapshot
+let lastSessionWriteTimestamp = 0;
 
 // ==========================================
 // INTERFAZ DE SERVICIO UNIFICADA MULTI-PROYECTO
@@ -518,8 +635,9 @@ export const dbService = {
       try {
         const querySnapshot = await getDocs(collection(db, 'proyectos_residenciales'));
         const lista = [];
-        querySnapshot.forEach((doc) => {
-          lista.push({ id: doc.id, ...doc.data() });
+        querySnapshot.forEach((docSnap) => {
+          const d = docSnap.data();
+          lista.push({ id: docSnap.id, nombre: d.nombre || docSnap.id, ...d });
         });
         if (lista.length === 0) {
           for (const p of DEFAULT_PROJECTS_LIST) {
@@ -527,6 +645,14 @@ export const dbService = {
           }
           return DEFAULT_PROJECTS_LIST;
         }
+        // Asegurar que los proyectos base del consorcio existan
+        for (const defProj of DEFAULT_PROJECTS_LIST) {
+          if (!lista.some(item => item.id === defProj.id)) {
+            await this.createProyecto(defProj.nombre, defProj.id);
+            lista.push(defProj);
+          }
+        }
+        localStore.saveProyectos(lista.map(({ id, nombre }) => ({ id, nombre })));
         return lista;
       } catch (error) {
         console.error('Error obteniendo proyectos de Firestore:', error);
@@ -543,7 +669,7 @@ export const dbService = {
 
     if (db) {
       try {
-        await setDoc(doc(db, 'proyectos_residenciales', idTemp), nuevoProj);
+        await setDoc(doc(db, 'proyectos_residenciales', idTemp), nuevoProj, { merge: true });
         return { id: idTemp, ...nuevoProj };
       } catch (error) {
         console.error('Error creando proyecto en Firestore:', error);
@@ -565,7 +691,7 @@ export const dbService = {
   async updateProyecto(id, campos) {
     if (db) {
       try {
-        await updateDoc(doc(db, 'proyectos_residenciales', id), campos);
+        await setDoc(doc(db, 'proyectos_residenciales', id), campos, { merge: true });
         return true;
       } catch (error) {
         console.error('Error actualizando proyecto en Firestore:', error);
@@ -584,13 +710,7 @@ export const dbService = {
   async clonarProyecto(proyectoId, nuevoNombre) {
     const nuevoProj = await this.createProyecto(nuevoNombre);
     const aparatosExistentes = await this.getAparatos(proyectoId);
-    
-    const aparatosClonados = aparatosExistentes.map(ap => {
-      const { id, ...data } = ap;
-      return data;
-    });
-
-    await this.guardarTodosLosAparatos(nuevoProj.id, aparatosClonados);
+    await this.guardarTodosLosAparatos(nuevoProj.id, aparatosExistentes);
 
     const medidoresExistentes = await this.getMedidores(proyectoId);
     await this.saveMedidores(nuevoProj.id, medidoresExistentes);
@@ -602,10 +722,6 @@ export const dbService = {
     if (db) {
       try {
         await deleteDoc(doc(db, 'proyectos_residenciales', proyectoId));
-        const snap = await getDocs(collection(db, 'proyectos_residenciales/' + proyectoId + '/aparatos'));
-        for (const d of snap.docs) {
-          await deleteDoc(doc(db, 'proyectos_residenciales/' + proyectoId + '/aparatos', d.id));
-        }
       } catch (error) {
         console.error('Error borrando proyecto en Firestore:', error);
       }
@@ -614,44 +730,62 @@ export const dbService = {
     const lista = localStore.getProyectos();
     const filtrados = lista.filter(p => p.id !== proyectoId);
     localStore.saveProyectos(filtrados);
-    localStorage.removeItem('electrico_casa_aparatos_' + proyectoId);
-    localStorage.removeItem('electrico_casa_medidores_' + proyectoId);
+    safeRemoveItem('electrico_casa_aparatos_' + proyectoId);
+    safeRemoveItem('electrico_casa_medidores_' + proyectoId);
+    safeRemoveItem('electrico_casa_aparatos_ts_' + proyectoId);
+    safeRemoveItem('electrico_casa_medidores_ts_' + proyectoId);
     return true;
   },
 
-  // --- GESTIÓN DE MEDIDORES POR PROYECTO ---
+  // --- GESTIÓN DE MEDIDORES POR PROYECTO (CLOUD-FIRST MULTI-EQUIPO) ---
+
+  getInitialMedidoresSync(proyectoId = 'consorcio_general') {
+    return localStore.getMedidores(proyectoId, false);
+  },
 
   async getMedidores(proyectoId) {
-    const localData = localStore.getMedidores(proyectoId);
-    let localTimestamp = 0;
-    try {
-      localTimestamp = parseInt(localStorage.getItem('electrico_casa_medidores_ts_' + proyectoId) || '0', 10);
-    } catch (e) {}
+    const hasLocalCustom = localStore.hasCustomMedidores(proyectoId);
+    const localData = localStore.getMedidores(proyectoId, false);
+    const localTimestamp = parseInt(safeGetItem('electrico_casa_medidores_ts_' + proyectoId) || '0', 10);
 
     if (db) {
       try {
         const docSnap = await getDoc(doc(db, 'proyectos_residenciales', proyectoId));
-        if (docSnap.exists() && docSnap.data().medidores) {
-          const remoteMeds = docSnap.data().medidores;
-          const remoteTimestamp = docSnap.data().medidoresUpdatedAt || 0;
-          if (Array.isArray(remoteMeds) && remoteMeds.length > 0) {
-            // Protección contra sobreescritura de 6 medidores obsoletos de Firestore sobre la configuración de 3 medidores:
-            // Si el remoto tiene 6 medidores pero el local tiene 3 (o si localTimestamp > remoteTimestamp), prevalece local.
-            const remotoEsObsoleto6 = remoteMeds.length === 6 && (!remoteTimestamp || remoteTimestamp < 1700000000000);
-            if (remotoEsObsoleto6 && localData && localData.length === 3) {
-              await this.saveMedidores(proyectoId, localData);
-              return localData;
-            }
+        if (docSnap.exists()) {
+          const docData = docSnap.data();
+          const remoteMeds = docData.medidores;
+          const remoteTimestamp = docData.medidoresUpdatedAt || 0;
+          const remoteExplicit6 = !!docData.explicit6Medidores;
+          const remoteUserModified = !!docData.userModified;
 
-            if (remoteTimestamp >= localTimestamp) {
-              localStore.saveMedidores(proyectoId, remoteMeds, remoteTimestamp);
-              return remoteMeds;
-            } else {
-              await this.saveMedidores(proyectoId, localData);
-              return localData;
+          if (Array.isArray(remoteMeds) && remoteMeds.length > 0) {
+            const remotoEsObsoleto6 = proyectoId === 'consorcio_general' && remoteMeds.length === 6 && !remoteExplicit6;
+            if (!remotoEsObsoleto6) {
+              const syncedV3 = safeGetItem('sge_cloud_sync_v3_meds_' + proyectoId) === 'true';
+              // Si este equipo aún no había migrado a v3 y tiene cambios personalizados del usuario mientras Firestore solo tiene la semilla automática:
+              const rescueLocalBeforeV3 = !syncedV3 && hasLocalCustom && !remoteUserModified;
+
+              if (!rescueLocalBeforeV3 && (remoteTimestamp >= localTimestamp || syncedV3 || !hasLocalCustom)) {
+                if (remoteExplicit6) {
+                  safeSetItem('sge_explicit_6_medidores_' + proyectoId, 'true');
+                } else {
+                  safeRemoveItem('sge_explicit_6_medidores_' + proyectoId);
+                }
+                safeSetItem('sge_cloud_sync_v3_meds_' + proyectoId, 'true');
+                localStore.saveMedidores(proyectoId, remoteMeds, remoteTimestamp || Date.now());
+                return remoteMeds;
+              }
             }
           }
         }
+
+        // Si en Firestore no había medidores (o rescatamos los cambios locales de este equipo):
+        safeSetItem('sge_cloud_sync_v3_meds_' + proyectoId, 'true');
+        await this.saveMedidores(proyectoId, localData, {
+          explicit6Medidores: localData.length === 6 && safeGetItem('sge_explicit_6_medidores_' + proyectoId) === 'true',
+          isAutoMigration: !hasLocalCustom
+        });
+        return localData;
       } catch (error) {
         console.warn('Error leyendo medidores de Firestore, usando localStore:', error);
       }
@@ -659,14 +793,28 @@ export const dbService = {
     return localData;
   },
 
-  async saveMedidores(proyectoId, medidores) {
+  async saveMedidores(proyectoId, medidores, options = {}) {
     const timestamp = Date.now();
+    lastSessionWriteTimestamp = timestamp;
+    const explicit6 = options.explicit6Medidores !== undefined
+      ? !!options.explicit6Medidores
+      : (medidores.length === 6);
+
+    if (explicit6) {
+      safeSetItem('sge_explicit_6_medidores_' + proyectoId, 'true');
+    } else {
+      safeRemoveItem('sge_explicit_6_medidores_' + proyectoId);
+    }
+    safeSetItem('sge_cloud_sync_v3_meds_' + proyectoId, 'true');
+
     localStore.saveMedidores(proyectoId, medidores, timestamp);
     if (db) {
       try {
         await setDoc(doc(db, 'proyectos_residenciales', proyectoId), {
           medidores,
-          medidoresUpdatedAt: timestamp
+          medidoresUpdatedAt: timestamp,
+          explicit6Medidores: explicit6,
+          ...(options.isAutoMigration ? {} : { userModified: true })
         }, { merge: true });
       } catch (error) {
         console.warn('Error guardando medidores en Firestore:', error);
@@ -675,160 +823,165 @@ export const dbService = {
     return medidores;
   },
 
-  // --- GESTIÓN DE APARATOS POR PROYECTO ---
+  // --- GESTIÓN DE APARATOS POR PROYECTO (CLOUD-FIRST ATÓMICO) ---
 
   async getAparatos(proyectoId) {
+    const hasLocalCustom = localStore.hasCustomAparatos(proyectoId);
+    const localData = localStore.getAparatos(proyectoId, false);
+    const localTimestamp = parseInt(safeGetItem('electrico_casa_aparatos_ts_' + proyectoId) || '0', 10);
+
     if (db) {
       try {
-        const querySnapshot = await getDocs(collection(db, 'proyectos_residenciales/' + proyectoId + '/aparatos'));
-        const aparatos = [];
-        querySnapshot.forEach((doc) => {
-          const ap = { id: doc.id, ...doc.data() };
-          if (!ap.variantes || ap.variantes.length === 0) {
-            const baseVariant = {
-              id: 'default',
-              nombre: ap.modelo || 'Modelo Base',
-              watts: parseFloat(ap.watts) || 0,
-              fp: parseFloat(ap.fp) || 1.0,
-              precio: parseFloat(ap.precio) || 0,
-              mantenimiento: parseFloat(ap.mantenimiento) || 0,
-              vidaUtil: parseFloat(ap.vidaUtil) || 8,
-              horasAlta: ap.horasAlta !== undefined && ap.horasAlta !== null && !isNaN(ap.horasAlta) ? parseFloat(ap.horasAlta) : 8,
-              horasReposo: ap.horasReposo !== undefined && ap.horasReposo !== null && !isNaN(ap.horasReposo) ? parseFloat(ap.horasReposo) : 0,
-              diasUsoMes: ap.diasUsoMes !== undefined && ap.diasUsoMes !== null && !isNaN(ap.diasUsoMes) ? parseFloat(ap.diasUsoMes) : 26,
-              consumoVariable: !!ap.consumoVariable,
-              durabilidadOption: ap.durabilidadOption || 'estandar',
-              tipoCarga: ap.tipoCarga || 'monofasica',
-              usarVaDirecto: !!ap.usarVaDirecto,
-              criteriosDurabilidad: ap.criteriosDurabilidad || '',
-              criteriosMantenimiento: ap.criteriosMantenimiento || ''
-            };
-            ap.variantes = [baseVariant];
-            ap.activaVariantId = 'default';
-          }
-          if (ap.diasUsoMes === undefined) {
-            ap.diasUsoMes = 26;
-          }
-          if (!ap.medidorId) {
-            ap.medidorId = 'med_1';
-          }
-          if (!ap.local) {
-            const match = (ap.tipo || '').match(/^(\[|\()([^\)\]]+)(\]|\))\s*/);
-            if (match) {
-              const raw = match[2].toLowerCase();
-              if (raw.includes('imperia') && !raw.includes('publi')) ap.local = 'Imperia Uniformes';
-              else if (raw.includes('papeler') || raw.includes('arte')) ap.local = 'Papelería ImperiArte';
-              else if (raw.includes('hawaiian') || raw.includes('hp')) ap.local = 'Hawaiian Paradise Universidades';
-              else if (raw.includes('bordad')) ap.local = 'Bordados Veracruz';
-              else if (raw.includes('costura')) ap.local = 'Taller de Costura Imperia';
-              else if (raw.includes('publi')) ap.local = 'Publi-Imperia';
-              else if (raw.includes('consorcio') || raw.includes('oficina')) ap.local = 'Oficinas Consorcio';
-              else if (raw.includes('servicio')) ap.local = 'Servicios Comunes';
-              else ap.local = match[2].trim();
-            } else {
-              ap.local = DEFAULT_PROJECTS_LIST.find(p => p.id === proyectoId)?.nombre || 'Imperia Uniformes';
+        const docSnap = await getDoc(doc(db, 'proyectos_residenciales', proyectoId));
+        if (docSnap.exists()) {
+          const docData = docSnap.data();
+          const remoteAparatos = docData.aparatosLista;
+          const remoteTimestamp = docData.aparatosUpdatedAt || 0;
+          const remoteExplicit6 = !!docData.explicit6Medidores;
+          const remoteUserModified = !!docData.userModified;
+
+          if (Array.isArray(remoteAparatos) && remoteAparatos.length > 0) {
+            const tieneMeds6Obsoletos = proyectoId === 'consorcio_general' && !remoteExplicit6 &&
+              remoteAparatos.some(ap => ap.medidorId === 'med_4' || ap.medidorId === 'med_5' || ap.medidorId === 'med_6');
+
+            if (!tieneMeds6Obsoletos) {
+              const syncedV3 = safeGetItem('sge_cloud_sync_v3_aps_' + proyectoId) === 'true';
+              const rescueLocalBeforeV3 = !syncedV3 && hasLocalCustom && !remoteUserModified;
+
+              if (!rescueLocalBeforeV3 && (remoteTimestamp >= localTimestamp || syncedV3 || !hasLocalCustom)) {
+                const normalizados = remoteAparatos
+                  .map((ap, i) => normalizarAparato(ap, proyectoId, i))
+                  .filter(Boolean);
+                safeSetItem('sge_cloud_sync_v3_aps_' + proyectoId, 'true');
+                localStore.saveAparatos(proyectoId, normalizados, remoteTimestamp || Date.now());
+                return normalizados;
+              }
             }
           }
-          if (ap.tipo) {
-            ap.tipo = ap.tipo.replace(/^(\[|\()([^\)\]]+)(\]|\))\s*/, '').trim();
-          }
-          aparatos.push(ap);
-        });
-        if (aparatos.length === 0) {
-          const seed = localStore.getAparatos(proyectoId);
-          for (const s of seed) {
-            await this.addAparato(proyectoId, s);
-          }
-          return seed;
         }
-        return aparatos;
+
+        // Si en Firestore aún no existe aparatosLista (o rescatamos las ediciones locales de este equipo):
+        safeSetItem('sge_cloud_sync_v3_aps_' + proyectoId, 'true');
+        await this.guardarTodosLosAparatos(proyectoId, localData, {
+          isAutoMigration: !hasLocalCustom
+        });
+        return localData;
       } catch (error) {
         console.error('Error en getAparatos de Firestore, usando local storage:', error);
-        return localStore.getAparatos(proyectoId);
+        return localData;
       }
     } else {
-      return localStore.getAparatos(proyectoId);
+      return localData;
     }
   },
 
   async addAparato(proyectoId, aparato) {
     const idTemp = aparato.id || ('id_' + Math.random().toString(36).substr(2, 9));
-    const nuevoAparato = { ...aparato, id: idTemp };
-
-    if (db) {
-      try {
-        const docRef = await addDoc(collection(db, 'proyectos_residenciales/' + proyectoId + '/aparatos'), nuevoAparato);
-        return { id: docRef.id, ...nuevoAparato };
-      } catch (error) {
-        console.error('Error guardando aparato en Firestore:', error);
-        const lista = localStore.getAparatos(proyectoId);
-        lista.push(nuevoAparato);
-        localStore.saveAparatos(proyectoId, lista);
-        return nuevoAparato;
-      }
+    const nuevoAparato = normalizarAparato({ ...aparato, id: idTemp }, proyectoId);
+    const lista = [...localStore.getAparatos(proyectoId, false)];
+    const existingIdx = lista.findIndex(item => item.id === nuevoAparato.id);
+    if (existingIdx !== -1) {
+      lista[existingIdx] = nuevoAparato;
     } else {
-      const lista = localStore.getAparatos(proyectoId);
       lista.push(nuevoAparato);
-      localStore.saveAparatos(proyectoId, lista);
-      return nuevoAparato;
     }
+
+    await this.guardarTodosLosAparatos(proyectoId, lista);
+    return nuevoAparato;
   },
 
   async updateAparato(proyectoId, id, campos) {
-    if (db) {
-      try {
-        const docRef = doc(db, 'proyectos_residenciales/' + proyectoId + '/aparatos', id);
-        await updateDoc(docRef, campos);
-        return true;
-      } catch (error) {
-        console.error('Error actualizando en Firestore:', error);
-      }
-    }
-    
-    const lista = localStore.getAparatos(proyectoId);
+    const lista = [...localStore.getAparatos(proyectoId, false)];
     const index = lista.findIndex(item => item.id === id);
     if (index !== -1) {
-      lista[index] = { ...lista[index], ...campos };
-      localStore.saveAparatos(proyectoId, lista);
+      lista[index] = normalizarAparato({ ...lista[index], ...campos, id }, proyectoId, index);
+    } else {
+      lista.push(normalizarAparato({ id, ...campos }, proyectoId, lista.length));
     }
+
+    await this.guardarTodosLosAparatos(proyectoId, lista);
     return true;
   },
 
   async deleteAparato(proyectoId, id) {
-    if (db) {
-      try {
-        const docRef = doc(db, 'proyectos_residenciales/' + proyectoId + '/aparatos', id);
-        await deleteDoc(docRef);
-        return true;
-      } catch (error) {
-        console.error('Error eliminando en Firestore:', error);
-      }
-    }
-    
-    const lista = localStore.getAparatos(proyectoId);
+    const lista = localStore.getAparatos(proyectoId, false);
     const filtrados = lista.filter(item => item.id !== id);
-    localStore.saveAparatos(proyectoId, filtrados);
+    await this.guardarTodosLosAparatos(proyectoId, filtrados);
     return true;
   },
 
-  async guardarTodosLosAparatos(proyectoId, aparatos) {
-    localStore.saveAparatos(proyectoId, aparatos);
-    
+  async guardarTodosLosAparatos(proyectoId, aparatos, options = {}) {
+    const timestamp = Date.now();
+    lastSessionWriteTimestamp = timestamp;
+    const limpios = (Array.isArray(aparatos) ? aparatos : [])
+      .map((ap, i) => normalizarAparato(ap, proyectoId, i))
+      .filter(Boolean);
+
+    safeSetItem('sge_cloud_sync_v3_aps_' + proyectoId, 'true');
+    localStore.saveAparatos(proyectoId, limpios, timestamp);
+
     if (db) {
       try {
-        const snap = await getDocs(collection(db, 'proyectos_residenciales/' + proyectoId + '/aparatos'));
-        for (const d of snap.docs) {
-          await deleteDoc(doc(db, 'proyectos_residenciales/' + proyectoId + '/aparatos', d.id));
-        }
-
-        for (const ap of aparatos) {
-          const { id, ...data } = ap;
-          await addDoc(collection(db, 'proyectos_residenciales/' + proyectoId + '/aparatos'), data);
-        }
+        await setDoc(doc(db, 'proyectos_residenciales', proyectoId), {
+          aparatosLista: limpios,
+          aparatosUpdatedAt: timestamp,
+          ...(options.isAutoMigration ? {} : { userModified: true })
+        }, { merge: true });
       } catch (error) {
-        console.error('Error en guardado masivo en Firestore:', error);
+        console.error('Error en guardado atómico de aparatos en Firestore:', error);
       }
     }
     return true;
+  },
+
+  // --- SUSCRIPCIÓN EN TIEMPO REAL ENTRE EQUIPOS ---
+  subscribeProyecto(proyectoId, onRemoteUpdate) {
+    if (!db || !proyectoId || typeof onRemoteUpdate !== 'function') {
+      return () => {};
+    }
+    try {
+      const docRef = doc(db, 'proyectos_residenciales', proyectoId);
+      return onSnapshot(docRef, (docSnap) => {
+        if (!docSnap.exists() || docSnap.metadata.hasPendingWrites) return;
+        const data = docSnap.data();
+        const remoteMaxTs = Math.max(data.medidoresUpdatedAt || 0, data.aparatosUpdatedAt || 0);
+        // Ignorar si el cambio fue originado por esta misma sesión hace menos de 1.5s
+        if (remoteMaxTs > 0 && Math.abs(remoteMaxTs - lastSessionWriteTimestamp) < 1500) {
+          return;
+        }
+
+        let updatedMedidores = null;
+        let updatedAparatos = null;
+
+        if (Array.isArray(data.medidores) && data.medidores.length > 0) {
+          const localMedTs = parseInt(safeGetItem('electrico_casa_medidores_ts_' + proyectoId) || '0', 10);
+          if ((data.medidoresUpdatedAt || 0) > localMedTs) {
+            updatedMedidores = data.medidores;
+            localStore.saveMedidores(proyectoId, updatedMedidores, data.medidoresUpdatedAt || Date.now());
+          }
+        }
+
+        if (Array.isArray(data.aparatosLista)) {
+          const localApTs = parseInt(safeGetItem('electrico_casa_aparatos_ts_' + proyectoId) || '0', 10);
+          if ((data.aparatosUpdatedAt || 0) > localApTs) {
+            updatedAparatos = data.aparatosLista
+              .map((ap, i) => normalizarAparato(ap, proyectoId, i))
+              .filter(Boolean);
+            localStore.saveAparatos(proyectoId, updatedAparatos, data.aparatosUpdatedAt || Date.now());
+          }
+        }
+
+        if (updatedMedidores || updatedAparatos) {
+          onRemoteUpdate({
+            medidores: updatedMedidores,
+            aparatos: updatedAparatos
+          });
+        }
+      }, (err) => {
+        console.warn('Error en suscripción en tiempo real de Firestore:', err);
+      });
+    } catch (e) {
+      return () => {};
+    }
   }
 };

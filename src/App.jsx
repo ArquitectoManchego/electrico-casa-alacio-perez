@@ -485,13 +485,7 @@ export default function App() {
   const [medidores, setMedidores] = useState(() => {
     try {
       const pId = localStorage.getItem('sge_selected_proyecto_id') || 'consorcio_general';
-      const data = localStorage.getItem('electrico_casa_medidores_' + pId);
-      if (data) {
-        const parsed = JSON.parse(data);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
+      return dbService.getInitialMedidoresSync(pId);
     } catch (e) {}
     return DEFAULT_MEDIDORES_3_CONSORCIO;
   });
@@ -591,15 +585,25 @@ export default function App() {
     initProjects();
   }, []);
 
-  // Carga reactiva de aparatos por proyecto
+  // Carga reactiva de medidores y aparatos por proyecto
   useEffect(() => {
     async function loadData() {
       if (!currentProyectoId) return;
       setLoading(true);
       try {
+        // 1. Cargar medidores PRIMERO desde Firestore (y purgar cualquier caché obsoleto de 6 medidores antes de leer aparatos)
+        let finalMedidores = await dbService.getMedidores(currentProyectoId);
+        if (!Array.isArray(finalMedidores) || finalMedidores.length === 0) {
+          finalMedidores = currentProyectoId === 'consorcio_general'
+            ? DEFAULT_MEDIDORES_CONSORCIO
+            : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
+          await dbService.saveMedidores(currentProyectoId, finalMedidores, { isAutoMigration: true });
+        }
+
+        // 2. Cargar aparatos desde Firestore
         const data = await dbService.getAparatos(currentProyectoId);
         
-        // Cargar metadatos del proyecto de forma asíncrona
+        // 3. Cargar metadatos del proyecto de forma asíncrona
         const listProjs = await dbService.getProyectos();
         const proj = listProjs.find(p => p.id === currentProyectoId);
         if (proj) {
@@ -612,15 +616,6 @@ export default function App() {
           setCajetinElectricista(proj.cajetinElectricista || "Ing. Electricista UVIE");
           setCajetinEscala(proj.cajetinEscala || "S/E");
         }
-        
-        // Cargar medidores primero para sanitizar fases y ranuras por medidor independiente
-        let finalMedidores = await dbService.getMedidores(currentProyectoId);
-        if (!Array.isArray(finalMedidores) || finalMedidores.length === 0) {
-          finalMedidores = currentProyectoId === 'consorcio_general'
-            ? DEFAULT_MEDIDORES_CONSORCIO
-            : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
-          await dbService.saveMedidores(currentProyectoId, finalMedidores);
-        }
 
         let cambioDetectado = false;
         let datosBase = data;
@@ -632,8 +627,8 @@ export default function App() {
           finalMedidores = compactedMedidores;
           datosBase = compactedAparatos;
           cambioDetectado = true;
-          await dbService.saveMedidores(currentProyectoId, finalMedidores);
-          await dbService.guardarTodosLosAparatos(currentProyectoId, datosBase);
+          await dbService.saveMedidores(currentProyectoId, finalMedidores, { isAutoMigration: true });
+          await dbService.guardarTodosLosAparatos(currentProyectoId, datosBase, { isAutoMigration: true });
         }
 
         setMedidores(finalMedidores);
@@ -642,6 +637,12 @@ export default function App() {
         }
 
         const defaultMedId = finalMedidores[0]?.id || 'med_1';
+        const fallbackMed3 = finalMedidores.some(m => m.id === 'med_3')
+          ? 'med_3'
+          : (finalMedidores[finalMedidores.length - 1]?.id || defaultMedId);
+        const fallbackMed2 = finalMedidores.some(m => m.id === 'med_2')
+          ? 'med_2'
+          : (finalMedidores[finalMedidores.length - 1]?.id || defaultMedId);
 
         // Deduplicar únicamente por ID único (diferentes medidores pueden usar el mismo número de slot físico)
         const idsVistos = new Set();
@@ -657,29 +658,28 @@ export default function App() {
           datosFiltrados.push(ap);
         });
 
-        // Sustitución / Actualización canónica de equipos para el medidor Hawaiian Paradise Universidades (med_3):
-        // Detectar si los aparatos de Hawaiian Paradise aún corresponden a la versión preliminar antigua (hp_1..hp_14), falta el canónico o faltan los 2 aires 18k
+        const alreadyCalibratedV3 = localStorage.getItem('sge_seed_calibrated_v3_' + currentProyectoId) === 'true';
+
+        // Sustitución / Actualización canónica de equipos para Hawaiian Paradise Universidades:
         const tieneHpAntiguo = datosFiltrados.some(ap => 
           ((ap.medidorId || defaultMedId) === 'med_3' || ap.local === 'Hawaiian Paradise Universidades') &&
           (/^hp_\d+$/.test(ap.id) || ap.id === 'hp_1' || ap.id === 'hp_14')
         );
-        const faltaHpCanonico = !datosFiltrados.some(ap => ap.id === 'hp_andamar_c1');
-        const faltanAiresHawaiian = !datosFiltrados.some(ap => ap.id === 'hp_andamar_c16') || !datosFiltrados.some(ap => ap.id === 'hp_andamar_c17');
+        const faltaHpCanonico = !alreadyCalibratedV3 && !datosFiltrados.some(ap => ap.id === 'hp_andamar_c1');
+        const faltanAiresHawaiian = !alreadyCalibratedV3 && (!datosFiltrados.some(ap => ap.id === 'hp_andamar_c16') || !datosFiltrados.some(ap => ap.id === 'hp_andamar_c17'));
 
         if ((currentProyectoId === 'consorcio_general' && (tieneHpAntiguo || faltaHpCanonico)) ||
             (currentProyectoId === 'hawaiian_paradise' && (tieneHpAntiguo || faltaHpCanonico))) {
-          // Filtrar retirando únicamente los aparatos anteriores de Hawaiian Paradise
           const sinHpAntiguo = datosFiltrados.filter(ap => {
-            const esMed3 = (ap.medidorId || defaultMedId) === 'med_3';
             const esLocalHp = ap.local === 'Hawaiian Paradise Universidades';
             const esIdHpAntiguo = /^hp_\d+$/.test(ap.id);
-            return !(esMed3 && (esIdHpAntiguo || esLocalHp));
+            return !(esIdHpAntiguo || (tieneHpAntiguo && esLocalHp));
           });
 
-          // Inyectar los 17 circuitos canónicos independientes con sus especificaciones de ingeniería
+          const targetHpMed = currentProyectoId === 'consorcio_general' ? fallbackMed3 : defaultMedId;
           const nuevosHp = EQUIPOS_HAWAIIAN_CANONICOS.map(eq => ({
             ...eq,
-            medidorId: currentProyectoId === 'consorcio_general' ? 'med_3' : (finalMedidores[0]?.id || 'med_1'),
+            medidorId: targetHpMed,
             local: 'Hawaiian Paradise Universidades'
           }));
 
@@ -691,9 +691,10 @@ export default function App() {
           }
           cambioDetectado = true;
         } else if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'hawaiian_paradise') && faltanAiresHawaiian) {
-          // Si ya existen los circuitos canónicos pero faltan los 2 aires acondicionados de 18,000 BTU, agregarlos respetando el medidor asignado
           const medidorHpExistente = datosFiltrados.find(ap => ap.local === 'Hawaiian Paradise Universidades' || ap.id.startsWith('hp_andamar_'))?.medidorId;
-          const targetMedId = medidorHpExistente || (currentProyectoId === 'consorcio_general' ? 'med_3' : (finalMedidores[0]?.id || 'med_1'));
+          const targetMedId = (medidorHpExistente && finalMedidores.some(m => m.id === medidorHpExistente))
+            ? medidorHpExistente
+            : (currentProyectoId === 'consorcio_general' ? fallbackMed3 : defaultMedId);
 
           const airesAAgregar = EQUIPOS_HAWAIIAN_CANONICOS.filter(eq => 
             (eq.id === 'hp_andamar_c16' || eq.id === 'hp_andamar_c17') &&
@@ -708,12 +709,11 @@ export default function App() {
           cambioDetectado = true;
         }
 
-        // Calibración de régimen operativo real para Publi-Imperia (Medidor 6):
-        // Detecta si Publi-Imperia contiene las horas sobredimensionadas anteriores (ej: plancha 80x100 con 3h/día o Epson con 5h/día) o falta pi_mini_ront
+        // Calibración de régimen operativo real para Publi-Imperia:
         const necesitaCalibrarPubli = datosFiltrados.some(ap => 
           (ap.id === 'pi_9' && (ap.horasAlta === 3 || ap.diasUsoMes === undefined || ap.diasUsoMes > 5)) ||
           (ap.id === 'pi_1' && ap.horasAlta === 5)
-        ) || !datosFiltrados.some(ap => ap.id === 'pi_mini_ront');
+        ) || (!alreadyCalibratedV3 && !datosFiltrados.some(ap => ap.id === 'pi_mini_ront'));
 
         if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'taller_publi_imperia') && necesitaCalibrarPubli) {
           const mapaCalibracionPubli = {
@@ -741,11 +741,11 @@ export default function App() {
             }
           });
 
-          // Inyectar la miniplancha HTV RONT si no existía en el inventario
-          if (!datosFiltrados.some(ap => ap.id === 'pi_mini_ront')) {
-            const medPubliId = currentProyectoId === 'consorcio_general'
-              ? (finalMedidores.some(m => m.id === 'med_3') ? 'med_3' : (finalMedidores[finalMedidores.length - 1]?.id || 'med_1'))
-              : (finalMedidores[0]?.id || 'med_1');
+          if (!alreadyCalibratedV3 && !datosFiltrados.some(ap => ap.id === 'pi_mini_ront')) {
+            const medPubliExistente = datosFiltrados.find(ap => ap.local === 'Publi-Imperia')?.medidorId;
+            const medPubliId = (medPubliExistente && finalMedidores.some(m => m.id === medPubliExistente))
+              ? medPubliExistente
+              : (currentProyectoId === 'consorcio_general' ? fallbackMed3 : defaultMedId);
             const miniRont = {
               id: 'pi_mini_ront',
               tipo: 'Miniplancha Térmica HTV RONT (Tallas y Etiquetas DTF)',
@@ -788,11 +788,10 @@ export default function App() {
           }
         }
 
-        // Calibración de régimen operativo real para Bordados Veracruz (Medidor 4):
-        // Detecta si las bordadoras siguen con 8h diarias a pesar de estar paradas en reparación, o si falta el clima de 18,000 BTU
+        // Calibración de régimen operativo real para Bordados Veracruz:
         const necesitaCalibrarBordados = datosFiltrados.some(ap =>
           (ap.id === 'bv_1' && (ap.horasAlta === 8 || ap.diasUsoMes === undefined || ap.diasUsoMes > 5))
-        ) || !datosFiltrados.some(ap => ap.id === 'bv_4');
+        ) || (!alreadyCalibratedV3 && !datosFiltrados.some(ap => ap.id === 'bv_4'));
 
         if ((currentProyectoId === 'consorcio_general' || currentProyectoId === 'bordados_veracruz') && necesitaCalibrarBordados) {
           const mapaCalibracionBordados = {
@@ -808,11 +807,11 @@ export default function App() {
             }
           });
 
-          // Inyectar el Minisplit Inverter de 18,000 BTU para Bordados si no existía
-          if (!datosFiltrados.some(ap => ap.id === 'bv_4')) {
-            const medBordadosId = currentProyectoId === 'consorcio_general'
-              ? (finalMedidores.some(m => m.id === 'med_2') ? 'med_2' : (finalMedidores[0]?.id || 'med_1'))
-              : (finalMedidores[0]?.id || 'med_1');
+          if (!alreadyCalibratedV3 && !datosFiltrados.some(ap => ap.id === 'bv_4')) {
+            const medBordadosExistente = datosFiltrados.find(ap => ap.local === 'Bordados Veracruz')?.medidorId;
+            const medBordadosId = (medBordadosExistente && finalMedidores.some(m => m.id === medBordadosExistente))
+              ? medBordadosExistente
+              : (currentProyectoId === 'consorcio_general' ? fallbackMed2 : defaultMedId);
             const climaBordados = {
               id: 'bv_4',
               tipo: 'Minisplit Inverter 1.5 TR (18,000 BTU - 220V)',
@@ -855,8 +854,7 @@ export default function App() {
           }
         }
 
-        // Calibración de régimen operativo real para Taller de Costura (Medidor 5):
-        // 2 costureras máximo simultáneas, plancha de vapor solo 1h/día, collaretera 4d/mes @ 0.75h
+        // Calibración de régimen operativo real para Taller de Costura:
         const necesitaCalibrarCostura = datosFiltrados.some(ap =>
           (ap.id === 'tc_5' && ap.horasAlta === 6) || (ap.id === 'tc_3' && ap.horasAlta === 3 && ap.diasUsoMes === undefined)
         );
@@ -880,8 +878,7 @@ export default function App() {
           });
         }
 
-        // Calibración de régimen operativo real para Papelería ImperiArte (Medidor 2):
-        // Fotocopiadora Xerox en arranque moderado (24d/mes @ 0.75h en vez de 5h/día continuas)
+        // Calibración de régimen operativo real para Papelería ImperiArte:
         const necesitaCalibrarPapeleria = datosFiltrados.some(ap =>
           (ap.id === 'pap_1' && ap.horasAlta === 5)
         );
@@ -902,8 +899,7 @@ export default function App() {
           });
         }
 
-        // Calibración de régimen operativo real para Oficinas Consorcio (Medidor 6):
-        // 3 a 4 veces por semana, 2 horas por vez (clima, laptop, luces a 15d @ 2h; módem 24/7)
+        // Calibración de régimen operativo real para Oficinas Consorcio:
         const necesitaCalibrarOficinas = datosFiltrados.some(ap =>
           (ap.id === 'oc_2' && ap.horasAlta === 3 && ap.diasUsoMes === undefined) ||
           (ap.id === 'oc_1' && ap.horasAlta === 4)
@@ -925,6 +921,10 @@ export default function App() {
             }
           });
         }
+
+        try {
+          localStorage.setItem('sge_seed_calibrated_v3_' + currentProyectoId, 'true');
+        } catch (e) {}
 
         // Pre-calcular acometida efectiva de cada medidor para normalizar fases y ranuras
         const acometidaPorMedidor = {};
@@ -1002,9 +1002,9 @@ export default function App() {
 
         setAparatos(migratedData);
 
-        // Si hubo cambios por migración, fase fuera de rango o slots corregidos, guardar una sola vez
+        // Si hubo cambios por migración, fase fuera de rango o slots corregidos, guardar como auto-migración sin pisar el flag de usuario
         if (cambioDetectado) {
-          await dbService.guardarTodosLosAparatos(currentProyectoId, migratedData);
+          await dbService.guardarTodosLosAparatos(currentProyectoId, migratedData, { isAutoMigration: true });
         }
       } catch (error) {
         console.error('Error cargando aparatos:', error);
@@ -1013,6 +1013,23 @@ export default function App() {
       }
     }
     loadData();
+  }, [currentProyectoId]);
+
+  // Suscripción en tiempo real a Firestore para sincronización inmediata entre dispositivos
+  useEffect(() => {
+    if (!currentProyectoId) return;
+    const unsubscribe = dbService.subscribeProyecto(currentProyectoId, ({ medidores: remoteMeds, aparatos: remoteAps }) => {
+      if (Array.isArray(remoteMeds) && remoteMeds.length > 0) {
+        setMedidores(remoteMeds);
+        setActiveMedidorId(prev => remoteMeds.some(m => m.id === prev) ? prev : remoteMeds[0].id);
+      }
+      if (Array.isArray(remoteAps)) {
+        setAparatos(remoteAps);
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, [currentProyectoId]);
 
   // 1. Potencia activa total (Watts) y aparente total (VA) de todo el proyecto
@@ -1163,7 +1180,7 @@ export default function App() {
       updated = compactedMedidores;
     }
     setMedidores(updated);
-    await dbService.saveMedidores(currentProyectoId, updated);
+    await dbService.saveMedidores(currentProyectoId, updated, { explicit6Medidores: updated.length === 6 });
   };
 
   const handleAddMedidor = async () => {
@@ -1178,7 +1195,7 @@ export default function App() {
     };
     const updated = [...medidores, nuevo];
     setMedidores(updated);
-    await dbService.saveMedidores(currentProyectoId, updated);
+    await dbService.saveMedidores(currentProyectoId, updated, { explicit6Medidores: updated.length === 6 });
   };
 
   const handleRemoveMedidor = async (medId, options = {}) => {
@@ -1198,9 +1215,8 @@ export default function App() {
       // Borrar permanentemente los aparatos asociados al medidor eliminado
       reasignados = aparatos.filter(ap => (ap.medidorId || medidores[0]?.id) !== medId);
     } else {
-      // Reubicar aparatos al medidor destino y normalizar fases / slots / horas operativas
+      // Reubicar aparatos al medidor destino y normalizar fases y slots conservando su local y horas operativas
       const targetData = medidoresData[fallbackId];
-      const targetNegocio = NEGOCIOS_CONFIG.find(n => n.medidorIdConsorcio === fallbackId);
       const acometidaMed = targetData?.acometida || determinarAcometidaMedidor(targetMedidor, []);
       const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
 
@@ -1210,18 +1226,9 @@ export default function App() {
       reasignados = aparatos.map(ap => {
         const curMedId = ap.medidorId || medidores[0]?.id;
         if (curMedId === medId) {
-          let horasAlta = ap.horasAlta;
-          if (targetNegocio) {
-            const es24h = /refrigerador|congelador|enfriador|chiller|modem|servidor|wifi/i.test((ap.tipo || '') + ' ' + (ap.modelo || ''));
-            if (!es24h && targetNegocio.horasTurnoDefault) {
-              horasAlta = targetNegocio.horasTurnoDefault;
-            }
-          }
-
           const candidate = {
             ...ap,
-            medidorId: fallbackId,
-            horasAlta
+            medidorId: fallbackId
           };
 
           const faseValida = normalizarFaseParaMedidor(candidate, acometidaMed);
@@ -1246,7 +1253,7 @@ export default function App() {
     setAparatos(compactedAparatos);
     await dbService.guardarTodosLosAparatos(currentProyectoId, compactedAparatos);
     setMedidores(compactedMedidores);
-    await dbService.saveMedidores(currentProyectoId, compactedMedidores);
+    await dbService.saveMedidores(currentProyectoId, compactedMedidores, { explicit6Medidores: compactedMedidores.length === 6 });
     setActiveMedidorId(newActiveId);
   };
 
@@ -1275,7 +1282,7 @@ export default function App() {
     setMedidores(medidores3);
     setAparatos(reasignados);
     setActiveMedidorId('med_1');
-    await dbService.saveMedidores(currentProyectoId, medidores3);
+    await dbService.saveMedidores(currentProyectoId, medidores3, { explicit6Medidores: false });
     await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
     setBalanceToast({
       tipo: 'exito',
@@ -1302,7 +1309,7 @@ export default function App() {
     setMedidores(medidores6);
     setAparatos(reasignados);
     setActiveMedidorId('med_1');
-    await dbService.saveMedidores(currentProyectoId, medidores6);
+    await dbService.saveMedidores(currentProyectoId, medidores6, { explicit6Medidores: true });
     await dbService.guardarTodosLosAparatos(currentProyectoId, reasignados);
     setBalanceToast({
       tipo: 'exito',
@@ -1364,7 +1371,7 @@ export default function App() {
     setMedidores(targetMedidores);
     setAparatos(targetAparatos);
     setActiveMedidorId(targetMedidores[0]?.id || 'med_1');
-    await dbService.saveMedidores(currentProyectoId, targetMedidores);
+    await dbService.saveMedidores(currentProyectoId, targetMedidores, { explicit6Medidores: modo === '6_medidores' });
     await dbService.guardarTodosLosAparatos(currentProyectoId, targetAparatos);
     setBalanceToast({
       tipo: 'exito',
@@ -1375,7 +1382,7 @@ export default function App() {
   const handleUpdateMedidor = async (medId, fields) => {
     const updated = medidores.map(m => m.id === medId ? { ...m, ...fields } : m);
     setMedidores(updated);
-    await dbService.saveMedidores(currentProyectoId, updated);
+    await dbService.saveMedidores(currentProyectoId, updated, { explicit6Medidores: updated.length === 6 });
   };
 
   const handleToggleForzarTrifasicoMedidor = async (medId) => {
@@ -1798,7 +1805,7 @@ export default function App() {
 
   // Sanitizar automáticamente fases de cada aparato según las fases habilitadas de SU medidor asignado
   useEffect(() => {
-    if (!currentProyectoId || aparatos.length === 0) return;
+    if (loading || !currentProyectoId || aparatos.length === 0) return;
     const defaultMedId = medidores[0]?.id || 'med_1';
 
     let tieneCambios = false;
@@ -1816,9 +1823,9 @@ export default function App() {
 
     if (tieneCambios) {
       setAparatos(sanitizados);
-      dbService.guardarTodosLosAparatos(currentProyectoId, sanitizados);
+      dbService.guardarTodosLosAparatos(currentProyectoId, sanitizados, { isAutoMigration: true });
     }
-  }, [medidoresData, currentAcometida, currentProyectoId, aparatos, medidores]);
+  }, [loading, medidoresData, currentAcometida, currentProyectoId, aparatos, medidores]);
 
   // Recalcular disponibilidad de combinaciones de balanceo por medidor
   useEffect(() => {
@@ -1942,17 +1949,6 @@ export default function App() {
     let fieldsToApply = { ...updatedFields };
     const targetMedId = fieldsToApply.medidorId || prevAp.medidorId || defaultMedId;
     const medObj = medidores.find(m => m.id === targetMedId) || { id: targetMedId, numero: 1 };
-
-    // Si el aparato cambia de medidor, adaptar automáticamente sus horas de operación al horario del local de destino
-    if (fieldsToApply.medidorId && fieldsToApply.medidorId !== prevAp.medidorId) {
-      const targetNegocio = NEGOCIOS_CONFIG.find(n => n.medidorIdConsorcio === targetMedId);
-      if (targetNegocio && fieldsToApply.horasAlta === undefined) {
-        const es24h = /refrigerador|congelador|enfriador|chiller|modem|servidor|wifi/i.test((prevAp.tipo || '') + ' ' + (prevAp.modelo || ''));
-        if (!es24h) {
-          fieldsToApply.horasAlta = targetNegocio.horasTurnoDefault;
-        }
-      }
-    }
 
     const candidateAp = { ...prevAp, ...fieldsToApply, medidorId: targetMedId };
     const otrosDelMedidor = aparatos.filter(ap => ap.id !== id && (ap.medidorId || defaultMedId) === targetMedId);
