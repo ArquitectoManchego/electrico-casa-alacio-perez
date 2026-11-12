@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSpreadsheet, Printer, Download, Award, ShieldCheck, AlertTriangle, ArrowRightLeft, ShieldAlert, Gauge } from 'lucide-react';
+import { FileSpreadsheet, Printer, Download, Award, ShieldCheck, AlertTriangle, ArrowRightLeft, ShieldAlert, Gauge, RotateCcw } from 'lucide-react';
 import { 
   calcularVA, 
   calcularCorrienteNominal, 
@@ -19,6 +19,238 @@ import {
   exportarDocumentoConsolidadoPDF
 } from '../utils/pdfCuadroCargas';
 import { extraerLocalYTipoLimpio } from '../utils/localHelpers';
+import { useResizableColumns, ColumnResizerHandle } from '../utils/useResizableColumns';
+
+const UVIE_DEFAULT_WIDTHS = [
+  40,  // 0: #
+  56,  // 1: Cto
+  155, // 2: Medidor
+  140, // 3: Local
+  220, // 4: Descripción del Circuito
+  78,  // 5: Watts (P)
+  54,  // 6: F.P.
+  78,  // 7: VA (S)
+  68,  // 8: Tensión
+  78,  // 9: Fase A
+  78,  // 10: Fase B
+  78,  // 11: Fase C
+  68,  // 12: In (A)
+  68,  // 13: Ic (A)
+  95,  // 14: Protección
+  130, // 15: Conductor
+  78   // 16: % Caída V
+];
+
+function TablaGrupoUVIE({
+  grupo,
+  gIdx,
+  fasesUnit,
+  onBalancearMedidor
+}) {
+  const storageKey = `sge_col_widths_uvie_${grupo.medidor.id}`;
+  const {
+    widths,
+    totalTableWidth,
+    isCustomized,
+    startResize,
+    resetColumnWidth,
+    resetAllWidths
+  } = useResizableColumns(storageKey, UVIE_DEFAULT_WIDTHS);
+
+  const renderResizer = (idx) => (
+    <ColumnResizerHandle
+      onMouseDown={(e) => startResize(idx, e)}
+      onDoubleClick={() => resetColumnWidth(idx)}
+    />
+  );
+
+  return (
+    <div className="mb-5 last:mb-2 rounded-xl border border-slate-800/70 bg-slate-950/50 overflow-hidden">
+      {/* Encabezado del Grupo de Medidor */}
+      <div className="cuadro-uvie-banner bg-slate-900/80 border-b border-teal-500/40 text-teal-300 font-sans font-bold py-2.5 px-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Gauge size={14} className="text-teal-400" />
+            <span className="text-xs uppercase tracking-wider">
+              Grupo {gIdx + 1}: {grupo.medidor.nombre} (Medidor {grupo.medidor.numero})
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 font-mono">
+              {grupo.circuitos.length} Cargas asignadas
+            </span>
+          </div>
+          <div className="text-[11px] font-mono text-slate-300 flex flex-wrap items-center gap-2.5">
+            <span>Subtotal: <strong>{Math.round(grupo.subtotalW).toLocaleString()} W</strong> ({Math.round(grupo.subtotalVA).toLocaleString()} VA)</span>
+            {isCustomized && (
+              <button
+                type="button"
+                onClick={resetAllWidths}
+                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] font-sans font-semibold flex items-center gap-1 transition-all no-print cursor-pointer"
+                title="Restaurar ancho de columnas por defecto para esta tabla"
+              >
+                <RotateCcw size={10} />
+                <span>Restaurar columnas</span>
+              </button>
+            )}
+            <button
+              onClick={() => exportarCuadroCargasIndividualPDF(grupo, fasesUnit)}
+              className="px-2 py-0.5 rounded bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-[10px] font-sans font-bold flex items-center gap-1 transition-all no-print cursor-pointer"
+              title={`Descargar PDF oficial de este cuadro de cargas (${grupo.medidor.nombre})`}
+            >
+              <Download size={11} />
+              <span>PDF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table
+          className="border-collapse text-left text-xs"
+          style={{ tableLayout: 'fixed', width: `${totalTableWidth}px`, minWidth: '100%' }}
+        >
+          <colgroup>
+            {widths.map((w, i) => (
+              <col key={i} style={{ width: `${w}px` }} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr className="cuadro-uvie-header border-b border-slate-800/80 text-slate-400 font-mono uppercase tracking-wider text-[10px] bg-slate-950/60">
+              <th className="relative py-3 px-2 text-center select-none overflow-hidden text-ellipsis"># {renderResizer(0)}</th>
+              <th className="relative py-3 px-2 select-none overflow-hidden text-ellipsis">Cto {renderResizer(1)}</th>
+              <th className="relative py-3 px-2 text-teal-400 whitespace-nowrap select-none overflow-hidden text-ellipsis">Medidor {renderResizer(2)}</th>
+              <th className="relative py-3 px-2 text-indigo-400 whitespace-nowrap select-none overflow-hidden text-ellipsis">Local {renderResizer(3)}</th>
+              <th className="relative py-3 px-2 select-none overflow-hidden text-ellipsis">Descripción del Circuito {renderResizer(4)}</th>
+              <th className="relative py-3 px-2 text-right select-none overflow-hidden text-ellipsis">Watts (P) {renderResizer(5)}</th>
+              <th className="relative py-3 px-2 text-center select-none overflow-hidden text-ellipsis">F.P. {renderResizer(6)}</th>
+              <th className="relative py-3 px-2 text-right select-none overflow-hidden text-ellipsis">VA (S) {renderResizer(7)}</th>
+              <th className="relative py-3 px-2 text-center select-none overflow-hidden text-ellipsis">Tensión {renderResizer(8)}</th>
+              <th className="relative py-2 px-2 text-right text-red-400 select-none overflow-hidden text-ellipsis">
+                <div>Fase A</div>
+                <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
+                {renderResizer(9)}
+              </th>
+              <th className="relative py-2 px-2 text-right text-amber-400 select-none overflow-hidden text-ellipsis">
+                <div>Fase B</div>
+                <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
+                {renderResizer(10)}
+              </th>
+              <th className="relative py-2 px-2 text-right text-blue-400 select-none overflow-hidden text-ellipsis">
+                <div>Fase C</div>
+                <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
+                {renderResizer(11)}
+              </th>
+              <th className="relative py-3 px-2 text-right select-none overflow-hidden text-ellipsis">In (A) {renderResizer(12)}</th>
+              <th className="relative py-3 px-2 text-right select-none overflow-hidden text-ellipsis">Ic (A) {renderResizer(13)}</th>
+              <th className="relative py-3 px-2 text-center select-none overflow-hidden text-ellipsis">Protección {renderResizer(14)}</th>
+              <th className="relative py-3 px-2 text-center select-none overflow-hidden text-ellipsis">Conductor {renderResizer(15)}</th>
+              <th className="relative py-3 px-2 text-center select-none overflow-hidden text-ellipsis">% Caída V {renderResizer(16)}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-900/50 font-mono">
+            {grupo.circuitos.length === 0 ? (
+              <tr>
+                <td colSpan="17" className="py-4 text-center text-slate-600 italic">
+                  No hay cargas asignadas a este medidor actualmente.
+                </td>
+              </tr>
+            ) : (
+              grupo.circuitos.map((c, i) => (
+                <tr key={c.id || i} className="cuadro-uvie-row hover:bg-slate-900/30 text-slate-300">
+                  <td className="py-2.5 px-2 text-center text-slate-500 font-bold overflow-hidden text-ellipsis">{c.index + 1}</td>
+                  <td className="py-2.5 px-2 font-bold text-slate-400 overflow-hidden text-ellipsis">{c.num}</td>
+                  <td className="py-2.5 px-2 overflow-hidden text-ellipsis whitespace-nowrap">
+                    <span className="text-slate-200 font-sans font-medium text-xs">
+                      {grupo.medidor.nombre || c.medidorNombre}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-2 overflow-hidden text-ellipsis whitespace-nowrap">
+                    <span className="text-indigo-300 font-sans text-xs font-medium">
+                      {c.local}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-2 font-sans font-medium text-slate-200 overflow-hidden text-ellipsis" title={c.desc}>{c.desc}</td>
+                  <td className="py-2.5 px-2 text-right font-bold overflow-hidden text-ellipsis">{Math.round(c.watts).toLocaleString()}</td>
+                  <td className="py-2.5 px-2 text-center overflow-hidden text-ellipsis">{c.fp.toFixed(2)}</td>
+                  <td className="py-2.5 px-2 text-right overflow-hidden text-ellipsis">{Math.round(c.va).toLocaleString()}</td>
+                  <td className="py-2.5 px-2 text-center overflow-hidden text-ellipsis">{c.voltaje}</td>
+                  <td className="fase-a py-2.5 px-2 text-right font-bold text-slate-300 overflow-hidden text-ellipsis">
+                    {c.fases.A > 0 ? (fasesUnit === 'A' ? c.fases.A.toFixed(2) : Math.round(c.fases.A).toLocaleString()) : '-'}
+                  </td>
+                  <td className="fase-b py-2.5 px-2 text-right font-bold text-slate-300 overflow-hidden text-ellipsis">
+                    {c.fases.B > 0 ? (fasesUnit === 'A' ? c.fases.B.toFixed(2) : Math.round(c.fases.B).toLocaleString()) : '-'}
+                  </td>
+                  <td className="fase-c py-2.5 px-2 text-right font-bold text-slate-300 overflow-hidden text-ellipsis">
+                    {c.fases.C > 0 ? (fasesUnit === 'A' ? c.fases.C.toFixed(2) : Math.round(c.fases.C).toLocaleString()) : '-'}
+                  </td>
+                  <td className="py-2.5 px-2 text-right overflow-hidden text-ellipsis">{c.in.toFixed(2)}</td>
+                  <td className="py-2.5 px-2 text-right font-semibold overflow-hidden text-ellipsis">{c.ic.toFixed(2)}</td>
+                  <td className="py-2.5 px-2 text-center font-bold text-teal-400 overflow-hidden text-ellipsis">{c.proteccion}</td>
+                  <td className="py-2.5 px-2 text-center text-slate-400 overflow-hidden text-ellipsis">{c.conductor}</td>
+                  <td className="py-2.5 px-2 text-center font-bold overflow-hidden text-ellipsis">
+                    <span className={c.caida > 3.00 ? 'text-rose-400 font-black' : 'text-emerald-400'}>
+                      {c.caida.toFixed(2)}%
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+
+            {/* Fila de Subtotales del Medidor con Botón de Exportar PDF y Balancear */}
+            <tr className="cuadro-uvie-subtotal bg-slate-900/50 font-bold border-t border-slate-700/60 text-slate-200 text-[11px]">
+              <td colSpan="5" className="py-3 px-3 uppercase tracking-wider text-teal-300">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span>SUBTOTALES {grupo.medidor.nombre.toUpperCase()}</span>
+                  <div className="flex items-center gap-2 no-print">
+                    <button
+                      onClick={() => exportarCuadroCargasIndividualPDF(grupo, fasesUnit)}
+                      className="px-2.5 py-1 rounded bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                      title={`Descargar documento PDF exclusivo para ${grupo.medidor.nombre}`}
+                    >
+                      <Download size={11} />
+                      <span>📄 Exportar PDF ({grupo.medidor.nombre})</span>
+                    </button>
+                    {onBalancearMedidor && (
+                      <button
+                        onClick={() => onBalancearMedidor(grupo.medidor.id)}
+                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                        title={`Abrir balanceador de cargas específicamente para ${grupo.medidor.nombre}`}
+                      >
+                        <ArrowRightLeft size={11} />
+                        <span>⚡ Balancear Cargas</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </td>
+              <td className="py-3 px-2 text-right text-emerald-400 overflow-hidden text-ellipsis">{Math.round(grupo.subtotalW).toLocaleString()} W</td>
+              <td className="py-3 px-2 text-center">-</td>
+              <td className="py-3 px-2 text-right text-cyan-400 overflow-hidden text-ellipsis">{Math.round(grupo.subtotalVA).toLocaleString()} VA</td>
+              <td className="py-3 px-2 text-center">-</td>
+              <td className={`py-3 px-2 text-right overflow-hidden text-ellipsis ${grupo.fasesDisponibles.includes('A') ? 'text-red-400' : 'text-slate-600'}`}>
+                {grupo.fasesDisponibles.includes('A')
+                  ? (fasesUnit === 'A' ? grupo.subtotalFases.A.toFixed(2) : Math.round(grupo.subtotalFases.A).toLocaleString())
+                  : '-'}
+              </td>
+              <td className={`py-3 px-2 text-right overflow-hidden text-ellipsis ${grupo.fasesDisponibles.includes('B') ? 'text-amber-400' : 'text-slate-600'}`}>
+                {grupo.fasesDisponibles.includes('B')
+                  ? (fasesUnit === 'A' ? grupo.subtotalFases.B.toFixed(2) : Math.round(grupo.subtotalFases.B).toLocaleString())
+                  : '-'}
+              </td>
+              <td className={`py-3 px-2 text-right overflow-hidden text-ellipsis ${grupo.fasesDisponibles.includes('C') ? 'text-blue-400' : 'text-slate-600'}`}>
+                {grupo.fasesDisponibles.includes('C')
+                  ? (fasesUnit === 'A' ? grupo.subtotalFases.C.toFixed(2) : Math.round(grupo.subtotalFases.C).toLocaleString())
+                  : '-'}
+              </td>
+              <td colSpan="5" className="py-3 px-2 text-right text-slate-400">
+                Desbalance Medidor: <span className={grupo.desbalanceMedidor > 5 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>{grupo.desbalanceMedidor.toFixed(2)}%</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 export default function CuadroCargasUVIE({ 
   aparatos = [], 
@@ -327,7 +559,7 @@ export default function CuadroCargasUVIE({
           <div>
             <h3 className="text-sm font-bold text-white font-display">Reporte Oficial UVIE Agrupado por Medidor CFE</h3>
             <p className="text-[10px] text-slate-500 font-sans">
-              Separación técnica de circuitos, subtotales normativos y balance independiente por medidor.
+              Separación técnica de circuitos, subtotales normativos y balance independiente por medidor. Arrastra el borde de las columnas en cada tabla para ajustar su ancho.
             </p>
           </div>
         </div>
@@ -437,8 +669,8 @@ export default function CuadroCargasUVIE({
         </div>
       )}
 
-      {/* Tabla Oficial */}
-      <div className="overflow-x-auto rounded-xl border border-slate-800/60 bg-slate-950/40 p-2 sm:p-4 print:border-none print:p-0 print:m-0 print:overflow-visible">
+      {/* Tablas Oficiales por Medidor */}
+      <div className="rounded-xl border border-slate-800/60 bg-slate-950/40 p-2 sm:p-4 print:border-none print:p-0 print:m-0 print:overflow-visible">
         <style>{`
           @media print {
             .cuadro-uvie-banner {
@@ -486,203 +718,37 @@ export default function CuadroCargasUVIE({
           }
         `}</style>
         <div className="print-landscape-page w-full">
-          <table className="w-full border-collapse text-left min-w-[960px] text-xs">
-            <thead>
-              <tr className="cuadro-uvie-header border-b border-slate-800/80 text-slate-400 font-mono uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-2 text-center w-[36px]">#</th>
-                <th className="py-3 px-2">Cto</th>
-                <th className="py-3 px-2 text-teal-400 whitespace-nowrap min-w-[150px]">Medidor</th>
-                <th className="py-3 px-2 text-indigo-400 whitespace-nowrap min-w-[130px]">Local</th>
-                <th className="py-3 px-2">Descripción del Circuito</th>
-                <th className="py-3 px-2 text-right">Watts (P)</th>
-                <th className="py-3 px-2 text-center">F.P.</th>
-                <th className="py-3 px-2 text-right">VA (S)</th>
-                <th className="py-3 px-2 text-center">Tensión</th>
-                <th className="py-2 px-2 text-right text-red-400">
-                  <div>Fase A</div>
-                  <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
-                </th>
-                <th className="py-2 px-2 text-right text-amber-400">
-                  <div>Fase B</div>
-                  <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
-                </th>
-                <th className="py-2 px-2 text-right text-blue-400">
-                  <div>Fase C</div>
-                  <div className="text-[9px] font-normal opacity-75 leading-tight">({fasesUnit})</div>
-                </th>
-                <th className="py-3 px-2 text-right">In (A)</th>
-                <th className="py-3 px-2 text-right">Ic (A)</th>
-                <th className="py-3 px-2 text-center">Protección</th>
-                <th className="py-3 px-2 text-center">Conductor</th>
-                <th className="py-3 px-2 text-center">% Caída V</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-900/50 font-mono">
-              {gruposMedidoresFiltrados.map((grupo, gIdx) => (
-                <React.Fragment key={grupo.medidor.id}>
-                  {/* Encabezado del Grupo de Medidor */}
-                  <tr className="cuadro-uvie-banner bg-slate-900/80 border-t-2 border-teal-500/40 text-teal-300 font-sans font-bold">
-                    <td colSpan="17" className="py-2.5 px-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Gauge size={14} className="text-teal-400" />
-                          <span className="text-xs uppercase tracking-wider">
-                            Grupo {gIdx + 1}: {grupo.medidor.nombre} (Medidor {grupo.medidor.numero})
-                          </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 font-mono">
-                            {grupo.circuitos.length} Cargas asignadas
-                          </span>
-                        </div>
-                        <div className="text-[11px] font-mono text-slate-300 flex items-center gap-3">
-                          <span>Subtotal: <strong>{Math.round(grupo.subtotalW).toLocaleString()} W</strong> ({Math.round(grupo.subtotalVA).toLocaleString()} VA)</span>
-                          <button
-                            onClick={() => exportarCuadroCargasIndividualPDF(grupo, fasesUnit)}
-                            className="px-2 py-0.5 rounded bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-[10px] font-sans font-bold flex items-center gap-1 transition-all no-print cursor-pointer"
-                            title={`Descargar PDF oficial de este cuadro de cargas (${grupo.medidor.nombre})`}
-                          >
-                            <Download size={11} />
-                            <span>PDF</span>
-                          </button>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
+          {gruposMedidoresFiltrados.map((grupo, gIdx) => (
+            <TablaGrupoUVIE
+              key={grupo.medidor.id}
+              grupo={grupo}
+              gIdx={gIdx}
+              fasesUnit={fasesUnit}
+              onBalancearMedidor={onBalancearMedidor}
+            />
+          ))}
 
-                  {/* Filas de circuitos de este medidor */}
-                  {grupo.circuitos.length === 0 ? (
-                    <tr>
-                      <td colSpan="17" className="py-4 text-center text-slate-600 italic">
-                        No hay cargas asignadas a este medidor actualmente.
-                      </td>
-                    </tr>
-                  ) : (
-                    grupo.circuitos.map((c, i) => (
-                      <tr key={c.id || i} className="cuadro-uvie-row hover:bg-slate-900/30 text-slate-300">
-                        <td className="py-2.5 px-2 text-center text-slate-500 font-bold">{c.index + 1}</td>
-                        <td className="py-2.5 px-2 font-bold text-slate-400">{c.num}</td>
-                        <td className="py-2.5 px-2 whitespace-nowrap">
-                          <span className="text-slate-200 font-sans font-medium text-xs whitespace-nowrap">
-                            {grupo.medidor.nombre || c.medidorNombre}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-2 whitespace-nowrap">
-                          <span className="text-indigo-300 font-sans text-xs whitespace-nowrap font-medium">
-                            {c.local}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-2 font-sans font-medium text-slate-200">{c.desc}</td>
-                        <td className="py-2.5 px-2 text-right font-bold">{Math.round(c.watts).toLocaleString()}</td>
-                        <td className="py-2.5 px-2 text-center">{c.fp.toFixed(2)}</td>
-                        <td className="py-2.5 px-2 text-right">{Math.round(c.va).toLocaleString()}</td>
-                        <td className="py-2.5 px-2 text-center">{c.voltaje}</td>
-                        <td className="fase-a py-2.5 px-2 text-right font-bold text-slate-300">
-                          {c.fases.A > 0 ? (fasesUnit === 'A' ? c.fases.A.toFixed(2) : Math.round(c.fases.A).toLocaleString()) : '-'}
-                        </td>
-                        <td className="fase-b py-2.5 px-2 text-right font-bold text-slate-300">
-                          {c.fases.B > 0 ? (fasesUnit === 'A' ? c.fases.B.toFixed(2) : Math.round(c.fases.B).toLocaleString()) : '-'}
-                        </td>
-                        <td className="fase-c py-2.5 px-2 text-right font-bold text-slate-300">
-                          {c.fases.C > 0 ? (fasesUnit === 'A' ? c.fases.C.toFixed(2) : Math.round(c.fases.C).toLocaleString()) : '-'}
-                        </td>
-                        <td className="py-2.5 px-2 text-right">{c.in.toFixed(2)}</td>
-                        <td className="py-2.5 px-2 text-right font-semibold">{c.ic.toFixed(2)}</td>
-                        <td className="py-2.5 px-2 text-center font-bold text-teal-400">{c.proteccion}</td>
-                        <td className="py-2.5 px-2 text-center text-slate-400">{c.conductor}</td>
-                        <td className="py-2.5 px-2 text-center font-bold">
-                          <span className={c.caida > 3.00 ? 'text-rose-400 font-black' : 'text-emerald-400'}>
-                            {c.caida.toFixed(2)}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-
-                  {/* Fila de Subtotales del Medidor con Botón de Exportar PDF y Balancear */}
-                  <tr className="cuadro-uvie-subtotal bg-slate-900/50 font-bold border-t border-slate-700/60 text-slate-200 text-[11px]">
-                    <td colSpan="5" className="py-3 px-3 uppercase tracking-wider text-teal-300 flex-1">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span>SUBTOTALES {grupo.medidor.nombre.toUpperCase()}</span>
-                        <div className="flex items-center gap-2 no-print">
-                          <button
-                            onClick={() => exportarCuadroCargasIndividualPDF(grupo, fasesUnit)}
-                            className="px-2.5 py-1 rounded bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 border border-teal-500/40 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
-                            title={`Descargar documento PDF exclusivo para ${grupo.medidor.nombre}`}
-                          >
-                            <Download size={11} />
-                            <span>📄 Exportar PDF ({grupo.medidor.nombre})</span>
-                          </button>
-                          {/* Botón propio para balancear las cargas de este medidor */}
-                          {onBalancearMedidor && (
-                            <button
-                              onClick={() => onBalancearMedidor(grupo.medidor.id)}
-                              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
-                              title={`Abrir balanceador de cargas específicamente para ${grupo.medidor.nombre}`}
-                            >
-                              <ArrowRightLeft size={11} />
-                              <span>⚡ Balancear Cargas</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 text-right text-emerald-400">{Math.round(grupo.subtotalW).toLocaleString()} W</td>
-                    <td className="py-3 px-2 text-center">-</td>
-                    <td className="py-3 px-2 text-right text-cyan-400">{Math.round(grupo.subtotalVA).toLocaleString()} VA</td>
-                    <td className="py-3 px-2 text-center">-</td>
-                    <td className={`py-3 px-2 text-right ${grupo.fasesDisponibles.includes('A') ? 'text-red-400' : 'text-slate-600'}`}>
-                      {grupo.fasesDisponibles.includes('A')
-                        ? (fasesUnit === 'A' ? grupo.subtotalFases.A.toFixed(2) : Math.round(grupo.subtotalFases.A).toLocaleString())
-                        : '-'}
-                    </td>
-                    <td className={`py-3 px-2 text-right ${grupo.fasesDisponibles.includes('B') ? 'text-amber-400' : 'text-slate-600'}`}>
-                      {grupo.fasesDisponibles.includes('B')
-                        ? (fasesUnit === 'A' ? grupo.subtotalFases.B.toFixed(2) : Math.round(grupo.subtotalFases.B).toLocaleString())
-                        : '-'}
-                    </td>
-                    <td className={`py-3 px-2 text-right ${grupo.fasesDisponibles.includes('C') ? 'text-blue-400' : 'text-slate-600'}`}>
-                      {grupo.fasesDisponibles.includes('C')
-                        ? (fasesUnit === 'A' ? grupo.subtotalFases.C.toFixed(2) : Math.round(grupo.subtotalFases.C).toLocaleString())
-                        : '-'}
-                    </td>
-                    <td colSpan="5" className="py-3 px-2 text-right text-slate-400">
-                      Desbalance Medidor: <span className={grupo.desbalanceMedidor > 5 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>{grupo.desbalanceMedidor.toFixed(2)}%</span>
-                    </td>
-                  </tr>
-
-                  {/* Separador de Espacio entre Medidores */}
-                  <tr className="bg-slate-950/80 h-4 border-b border-slate-900">
-                    <td colSpan="17" className="p-1"></td>
-                  </tr>
-                </React.Fragment>
-              ))}
-
-              {/* Fila de Totales Generales del Proyecto */}
-              <tr className="bg-slate-900/90 font-bold border-t-2 border-emerald-500/60 text-slate-100 text-xs">
-                <td colSpan="5" className="py-4 px-3 uppercase tracking-wider text-emerald-400 font-display">
-                  TOTALES GENERALES DEL PROYECTO ({listaMedidores.length} MEDIDORES)
-                </td>
-                <td className="py-4 px-2 text-right text-emerald-400 font-bold">{Math.round(globalTotalW).toLocaleString()} W</td>
-                <td className="py-4 px-2 text-center">-</td>
-                <td className="py-4 px-2 text-right text-cyan-400 font-bold">{Math.round(globalTotalVA).toLocaleString()} VA</td>
-                <td className="py-4 px-2 text-center">-</td>
-                <td className="py-4 px-2 text-right text-red-400 font-bold">
-                  {fasesUnit === 'A' ? globalFasesVA.A.toFixed(2) : Math.round(globalFasesVA.A).toLocaleString()} {fasesUnit}
-                </td>
-                <td className="py-4 px-2 text-right text-amber-400 font-bold">
-                  {fasesUnit === 'A' ? globalFasesVA.B.toFixed(2) : Math.round(globalFasesVA.B).toLocaleString()} {fasesUnit}
-                </td>
-                <td className={`py-4 px-2 text-right font-bold ${globalFasesVA.C > 0 ? 'text-blue-400' : 'text-slate-600'}`}>
-                  {globalFasesVA.C > 0
-                    ? `${fasesUnit === 'A' ? globalFasesVA.C.toFixed(2) : Math.round(globalFasesVA.C).toLocaleString()} ${fasesUnit}`
-                    : '-'}
-                </td>
-                <td colSpan="5" className="py-4 px-2 text-right text-slate-300">
-                  {listaMedidores.length > 1 ? 'Desbalance Máx. Medidor:' : 'Desbalance Global:'}{' '}
-                  <span className={desbalanceUVIEGlobal > 5 ? 'text-rose-400 font-black' : 'text-emerald-400 font-bold'}>{desbalanceUVIEGlobal.toFixed(2)}%</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          {/* Resumen de Totales Generales del Proyecto */}
+          <div className="mt-4 rounded-xl border-2 border-emerald-500/50 bg-slate-900/90 p-3.5 text-slate-100 text-xs font-mono flex flex-wrap items-center justify-between gap-4">
+            <div className="uppercase tracking-wider text-emerald-400 font-display font-bold">
+              TOTALES GENERALES DEL PROYECTO ({listaMedidores.length} MEDIDORES)
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <span>Potencia Activa: <strong className="text-emerald-400">{Math.round(globalTotalW).toLocaleString()} W</strong></span>
+              <span>Potencia Aparente: <strong className="text-cyan-400">{Math.round(globalTotalVA).toLocaleString()} VA</strong></span>
+              <span>Fase A: <strong className="text-red-400">{fasesUnit === 'A' ? globalFasesVA.A.toFixed(2) : Math.round(globalFasesVA.A).toLocaleString()} {fasesUnit}</strong></span>
+              <span>Fase B: <strong className="text-amber-400">{fasesUnit === 'A' ? globalFasesVA.B.toFixed(2) : Math.round(globalFasesVA.B).toLocaleString()} {fasesUnit}</strong></span>
+              <span>Fase C: <strong className={globalFasesVA.C > 0 ? 'text-blue-400' : 'text-slate-500'}>
+                {globalFasesVA.C > 0
+                  ? `${fasesUnit === 'A' ? globalFasesVA.C.toFixed(2) : Math.round(globalFasesVA.C).toLocaleString()} ${fasesUnit}`
+                  : '-'}
+              </strong></span>
+              <span>
+                {listaMedidores.length > 1 ? 'Desbalance Máx. Medidor:' : 'Desbalance Global:'}{' '}
+                <strong className={desbalanceUVIEGlobal > 5 ? 'text-rose-400 font-black' : 'text-emerald-400 font-bold'}>{desbalanceUVIEGlobal.toFixed(2)}%</strong>
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Certificación Footnote */}
