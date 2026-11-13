@@ -32,29 +32,33 @@ export function extraerLocalYTipoLimpio(aparato, medidorNombre = '') {
   const match = tipo.match(/^(\[|\()([^\)\]]+)(\]|\))\s*/);
   if (match) {
     const rawTag = match[2].trim();
-    // Quitar el prefijo del nombre del aparato
-    tipo = tipo.replace(/^(\[|\()([^\)\]]+)(\]|\))\s*/, '').trim();
+    const lower = rawTag.toLowerCase();
+    const esPotenciaHp = /^\d+(\.\d+)?\s*hp$/i.test(rawTag);
 
-    if (!local) {
-      const lower = rawTag.toLowerCase();
-      if (lower.includes('imperia') && !lower.includes('publi')) {
-        local = 'Imperia Uniformes';
-      } else if (lower.includes('papeler') || lower.includes('arte')) {
-        local = 'Papelería ImperiArte';
-      } else if (lower.includes('hawaiian') || lower.includes('hp') || lower.includes('paradise')) {
-        local = 'Hawaiian Paradise Universidades';
-      } else if (lower.includes('bordad')) {
-        local = 'Bordados Veracruz';
-      } else if (lower.includes('costura')) {
-        local = 'Taller de Costura Imperia';
-      } else if (lower.includes('publi')) {
-        local = 'Publi-Imperia';
-      } else if (lower.includes('consorcio') || lower.includes('oficina')) {
-        local = 'Oficinas Consorcio';
-      } else if (lower.includes('servicio')) {
-        local = 'Servicios Comunes';
-      } else {
-        local = rawTag;
+    if (!esPotenciaHp) {
+      // Quitar el prefijo del nombre del aparato
+      tipo = tipo.replace(/^(\[|\()([^\)\]]+)(\]|\))\s*/, '').trim();
+
+      if (!local) {
+        if (lower.includes('imperia') && !lower.includes('publi')) {
+          local = 'Imperia Uniformes';
+        } else if (lower.includes('papeler') || lower.includes('arte')) {
+          local = 'Papelería ImperiArte';
+        } else if (lower.includes('hawaiian') || lower === 'hp' || lower.includes('paradise')) {
+          local = 'Hawaiian Paradise Universidades';
+        } else if (lower.includes('bordad')) {
+          local = 'Bordados Veracruz';
+        } else if (lower.includes('costura')) {
+          local = 'Taller de Costura Imperia';
+        } else if (lower.includes('publi')) {
+          local = 'Publi-Imperia';
+        } else if (lower.includes('consorcio') || lower.includes('oficina')) {
+          local = 'Oficinas Consorcio';
+        } else if (lower.includes('servicio')) {
+          local = 'Servicios Comunes';
+        } else {
+          local = rawTag;
+        }
       }
     }
   }
@@ -184,7 +188,7 @@ export function identificarNegocioDeAparato(aparato) {
     if (locLower.includes('papeler') || locLower.includes('arte')) {
       return { negocioId: 'papeleria_imperiarte', negocioNombre: 'Papelería ImperiArte' };
     }
-    if (locLower.includes('hawaiian') || locLower.includes('paradise') || locLower.includes('hp')) {
+    if (locLower.includes('hawaiian') || locLower.includes('paradise') || (locLower === 'hp' || locLower.startsWith('hp '))) {
       return { negocioId: 'hawaiian_paradise', negocioNombre: 'Hawaiian Paradise Universidades' };
     }
     if (locLower.includes('oficina') || locLower.includes('consorcio')) {

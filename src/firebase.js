@@ -934,6 +934,74 @@ export const dbService = {
     return true;
   },
 
+  // --- GESTIÓN DE ESCENARIOS DE VENTAS POR LOCAL (CLOUD-FIRST MULTI-EQUIPO) ---
+
+  async getEscenariosPorNegocio(proyectoId, defaultEscenarios = {}) {
+    let localData = { ...defaultEscenarios };
+    try {
+      const raw = safeGetItem('sge_escenarios_por_negocio_' + proyectoId);
+      if (raw) {
+        localData = { ...defaultEscenarios, ...JSON.parse(raw) };
+      }
+    } catch (e) {}
+
+    const localTs = parseInt(safeGetItem('sge_escenarios_por_negocio_ts_' + proyectoId) || '0', 10);
+
+    if (db) {
+      try {
+        const docSnap = await getDoc(doc(db, 'proyectos_residenciales', proyectoId));
+        if (docSnap.exists()) {
+          const docData = docSnap.data();
+          const remoteEsc = docData.escenariosPorNegocio;
+          const remoteTs = docData.escenariosUpdatedAt || 0;
+          if (remoteEsc && typeof remoteEsc === 'object' && Object.keys(remoteEsc).length > 0) {
+            if (remoteTs >= localTs || localTs === 0) {
+              const merged = { ...defaultEscenarios, ...remoteEsc };
+              safeSetItem('sge_escenarios_por_negocio_' + proyectoId, JSON.stringify(merged));
+              safeSetItem('sge_escenarios_por_negocio_ts_' + proyectoId, String(remoteTs || Date.now()));
+              if (docData.estadosVentasNegocios && typeof docData.estadosVentasNegocios === 'object') {
+                safeSetItem('simulador_ventas_v2_' + proyectoId, JSON.stringify(docData.estadosVentasNegocios));
+              }
+              return merged;
+            }
+          }
+        }
+        // Si no estaba en Firestore o local es más reciente, sincronizar a Firestore
+        await this.saveEscenariosPorNegocio(proyectoId, localData);
+        return localData;
+      } catch (error) {
+        console.warn('Error leyendo escenariosPorNegocio de Firestore:', error);
+      }
+    }
+    return localData;
+  },
+
+  async saveEscenariosPorNegocio(proyectoId, escenariosPorNegocio, estadosVentasNegocios = null) {
+    const timestamp = Date.now();
+    lastSessionWriteTimestamp = timestamp;
+    safeSetItem('sge_escenarios_por_negocio_' + proyectoId, JSON.stringify(escenariosPorNegocio));
+    safeSetItem('sge_escenarios_por_negocio_ts_' + proyectoId, String(timestamp));
+    if (estadosVentasNegocios && typeof estadosVentasNegocios === 'object') {
+      safeSetItem('simulador_ventas_v2_' + proyectoId, JSON.stringify(estadosVentasNegocios));
+    }
+
+    if (db) {
+      try {
+        const payload = {
+          escenariosPorNegocio,
+          escenariosUpdatedAt: timestamp
+        };
+        if (estadosVentasNegocios && typeof estadosVentasNegocios === 'object') {
+          payload.estadosVentasNegocios = estadosVentasNegocios;
+        }
+        await setDoc(doc(db, 'proyectos_residenciales', proyectoId), payload, { merge: true });
+      } catch (error) {
+        console.warn('Error guardando escenariosPorNegocio en Firestore:', error);
+      }
+    }
+    return escenariosPorNegocio;
+  },
+
   // --- SUSCRIPCIÓN EN TIEMPO REAL ENTRE EQUIPOS ---
   subscribeProyecto(proyectoId, onRemoteUpdate) {
     if (!db || !proyectoId || typeof onRemoteUpdate !== 'function') {
@@ -944,7 +1012,11 @@ export const dbService = {
       return onSnapshot(docRef, (docSnap) => {
         if (!docSnap.exists() || docSnap.metadata.hasPendingWrites) return;
         const data = docSnap.data();
-        const remoteMaxTs = Math.max(data.medidoresUpdatedAt || 0, data.aparatosUpdatedAt || 0);
+        const remoteMaxTs = Math.max(
+          data.medidoresUpdatedAt || 0,
+          data.aparatosUpdatedAt || 0,
+          data.escenariosUpdatedAt || 0
+        );
         // Ignorar si el cambio fue originado por esta misma sesión hace menos de 1.5s
         if (remoteMaxTs > 0 && Math.abs(remoteMaxTs - lastSessionWriteTimestamp) < 1500) {
           return;
@@ -952,6 +1024,7 @@ export const dbService = {
 
         let updatedMedidores = null;
         let updatedAparatos = null;
+        let updatedEscenarios = null;
 
         if (Array.isArray(data.medidores) && data.medidores.length > 0) {
           const localMedTs = parseInt(safeGetItem('electrico_casa_medidores_ts_' + proyectoId) || '0', 10);
@@ -971,10 +1044,24 @@ export const dbService = {
           }
         }
 
-        if (updatedMedidores || updatedAparatos) {
+        if (data.escenariosPorNegocio && typeof data.escenariosPorNegocio === 'object') {
+          const localEscTs = parseInt(safeGetItem('sge_escenarios_por_negocio_ts_' + proyectoId) || '0', 10);
+          if ((data.escenariosUpdatedAt || 0) > localEscTs) {
+            updatedEscenarios = data.escenariosPorNegocio;
+            safeSetItem('sge_escenarios_por_negocio_' + proyectoId, JSON.stringify(updatedEscenarios));
+            safeSetItem('sge_escenarios_por_negocio_ts_' + proyectoId, String(data.escenariosUpdatedAt || Date.now()));
+            if (data.estadosVentasNegocios && typeof data.estadosVentasNegocios === 'object') {
+              safeSetItem('simulador_ventas_v2_' + proyectoId, JSON.stringify(data.estadosVentasNegocios));
+            }
+          }
+        }
+
+        if (updatedMedidores || updatedAparatos || updatedEscenarios) {
           onRemoteUpdate({
             medidores: updatedMedidores,
-            aparatos: updatedAparatos
+            aparatos: updatedAparatos,
+            escenariosPorNegocio: updatedEscenarios,
+            estadosVentasNegocios: data.estadosVentasNegocios || null
           });
         }
       }, (err) => {

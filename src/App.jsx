@@ -247,27 +247,28 @@ export default function App() {
     return DEFAULT_ESCENARIOS_NEGOCIOS;
   });
 
-  // Sincronizar al cambiar de proyecto
+  const [estadosVentasRemotos, setEstadosVentasRemotos] = useState(null);
+
+  // Sincronizar escenarios por negocio al cambiar de proyecto (desde Firestore y localStorage)
   useEffect(() => {
     if (!currentProyectoId) return;
-    try {
-      const guardado = localStorage.getItem('sge_escenarios_por_negocio_' + currentProyectoId);
-      if (guardado) {
-        setEscenariosPorNegocio(prev => ({ ...DEFAULT_ESCENARIOS_NEGOCIOS, ...JSON.parse(guardado) }));
+    let isMounted = true;
+    dbService.getEscenariosPorNegocio(currentProyectoId, DEFAULT_ESCENARIOS_NEGOCIOS).then(remoteEsc => {
+      if (isMounted && remoteEsc) {
+        setEscenariosPorNegocio({ ...DEFAULT_ESCENARIOS_NEGOCIOS, ...remoteEsc });
       }
-    } catch (e) {}
+    });
+    return () => { isMounted = false; };
   }, [currentProyectoId, DEFAULT_ESCENARIOS_NEGOCIOS]);
 
-  const handleEscenarioNegocioChange = useCallback((negocioId, nuevoEscenario) => {
+  const handleEscenarioNegocioChange = useCallback((negocioId, nuevoEscenario, estadosNegociosOpc = null) => {
     setEscenariosPorNegocio(prev => {
       const updated = {
         ...prev,
         [negocioId]: nuevoEscenario
       };
-      try {
-        const pId = currentProyectoId || localStorage.getItem('sge_selected_proyecto_id') || 'consorcio_general';
-        localStorage.setItem('sge_escenarios_por_negocio_' + pId, JSON.stringify(updated));
-      } catch (e) {}
+      const pId = currentProyectoId || localStorage.getItem('sge_selected_proyecto_id') || 'consorcio_general';
+      dbService.saveEscenariosPorNegocio(pId, updated, estadosNegociosOpc);
       return updated;
     });
   }, [currentProyectoId]);
@@ -644,13 +645,25 @@ export default function App() {
           ? 'med_2'
           : (finalMedidores[finalMedidores.length - 1]?.id || defaultMedId);
 
-        // Deduplicar únicamente por ID único (diferentes medidores pueden usar el mismo número de slot físico)
+        // Deduplicar únicamente por ID único y purgar duplicados huérfanos de sincronización de Hawaiian Paradise
         const idsVistos = new Set();
         const datosFiltrados = [];
+        const tieneHpAndamar = datosBase.some(x => x.id === 'hp_andamar_c1');
 
         datosBase.forEach(ap => {
           if (!ap.id) return;
           if (idsVistos.has(ap.id)) {
+            cambioDetectado = true;
+            return;
+          }
+          // Si ya existen los 17 circuitos canónicos de Hawaiian Paradise (hp_andamar_c1..c17),
+          // eliminar los duplicados huérfanos creados por el antiguo botón de sincronización con medidorIdConsorcio ('med_3')
+          if (
+            tieneHpAndamar &&
+            String(ap.id).startsWith('id_') &&
+            (ap.local === 'Hawaiian Paradise Universidades' || String(ap.tipo || '').includes('[HAWAIIAN]')) &&
+            (String(ap.tipo || '').includes('Terminal Bancaria Smart POS') || String(ap.tipo || '').includes('Refrigerador 11 pies'))
+          ) {
             cambioDetectado = true;
             return;
           }
@@ -1018,7 +1031,12 @@ export default function App() {
   // Suscripción en tiempo real a Firestore para sincronización inmediata entre dispositivos
   useEffect(() => {
     if (!currentProyectoId) return;
-    const unsubscribe = dbService.subscribeProyecto(currentProyectoId, ({ medidores: remoteMeds, aparatos: remoteAps }) => {
+    const unsubscribe = dbService.subscribeProyecto(currentProyectoId, ({
+      medidores: remoteMeds,
+      aparatos: remoteAps,
+      escenariosPorNegocio: remoteEsc,
+      estadosVentasNegocios: remoteEstadosVentas
+    }) => {
       if (Array.isArray(remoteMeds) && remoteMeds.length > 0) {
         setMedidores(remoteMeds);
         setActiveMedidorId(prev => remoteMeds.some(m => m.id === prev) ? prev : remoteMeds[0].id);
@@ -1026,11 +1044,17 @@ export default function App() {
       if (Array.isArray(remoteAps)) {
         setAparatos(remoteAps);
       }
+      if (remoteEsc && typeof remoteEsc === 'object') {
+        setEscenariosPorNegocio(prev => ({ ...DEFAULT_ESCENARIOS_NEGOCIOS, ...prev, ...remoteEsc }));
+      }
+      if (remoteEstadosVentas && typeof remoteEstadosVentas === 'object') {
+        setEstadosVentasRemotos(remoteEstadosVentas);
+      }
     });
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [currentProyectoId]);
+  }, [currentProyectoId, DEFAULT_ESCENARIOS_NEGOCIOS]);
 
   // 1. Potencia activa total (Watts) y aparente total (VA) de todo el proyecto
   const totalWatts = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
@@ -3066,6 +3090,7 @@ export default function App() {
                 onEscenarioVentasChange={handleEscenarioGlobalChange}
                 escenariosPorNegocio={escenariosPorNegocio}
                 onEscenarioNegocioChange={handleEscenarioNegocioChange}
+                estadosVentasRemotos={estadosVentasRemotos}
               />
             </div>
           )}

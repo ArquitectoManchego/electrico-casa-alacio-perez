@@ -4,6 +4,7 @@
  */
 
 import { identificarNegocioDeAparato } from './localHelpers.js';
+export { identificarNegocioDeAparato };
 
 export const NEGOCIOS_CONFIG = [
   {
@@ -382,23 +383,7 @@ export const NEGOCIOS_CONFIG = [
         factorTrabajo: 0.60,
         factorGap: 0.30,
         factorStandby: 0.15,
-        keywords: ['tpv', 'pos', 'touch', 'comandas', 'caja y punto', 'punto de venta']
-      },
-      hp_terminal: {
-        key: 'hp_terminal',
-        nombre: 'Terminal Bancaria Smart POS',
-        tipoCatalogo: 'Terminal Bancaria Mercado Pago',
-        wattsNominal: 15,
-        fp: 0.90,
-        tipoCarga: 'monofasica',
-        faseSugerida: 'A',
-        cantidadParalela: 1,
-        rol: 'produccion',
-        factorPrecalentamiento: 1.0,
-        factorTrabajo: 1.0,
-        factorGap: 0.13,
-        factorStandby: 0.10,
-        keywords: ['terminal', 'bancaria', 'mercado pago']
+        keywords: ['tpv', 'pos', 'touch', 'comandas', 'caja y punto', 'punto de venta', 'terminal']
       },
       hp_tv_70: {
         key: 'hp_tv_70',

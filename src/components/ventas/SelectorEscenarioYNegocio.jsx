@@ -110,6 +110,15 @@ export default function SelectorEscenarioYNegocio({
               : (neg.medidorIdConsorcio ? neg.medidorIdConsorcio.replace('med_', 'M') : 'M1');
 
             const escNegocio = escenariosPorNegocio[neg.id] || (negocioActivoId === neg.id ? escenarioActivo : 'medio');
+            const escNorm = (escNegocio === 'equilibrio' ? 'tablas' : escNegocio === 'buena' ? 'medio' : escNegocio) || 'medio';
+            const escBadgeConfig = {
+              bajo: { label: 'Bajo', cls: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
+              tablas: { label: 'Tablas', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+              medio: { label: 'Medio', cls: 'bg-teal-500/15 text-teal-300 border-teal-500/30' },
+              alto: { label: 'Alto', cls: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' },
+              muy_alto: { label: 'Muy Alto', cls: 'bg-purple-500/15 text-purple-300 border-purple-500/30' },
+              custom: { label: 'Custom', cls: 'bg-rose-500/15 text-rose-300 border-rose-500/30' }
+            }[escNorm] || { label: escNorm, cls: 'bg-slate-500/15 text-slate-300 border-slate-500/30' };
 
             return (
               <button
@@ -130,11 +139,12 @@ export default function SelectorEscenarioYNegocio({
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950/60 text-teal-400 border border-slate-800 font-bold">
                   {badgeMeds}
                 </span>
-                {escNegocio && escNegocio !== 'medio' && (
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 capitalize font-medium">
-                    {escNegocio}
-                  </span>
-                )}
+                <span
+                  title={`Escenario activo en ${neg.nombre}: ${escBadgeConfig.label}`}
+                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded border font-semibold ${escBadgeConfig.cls}`}
+                >
+                  {escBadgeConfig.label}
+                </span>
               </button>
             );
           })}

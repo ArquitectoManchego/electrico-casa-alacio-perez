@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { NEGOCIOS_CONFIG, vincularEquiposConInventario } from '../utils/equiposNegocios';
+import { NEGOCIOS_CONFIG, vincularEquiposConInventario, identificarNegocioDeAparato } from '../utils/equiposNegocios';
 import { PROCESOS_POR_NEGOCIO } from '../utils/procesosNegocios';
 import { 
   simularNegocioCompleto, 
@@ -26,7 +26,8 @@ export default function SimuladorConsumoVentas({
   escenarioVentas = 'por_empresa',
   onEscenarioVentasChange,
   escenariosPorNegocio = {},
-  onEscenarioNegocioChange
+  onEscenarioNegocioChange,
+  estadosVentasRemotos = null
 }) {
   const esConsorcio = proyectoId === 'consorcio_general';
 
@@ -82,38 +83,30 @@ export default function SimuladorConsumoVentas({
     } catch (e) {}
   }, [estadosNegocios, storageKey]);
 
-  // Sincronizar escenarios independientes por negocio si vienen del estado persistido
+  // Sincronizar escenarios independientes por negocio si vienen del estado persistido en Firestore
   useEffect(() => {
     if (escenariosPorNegocio && Object.keys(escenariosPorNegocio).length > 0) {
       setEstadosNegocios(prev => {
         let changed = false;
         const next = { ...prev };
         Object.keys(escenariosPorNegocio).forEach(negId => {
+          const remotoExtra = estadosVentasRemotos && estadosVentasRemotos[negId] ? estadosVentasRemotos[negId] : {};
           if (next[negId] && next[negId].escenarioActivo !== escenariosPorNegocio[negId]) {
-            next[negId] = { ...next[negId], escenarioActivo: escenariosPorNegocio[negId] };
+            next[negId] = { ...next[negId], ...remotoExtra, escenarioActivo: escenariosPorNegocio[negId] };
             changed = true;
+          } else if (estadosVentasRemotos && estadosVentasRemotos[negId]) {
+            const actualJson = JSON.stringify(next[negId]);
+            const merged = { ...next[negId], ...remotoExtra, escenarioActivo: escenariosPorNegocio[negId] || next[negId]?.escenarioActivo };
+            if (JSON.stringify(merged) !== actualJson) {
+              next[negId] = merged;
+              changed = true;
+            }
           }
         });
         return changed ? next : prev;
       });
     }
-  }, [escenariosPorNegocio]);
-
-  // Sincronización entrante si se fuerza un escenario global específico diferente de 'por_empresa'
-  useEffect(() => {
-    if (escenarioVentas && escenarioVentas !== 'inventario' && escenarioVentas !== 'por_empresa' && escenarioVentas !== 'personalizado') {
-      setEstadosNegocios(prev => {
-        if (!prev[negocioActivoId] || prev[negocioActivoId].escenarioActivo === escenarioVentas) return prev;
-        return {
-          ...prev,
-          [negocioActivoId]: {
-            ...prev[negocioActivoId],
-            escenarioActivo: escenarioVentas
-          }
-        };
-      });
-    }
-  }, [escenarioVentas, negocioActivoId]);
+  }, [escenariosPorNegocio, estadosVentasRemotos]);
 
 
   // Estado del negocio activo
@@ -347,42 +340,57 @@ export default function SimuladorConsumoVentas({
     }
   }, [onKwhDiarioChange, esConsorcio, simConsorcio, simActual.totalKwhDiario]);
 
-  // Manejadores de cambios de estado
+  // Manejadores de cambios de estado (independientes por local y guardados en Firestore)
   const handleSelectEscenario = (nuevoEscenario) => {
-    setEstadosNegocios(prev => ({
-      ...prev,
-      [negocioActivoId]: {
-        ...prev[negocioActivoId],
-        escenarioActivo: nuevoEscenario
+    setEstadosNegocios(prev => {
+      const next = {
+        ...prev,
+        [negocioActivoId]: {
+          ...prev[negocioActivoId],
+          escenarioActivo: nuevoEscenario
+        }
+      };
+      if (onEscenarioNegocioChange) {
+        onEscenarioNegocioChange(negocioActivoId, nuevoEscenario, next);
       }
-    }));
-    if (onEscenarioNegocioChange) {
-      onEscenarioNegocioChange(negocioActivoId, nuevoEscenario);
-    }
+      return next;
+    });
     if (onEscenarioVentasChange) {
-      onEscenarioVentasChange(nuevoEscenario);
+      onEscenarioVentasChange('por_empresa');
     }
   };
 
 
   const handleChangeDiasLaborales = (dias) => {
-    setEstadosNegocios(prev => ({
-      ...prev,
-      [negocioActivoId]: {
-        ...prev[negocioActivoId],
-        diasLaborales: dias
+    setEstadosNegocios(prev => {
+      const next = {
+        ...prev,
+        [negocioActivoId]: {
+          ...prev[negocioActivoId],
+          diasLaborales: dias
+        }
+      };
+      if (onEscenarioNegocioChange) {
+        onEscenarioNegocioChange(negocioActivoId, next[negocioActivoId]?.escenarioActivo || 'medio', next);
       }
-    }));
+      return next;
+    });
   };
 
   const handleChangeHorasTurno = (hrs) => {
-    setEstadosNegocios(prev => ({
-      ...prev,
-      [negocioActivoId]: {
-        ...prev[negocioActivoId],
-        horasTurno: hrs
+    setEstadosNegocios(prev => {
+      const next = {
+        ...prev,
+        [negocioActivoId]: {
+          ...prev[negocioActivoId],
+          horasTurno: hrs
+        }
+      };
+      if (onEscenarioNegocioChange) {
+        onEscenarioNegocioChange(negocioActivoId, next[negocioActivoId]?.escenarioActivo || 'medio', next);
       }
-    }));
+      return next;
+    });
   };
 
   // Restaura la calibración automática del escenario activo (borra solo sus ajustes)
@@ -390,18 +398,24 @@ export default function SimuladorConsumoVentas({
     setEstadosNegocios(prev => {
       const negEstado = prev[negocioActivoId] || {};
       const esc = normalizarEscenario(negEstado.escenarioActivo);
+      let next;
       if (esc === 'custom') {
-        return {
+        next = {
           ...prev,
           [negocioActivoId]: { ...negEstado, escenarioActivo: 'medio', overridesUsuario: null }
         };
+      } else {
+        const restantes = { ...(negEstado.overridesPorEscenario || {}) };
+        delete restantes[esc];
+        next = {
+          ...prev,
+          [negocioActivoId]: { ...negEstado, overridesPorEscenario: restantes }
+        };
       }
-      const restantes = { ...(negEstado.overridesPorEscenario || {}) };
-      delete restantes[esc];
-      return {
-        ...prev,
-        [negocioActivoId]: { ...negEstado, overridesPorEscenario: restantes }
-      };
+      if (onEscenarioNegocioChange) {
+        onEscenarioNegocioChange(negocioActivoId, next[negocioActivoId]?.escenarioActivo || 'medio', next);
+      }
+      return next;
     });
   };
 
@@ -411,11 +425,12 @@ export default function SimuladorConsumoVentas({
       const negEstado = prev[negocioActivoId] || {};
       const esc = normalizarEscenario(negEstado.escenarioActivo);
 
+      let next;
       // Compatibilidad: estado 'custom' heredado
       if (esc === 'custom') {
         const cantidadesPrev = negEstado.overridesUsuario?.cantidades || simActual.cantidadesEfectivas || {};
         const lotesPrev = negEstado.overridesUsuario?.lotes || simActual.lotesEfectivos || {};
-        return {
+        next = {
           ...prev,
           [negocioActivoId]: {
             ...negEstado,
@@ -425,28 +440,42 @@ export default function SimuladorConsumoVentas({
             }
           }
         };
-      }
-
-      const actuales = negEstado.overridesPorEscenario?.[esc] || { cantidades: {}, lotes: {} };
-      return {
-        ...prev,
-        [negocioActivoId]: {
-          ...negEstado,
-          overridesPorEscenario: {
-            ...(negEstado.overridesPorEscenario || {}),
-            [esc]: {
-              cantidades: { ...(actuales.cantidades || {}) },
-              lotes: { ...(actuales.lotes || {}) },
-              [campo]: { ...(actuales[campo] || {}), [procesoId]: valor }
+      } else {
+        const actuales = negEstado.overridesPorEscenario?.[esc] || { cantidades: {}, lotes: {} };
+        next = {
+          ...prev,
+          [negocioActivoId]: {
+            ...negEstado,
+            overridesPorEscenario: {
+              ...(negEstado.overridesPorEscenario || {}),
+              [esc]: {
+                cantidades: { ...(actuales.cantidades || {}) },
+                lotes: { ...(actuales.lotes || {}) },
+                [campo]: { ...(actuales[campo] || {}), [procesoId]: valor }
+              }
             }
           }
-        }
-      };
+        };
+      }
+
+      if (onEscenarioNegocioChange) {
+        onEscenarioNegocioChange(negocioActivoId, next[negocioActivoId]?.escenarioActivo || 'medio', next);
+      }
+      return next;
     });
   };
 
   const handleChangeCantidad = (procesoId, valor) => guardarAjusteProceso('cantidades', procesoId, valor);
   const handleChangeLote = (procesoId, valor) => guardarAjusteProceso('lotes', procesoId, valor);
+
+  // Determinar el medidor real donde están conectados los aparatos de este local
+  const medidorRealNegocio = useMemo(() => {
+    const apExistente = aparatos.find(ap => identificarNegocioDeAparato(ap).negocioId === negocioActivoId && ap.medidorId);
+    if (apExistente && medidores.some(m => m.id === apExistente.medidorId)) {
+      return apExistente.medidorId;
+    }
+    return medidores[0]?.id || 'med_1';
+  }, [aparatos, negocioActivoId, medidores]);
 
   // Verificar si hay equipos del negocio que no están en el inventario real del proyecto
   const mapaEquiposActual = simActual.mapaEquipos || {};
@@ -473,7 +502,8 @@ export default function SimuladorConsumoVentas({
         precio: 10000,
         mantenimiento: 500,
         vidaUtil: 8,
-        medidorId: esConsorcio ? negocioConfig.medidorIdConsorcio : (medidores[0]?.id || 'med_1')
+        local: negocioConfig.nombre,
+        medidorId: medidorRealNegocio
       });
     });
   };
@@ -559,7 +589,7 @@ export default function SimuladorConsumoVentas({
             capacidadesEquipos={simActual.capacidadesEquipos}
             equipoCuelloBotella={simActual.equipoCuelloBotella}
             onAddAparato={onAddAparato}
-            medidorId={esConsorcio ? negocioConfig.medidorIdConsorcio : (medidores[0]?.id || 'med_1')}
+            medidorId={medidorRealNegocio}
           />
         </>
       )}
