@@ -388,6 +388,9 @@ function normalizarAparato(ap, proyectoId = 'consorcio_general', idx = 0) {
     copy.id = `ap_${idx + 1}_${Math.random().toString(36).slice(2, 7)}`;
   }
 
+  // Estado de encendido (por defecto activo/encendido salvo que explícitamente sea false)
+  copy.encendido = copy.encendido !== false;
+
   if (!copy.variantes || copy.variantes.length === 0) {
     const baseVariant = {
       id: 'default',

@@ -85,7 +85,7 @@ export function calcularDetalleProceso(proceso, cantidadMensual = 0, tamanoLote 
       factorStandby: 0.1
     };
 
-    const watts = eq.wattsEfectivos || 500;
+    const watts = eq.apagado ? 0 : (eq.wattsEfectivos !== undefined ? eq.wattsEfectivos : 500);
     const tPre = paso.preheatMinPorLote || 0;
     const tTrab = uCiclo * (paso.trabajoMinPorUnidad || 0);
     const tGap = Math.max(0, uCiclo - 1) * (paso.espacioEntreUnidadesMin || 0);
@@ -351,6 +351,11 @@ export function simularNegocioCompleto({
 
   Object.keys(mapaEquipos).forEach(eqKey => {
     const eq = mapaEquipos[eqKey];
+    if (eq.apagado) {
+      kwhEquiposMes[eqKey] = 0;
+      minutosEquiposMes[eqKey] = 0;
+      return;
+    }
     const watts = eq.wattsEfectivos || eq.wattsNominal || 100;
 
     if (eq.rol === 'continuo_24h') {
@@ -573,6 +578,7 @@ export function simularConsorcioPorMedidores({
 
   // 3. Asignar el consumo de cada aparato de forma exacta a su medidor físico CFE
   aparatos.forEach(ap => {
+    if (ap.encendido === false) return; // Excluir aparatos apagados
     let medId = ap.medidorId;
     if (!medId || !mapaMedidores[medId]) {
       medId = medidorPorDefectoId;

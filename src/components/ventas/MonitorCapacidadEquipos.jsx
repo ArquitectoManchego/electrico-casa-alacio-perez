@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gauge, CheckCircle2, AlertTriangle, PlusCircle, Clock, Zap, AlertOctagon } from 'lucide-react';
+import { Gauge, CheckCircle2, AlertTriangle, PlusCircle, Clock, Zap, AlertOctagon, Power } from 'lucide-react';
 
 export default function MonitorCapacidadEquipos({
   capacidadesEquipos = {},
@@ -71,8 +71,12 @@ export default function MonitorCapacidadEquipos({
                   </span>
                 </div>
 
-                {/* Badge de Conexión */}
-                {eq.conectado ? (
+                {/* Badge de Conexión / Estado */}
+                {eq.apagado ? (
+                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 text-[9px] font-mono font-bold flex items-center gap-1 whitespace-nowrap">
+                    <Power size={11} className="text-slate-500" /> Apagado
+                  </span>
+                ) : eq.conectado ? (
                   <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-bold flex items-center gap-1 whitespace-nowrap">
                     <CheckCircle2 size={11} /> Conectado
                   </span>

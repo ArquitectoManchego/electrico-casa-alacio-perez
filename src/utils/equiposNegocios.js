@@ -1039,8 +1039,10 @@ export function vincularEquiposConInventario(negocioId, aparatos = [], esConsorc
       aparatosUsadosIds.add(aparatoEncontrado.id);
     }
 
-    const conectado = !!aparatoEncontrado;
-    const wattsEfectivos = conectado ? (parseFloat(aparatoEncontrado.watts) || eq.wattsNominal) : eq.wattsNominal;
+    const registrado = !!aparatoEncontrado;
+    const apagado = !!(aparatoEncontrado && aparatoEncontrado.encendido === false);
+    const conectado = registrado;
+    const wattsEfectivos = apagado ? 0 : (conectado ? (parseFloat(aparatoEncontrado.watts) || eq.wattsNominal) : eq.wattsNominal);
     const fpEfectivo = conectado ? (parseFloat(aparatoEncontrado.fp) || eq.fp) : eq.fp;
     const tipoCargaEfectiva = conectado ? (aparatoEncontrado.tipoCarga || eq.tipoCarga) : eq.tipoCarga;
     const faseEfectiva = conectado ? (aparatoEncontrado.fase || eq.faseSugerida) : eq.faseSugerida;
@@ -1048,6 +1050,8 @@ export function vincularEquiposConInventario(negocioId, aparatos = [], esConsorc
     resultado[eqKey] = {
       ...eq,
       conectado,
+      registrado,
+      apagado,
       aparatoReal: aparatoEncontrado || null,
       wattsEfectivos,
       fpEfectivo,
@@ -1081,14 +1085,15 @@ export function vincularEquiposConInventario(negocioId, aparatos = [], esConsorc
       }
 
       const key = `extra_${ap.id}`;
-      const wattsVal = parseFloat(ap.watts) || 0;
+      const apagadoExtra = ap.encendido === false;
+      const wattsVal = apagadoExtra ? 0 : (parseFloat(ap.watts) || 0);
       const fpVal = parseFloat(ap.fp) || 0.90;
 
       resultado[key] = {
         key,
         nombre: ap.tipo + (ap.modelo ? ` (${ap.modelo})` : ''),
         tipoCatalogo: ap.tipo,
-        wattsNominal: wattsVal,
+        wattsNominal: parseFloat(ap.watts) || 0,
         wattsEfectivos: wattsVal,
         fp: fpVal,
         fpEfectivo: fpVal,
@@ -1106,6 +1111,8 @@ export function vincularEquiposConInventario(negocioId, aparatos = [], esConsorc
         horasReposo: parseFloat(ap.horasReposo) || 0,
         consumoVariable: !!ap.consumoVariable,
         conectado: true,
+        registrado: true,
+        apagado: apagadoExtra,
         aparatoReal: ap,
         keywords: []
       };

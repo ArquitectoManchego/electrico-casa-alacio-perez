@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, Info, Trash2, ArrowRightLeft, DollarSign, AlertTriangle, Gauge, RotateCcw } from 'lucide-react';
+import { ShieldAlert, Info, Trash2, ArrowRightLeft, DollarSign, AlertTriangle, Gauge, RotateCcw, Power, PowerOff, Zap } from 'lucide-react';
 import { 
   calcularVA, 
   calcularCorrienteNominal, 
@@ -18,26 +18,27 @@ import { LOCALES_LISTA, extraerLocalYTipoLimpio } from '../utils/localHelpers';
 import { useResizableColumns, ColumnResizerHandle } from '../utils/useResizableColumns';
 
 const NORMATIVO_DEFAULT_WIDTHS = [
-  44,  // 0: #
-  115, // 1: Medidor
-  140, // 2: Local
-  190, // 3: Circuito / Equipo
-  72,  // 4: Tensión
-  90,  // 5: Watts (P)
-  64,  // 6: F.P.
-  90,  // 7: VA (S)
-  95,  // 8: Precio (MXN)
-  95,  // 9: Mant. Anual
-  74,  // 10: Vida Útil
-  185, // 11: Carga por Fase
-  74,  // 12: In (A)
-  74,  // 13: Ic (1.25)
-  95,  // 14: Protección
-  90,  // 15: Conductor
-  120, // 16: Canalización
-  82,  // 17: Longitud (m)
-  90,  // 18: % Caída V
-  82   // 19: Acciones
+  48,  // 0: Estado (On/Off)
+  44,  // 1: #
+  115, // 2: Medidor
+  140, // 3: Local
+  190, // 4: Circuito / Equipo
+  72,  // 5: Tensión
+  90,  // 6: Watts (P)
+  64,  // 7: F.P.
+  90,  // 8: VA (S)
+  95,  // 9: Precio (MXN)
+  95,  // 10: Mant. Anual
+  74,  // 11: Vida Útil
+  185, // 12: Carga por Fase
+  74,  // 13: In (A)
+  74,  // 14: Ic (1.25)
+  95,  // 15: Protección
+  90,  // 16: Conductor
+  120, // 17: Canalización
+  82,  // 18: Longitud (m)
+  90,  // 19: % Caída V
+  82   // 20: Acciones
 ];
 
 function TablaGrupoNormativo({
@@ -55,7 +56,9 @@ function TablaGrupoNormativo({
   onDeleteAparato,
   onUpdateAparatoProps,
   onBalancearFases,
-  onBalancearMedidor
+  onBalancearMedidor,
+  onToggleAparatoEncendido,
+  onToggleGrupoEncendido
 }) {
   const storageKey = `sge_col_widths_normativo_${medidor.id}`;
   const {
@@ -76,6 +79,10 @@ function TablaGrupoNormativo({
 
   const fasesMed = acometidaMed?.fasesDisponibles || ['A'];
 
+  const apsActivosGrupo = apsGrupo.filter(ap => ap.encendido !== false);
+  const countEncendidos = apsActivosGrupo.length;
+  const countTotal = apsGrupo.length;
+
   let subTotalW = 0;
   let subTotalVA = 0;
   let subTotalPrecio = 0;
@@ -85,23 +92,27 @@ function TablaGrupoNormativo({
   const subFasesDisplay = { A: 0, B: 0, C: 0 };
 
   apsGrupo.forEach(ap => {
-    const dist = distribuirCargaPorFases(ap, acometidaMed);
-    subTotalW += dist.watts;
-    subTotalVA += dist.va;
     subTotalPrecio += (parseFloat(ap.precio) || 0);
     subTotalMantenimiento += (parseFloat(ap.mantenimiento) || 0);
     subSumaVida += (parseFloat(ap.vidaUtil) || 0);
 
-    ['A', 'B', 'C'].forEach(f => {
-      subFasesBaseVA[f] += dist.fVA[f];
-      if (fasesUnit === 'VA') {
-        subFasesDisplay[f] += dist.fVA[f];
-      } else if (fasesUnit === 'W') {
-        subFasesDisplay[f] += dist.fLoad[f];
-      } else if (fasesUnit === 'A') {
-        subFasesDisplay[f] += dist.fAmps[f];
-      }
-    });
+    // Solo sumar cargas a fases y potencia total si el equipo está encendido
+    if (ap.encendido !== false) {
+      const dist = distribuirCargaPorFases(ap, acometidaMed);
+      subTotalW += dist.watts;
+      subTotalVA += dist.va;
+
+      ['A', 'B', 'C'].forEach(f => {
+        subFasesBaseVA[f] += dist.fVA[f];
+        if (fasesUnit === 'VA') {
+          subFasesDisplay[f] += dist.fVA[f];
+        } else if (fasesUnit === 'W') {
+          subFasesDisplay[f] += dist.fLoad[f];
+        } else if (fasesUnit === 'A') {
+          subFasesDisplay[f] += dist.fAmps[f];
+        }
+      });
+    }
   });
 
   const subDesbalance = calcularDesbalanceUVIE(
@@ -124,11 +135,46 @@ function TablaGrupoNormativo({
             <span className="text-[10px] px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/30 font-mono">
               {apsGrupo.length} {apsGrupo.length === 1 ? 'circuito' : 'circuitos'}
             </span>
+            <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold border ${
+              countEncendidos === countTotal
+                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                : countEncendidos === 0
+                  ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+            }`}>
+              {countEncendidos} de {countTotal} encendidos
+            </span>
             <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono">
               Fases activas: {fasesMed.join(', ')} ({acometidaMed.id === 'trifasico' ? '3F' : acometidaMed.id === 'bifasico' ? '2F' : '1F'})
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {apsGrupo.length > 0 && onToggleGrupoEncendido && (
+              <div className="flex items-center gap-1 border-r border-slate-700/80 pr-2 mr-1">
+                <button
+                  type="button"
+                  onClick={() => onToggleGrupoEncendido(apsGrupo.map(a => a.id), true)}
+                  data-testid={`cuadro-normativo-encender-medidor-${medidor.id}-btn`}
+                  aria-label={`Encender todos los aparatos de ${medidor.nombre || `Medidor ${medidor.numero}`}`}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-400 border border-slate-700 text-[10px] font-sans font-semibold flex items-center gap-1 transition-all no-print cursor-pointer active:scale-95"
+                  title="Encender todos los equipos de este medidor"
+                >
+                  <Power size={11} className="text-emerald-400" />
+                  <span>Encender Todos</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggleGrupoEncendido(apsGrupo.map(a => a.id), false)}
+                  data-testid={`cuadro-normativo-apagar-medidor-${medidor.id}-btn`}
+                  aria-label={`Apagar todos los aparatos de ${medidor.nombre || `Medidor ${medidor.numero}`}`}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-rose-500/20 hover:text-rose-300 text-slate-400 border border-slate-700 text-[10px] font-sans font-semibold flex items-center gap-1 transition-all no-print cursor-pointer active:scale-95"
+                  title="Apagar todos los equipos de este medidor"
+                >
+                  <PowerOff size={11} className="text-rose-400" />
+                  <span>Apagar Medidor</span>
+                </button>
+              </div>
+            )}
             {isCustomized && (
               <button
                 type="button"
@@ -165,76 +211,81 @@ function TablaGrupoNormativo({
           </colgroup>
           <thead>
             <tr className="border-b border-slate-800/80 text-[10px] font-bold text-slate-400 uppercase bg-slate-950/40">
-              <th className="relative p-3 text-center select-none"># {renderResizer(0)}</th>
+              <th className="relative p-2 text-center select-none no-print">
+                <span className="sr-only">Estado</span>
+                <Power size={12} className="mx-auto text-emerald-400" />
+                {renderResizer(0)}
+              </th>
+              <th className="relative p-3 text-center select-none"># {renderResizer(1)}</th>
               <th className="relative p-3 text-center tooltip-container select-none">
                 Medidor
                 <div className="tooltip-content">
                   <strong>Medidor CFE:</strong> Medidor asignado a este circuito o aparato para facturación e instalación independiente.
                 </div>
-                {renderResizer(1)}
+                {renderResizer(2)}
               </th>
               <th className="relative p-3 text-left text-indigo-400 tooltip-container select-none">
                 Local
                 <div className="tooltip-content">
                   <strong>Local Asignado:</strong> Establecimiento físico donde opera el equipo (puede cambiarse independientemente del medidor).
                 </div>
-                {renderResizer(2)}
+                {renderResizer(3)}
               </th>
               <th className="relative p-3 tooltip-container select-none">
                 Circuito / Equipo
                 <div className="tooltip-content">
                   <strong>Circuito / Equipo:</strong> Nombre descriptivo y modelo del equipo eléctrico o circuito derivado registrado.
                 </div>
-                {renderResizer(3)}
+                {renderResizer(4)}
               </th>
               <th className="relative p-3 tooltip-container select-none">
                 Tensión
                 <div className="tooltip-content">
                   <strong>Tensión:</strong> Voltaje de operación del circuito. 127V para monofásicas; 220V para bifásicas y trifásicas en México.
                 </div>
-                {renderResizer(4)}
+                {renderResizer(5)}
               </th>
               <th className="relative p-3 text-right tooltip-container select-none">
                 Watts (P)
                 <div className="tooltip-content">
                   <strong>Watts (Potencia Activa):</strong> Representa la energía real útil consumida y transformada en trabajo (calor, movimiento, luz).
                 </div>
-                {renderResizer(5)}
+                {renderResizer(6)}
               </th>
               <th className="relative p-3 text-center tooltip-container select-none">
                 F.P.
                 <div className="tooltip-content">
                   <strong>F.P. (Factor de Potencia):</strong> Relación entre potencia activa (W) y aparente (VA). Mide la eficiencia (valores menores a 0.90 pueden generar multas).
                 </div>
-                {renderResizer(6)}
+                {renderResizer(7)}
               </th>
               <th className="relative p-3 text-right tooltip-container select-none">
                 VA (S)
                 <div className="tooltip-content">
                   <strong>Volt-Amperios (Potencia Aparente):</strong> Potencia total entregada por la red (VA = Watts / F.P.). Se usa para dimensionar conductores y transformadores.
                 </div>
-                {renderResizer(7)}
+                {renderResizer(8)}
               </th>
               <th className="relative p-3 text-right text-emerald-450 tooltip-container select-none">
                 Precio (MXN)
                 <div className="tooltip-content">
                   <strong>Precio de Compra:</strong> Costo inicial (CapEx) estimado del electrodoméstico o equipo para el análisis de ciclo de vida.
                 </div>
-                {renderResizer(8)}
+                {renderResizer(9)}
               </th>
               <th className="relative p-3 text-right text-amber-500 tooltip-container select-none">
                 Mant. Anual
                 <div className="tooltip-content">
                   <strong>Mantenimiento Anual:</strong> Costo de operación preventivo/correctivo anualizado estimado del aparato (OpEx).
                 </div>
-                {renderResizer(9)}
+                {renderResizer(10)}
               </th>
               <th className="relative p-3 text-center text-slate-300 tooltip-container select-none">
                 Vida Útil
                 <div className="tooltip-content">
                   <strong>Vida Útil:</strong> Duración estimada en años del equipo operando en condiciones residenciales óptimas.
                 </div>
-                {renderResizer(10)}
+                {renderResizer(11)}
               </th>
               <th className="relative p-3 text-center border-x border-slate-800/50 bg-slate-950/20 tooltip-container select-none">
                 <div className="flex items-center justify-center gap-1.5">
@@ -250,64 +301,64 @@ function TablaGrupoNormativo({
                 <div className="tooltip-content">
                   <strong>Carga por Fase:</strong> Potencia distribuida en las fases L1 (A), L2 (B) y L3 (C). Utiliza el botón para alternar entre VA, Watts o Amperes.
                 </div>
-                {renderResizer(11)}
+                {renderResizer(12)}
               </th>
               <th className="relative p-3 text-right tooltip-container select-none">
                 In (A)
                 <div className="tooltip-content">
                   <strong>In (Corriente Nominal):</strong> Intensidad de corriente en Amperios calculada a carga plena en condiciones normales de operación.
                 </div>
-                {renderResizer(12)}
+                {renderResizer(13)}
               </th>
               <th className="relative p-3 text-right tooltip-container select-none">
                 Ic (1.25)
                 <div className="tooltip-content">
                   <strong>Ic (Corriente Corregida):</strong> Corriente nominal multiplicada por 1.25 para cargas de operación continua (más de 3 horas), requerido por Art. 210 de la NOM.
                 </div>
-                {renderResizer(13)}
+                {renderResizer(14)}
               </th>
               <th className="relative p-3 text-center tooltip-container select-none">
                 Protección
                 <div className="tooltip-content">
                   <strong>Protección (ITM):</strong> Capacidad del interruptor termomagnético en Amperios (polos x corriente). Los valores con * son personalizados (overrides).
                 </div>
-                {renderResizer(14)}
+                {renderResizer(15)}
               </th>
               <th className="relative p-3 text-center tooltip-container select-none">
                 Conductor
                 <div className="tooltip-content">
                   <strong>Conductor (Calibre):</strong> Calibre comercial de cobre AWG para cables de fase. Los valores con * son personalizados (overrides).
                 </div>
-                {renderResizer(15)}
+                {renderResizer(16)}
               </th>
               <th className="relative p-3 text-center tooltip-container select-none">
                 Canalización
                 <div className="tooltip-content">
                   <strong>Canalización:</strong> Diámetro nominal en milímetros/pulgadas y tipo de tubería para proteger los conductores.
                 </div>
-                {renderResizer(16)}
+                {renderResizer(17)}
               </th>
               <th className="relative p-3 text-center tooltip-container select-none">
                 Longitud (m)
                 <div className="tooltip-content">
                   <strong>Longitud (m):</strong> Distancia lineal desde el centro de carga hasta el equipo receptor.
                 </div>
-                {renderResizer(17)}
+                {renderResizer(18)}
               </th>
               <th className="relative p-3 text-center tooltip-container font-semibold select-none">
                 % Caída V
                 <div className="tooltip-content">
                   <strong>% Caída de Tensión:</strong> Pérdida de voltaje en el trayecto. Debe ser menor al 3.00% bajo la NOM-001-SEDE.
                 </div>
-                {renderResizer(18)}
+                {renderResizer(19)}
               </th>
               <th className="relative p-3 text-center no-print select-none">
                 Acciones
-                {renderResizer(19)}
+                {renderResizer(20)}
               </th>
             </tr>
             <tr className="border-b border-slate-800/60 text-[9px] font-bold text-slate-500 bg-slate-950/10">
-              <th colSpan="11"></th>
+              <th colSpan="12"></th>
               <th className="p-1 border-x border-slate-800/50 bg-slate-950/20">
                 <div className="grid grid-cols-3 text-center">
                   <div>
@@ -332,7 +383,7 @@ function TablaGrupoNormativo({
             {/* Si no hay aparatos en este medidor */}
             {apsGrupo.length === 0 && (
               <tr className="hover:bg-slate-900/10">
-                <td colSpan={20} className="p-4 text-center text-slate-500 italic font-sans text-xs">
+                <td colSpan={21} className="p-4 text-center text-slate-500 italic font-sans text-xs">
                   No hay circuitos asignados a {medidor.nombre || `Medidor ${medidor.numero}`}. Puedes asignar aparatos usando el selector de medidor en el formulario de arriba o en la columna "Medidor".
                 </td>
               </tr>
@@ -341,6 +392,7 @@ function TablaGrupoNormativo({
             {/* Filas de aparatos de este medidor */}
             {apsGrupo.map((ap, apIdx) => {
               const currentIndex = startGlobalIndex + apIdx + 1;
+              const estaApagado = ap.encendido === false;
               const dist = distribuirCargaPorFases(ap, acometidaMed);
               const va = dist.va;
               const faseNorm = dist.faseNorm;
@@ -374,7 +426,25 @@ function TablaGrupoNormativo({
               });
 
               return (
-                <tr key={ap.id} className="hover:bg-slate-900/10 transition-colors">
+                <tr key={ap.id} className={`hover:bg-slate-900/10 transition-colors ${estaApagado ? 'opacity-40 bg-slate-950/70' : ''}`}>
+                  {/* Botón On/Off */}
+                  <td className="p-2 text-center no-print overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => onToggleAparatoEncendido && onToggleAparatoEncendido(ap.id)}
+                      data-testid={`cuadro-normativo-toggle-btn-${ap.id}`}
+                      aria-label={estaApagado ? `Encender ${ap.tipo}` : `Apagar ${ap.tipo}`}
+                      className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center mx-auto active:scale-90 ${
+                        estaApagado
+                          ? 'bg-slate-900 border-slate-700 text-slate-600 hover:text-emerald-400 hover:border-emerald-500/50'
+                          : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/40 shadow-xs shadow-emerald-500/20'
+                      }`}
+                      title={estaApagado ? 'Aparato APAGADO (Excluido de cálculo NOM y CFE). Clic para encender.' : 'Aparato ENCENDIDO (Considerado en cálculo NOM y CFE). Clic para apagar.'}
+                    >
+                      <Power size={13} className={estaApagado ? 'opacity-40' : 'animate-pulse-subtle'} />
+                    </button>
+                  </td>
+
                   {/* Número secuencial */}
                   <td className="p-3 text-center text-slate-500 font-mono font-semibold overflow-hidden text-ellipsis">
                     {currentIndex}
@@ -422,12 +492,19 @@ function TablaGrupoNormativo({
 
                   {/* Equipo editable */}
                   <td className="p-2 font-sans overflow-hidden">
-                    <input
-                      type="text"
-                      value={tipoLimpio}
-                      onChange={(e) => onUpdateAparatoProps(ap.id, { tipo: e.target.value, local: apLocalVal })}
-                      className="bg-transparent border-none text-white font-bold focus:ring-1 focus:ring-teal-500 w-full rounded px-1 py-0.5 text-xs m-0 focus:bg-slate-950/50"
-                    />
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        value={tipoLimpio}
+                        onChange={(e) => onUpdateAparatoProps(ap.id, { tipo: e.target.value, local: apLocalVal })}
+                        className="bg-transparent border-none text-white font-bold focus:ring-1 focus:ring-teal-500 w-full rounded px-1 py-0.5 text-xs m-0 focus:bg-slate-950/50"
+                      />
+                      {estaApagado && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 font-mono font-bold shrink-0 inline-flex items-center gap-1">
+                          <PowerOff size={9} /> APAGADO
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 pl-1 mt-0.5">
                       <input
                         type="text"
@@ -475,8 +552,13 @@ function TablaGrupoNormativo({
                       type="number"
                       value={ap.watts}
                       onChange={(e) => onUpdateAparatoProps(ap.id, { watts: e.target.value })}
-                      className="bg-transparent border-none text-slate-200 font-semibold text-right focus:ring-1 focus:ring-teal-500 w-full rounded px-1 py-0.5 text-xs focus:bg-slate-950/50 font-mono"
+                      className={`bg-transparent border-none text-right focus:ring-1 focus:ring-teal-500 w-full rounded px-1 py-0.5 text-xs focus:bg-slate-950/50 font-mono ${
+                        estaApagado ? 'text-slate-500 line-through' : 'text-slate-200 font-semibold'
+                      }`}
                     />
+                    {estaApagado && (
+                      <span className="text-[9px] text-slate-500 font-mono block leading-none mt-0.5">0 W efectivo</span>
+                    )}
                   </td>
 
                   {/* F.P. editable */}
@@ -494,8 +576,10 @@ function TablaGrupoNormativo({
                   </td>
 
                   {/* VA calculado */}
-                  <td className="p-3 text-right font-semibold text-cyan-400 overflow-hidden text-ellipsis">
-                    {Math.round(va).toLocaleString()} VA
+                  <td className={`p-3 text-right font-semibold overflow-hidden text-ellipsis ${
+                    estaApagado ? 'text-slate-600 line-through' : 'text-cyan-400'
+                  }`} title={estaApagado ? 'Equipo apagado: 0 VA efectivos para CFE' : undefined}>
+                    {estaApagado ? '0 VA (Off)' : `${Math.round(va).toLocaleString()} VA`}
                   </td>
 
                   {/* Precio CapEx editable */}
@@ -593,13 +677,17 @@ function TablaGrupoNormativo({
                   </td>
 
                   {/* In */}
-                  <td className="p-3 text-right font-semibold text-slate-350 overflow-hidden text-ellipsis">
-                    {inominal.toFixed(2)} A
+                  <td className={`p-3 text-right font-semibold overflow-hidden text-ellipsis ${
+                    estaApagado ? 'text-slate-600 line-through' : 'text-slate-350'
+                  }`}>
+                    {estaApagado ? '0.00 A' : `${inominal.toFixed(2)} A`}
                   </td>
 
                   {/* Ic */}
-                  <td className="p-3 text-right font-semibold text-slate-300 overflow-hidden text-ellipsis">
-                    {icorregida.toFixed(2)} A
+                  <td className={`p-3 text-right font-semibold overflow-hidden text-ellipsis ${
+                    estaApagado ? 'text-slate-600 line-through' : 'text-slate-300'
+                  }`}>
+                    {estaApagado ? '0.00 A' : `${icorregida.toFixed(2)} A`}
                   </td>
 
                   {/* Protección y KAIC */}
@@ -712,13 +800,14 @@ function TablaGrupoNormativo({
 
             {/* Fila de Totales del Medidor */}
             <tr className="bg-slate-900/40 border-t border-slate-800 text-[11px] font-bold text-slate-300 font-mono">
+              <td className="p-2 text-center text-teal-400"></td>
               <td className="p-2.5 text-center text-teal-400">∑</td>
               <td className="p-2.5 text-teal-300 font-sans font-bold text-[10px] uppercase truncate">
                 {medidor.nombre || `Medidor ${medidor.numero}`}
               </td>
               <td className="p-2.5"></td>
               <td className="p-2.5 text-slate-400 font-sans text-[10px] truncate">
-                SUBTOTAL ({apsGrupo.length} {apsGrupo.length === 1 ? 'aparato' : 'aparatos'})
+                SUBTOTAL ({countEncendidos} de {countTotal} activos)
               </td>
               <td className="p-2.5"></td>
               <td className="p-2.5 text-right text-slate-100 overflow-hidden text-ellipsis">{Math.round(subTotalW).toLocaleString()} W</td>
@@ -772,6 +861,7 @@ function TablaGrupoNormativo({
 
 export default function CuadroCargasTabla({ 
   aparatos = [], 
+  aparatosActivos = [],
   acometidaId = 'monofasico', 
   fasesDisponibles = ['A'], 
   desbalance = 0, 
@@ -782,6 +872,8 @@ export default function CuadroCargasTabla({
   onBalancearFases,
   onBalancearMedidor,
   onToggleFaseMedidor,
+  onToggleAparatoEncendido,
+  onToggleGrupoEncendido,
   balancingConfigsCount = 0,
   fasesUnit = 'VA',
   onChangeFasesUnit,
@@ -802,6 +894,41 @@ export default function CuadroCargasTabla({
   listaMedidores.forEach(m => {
     medidoresMap.set(m.id, m.nombre || `Medidor ${m.numero}`);
   });
+
+  const listaActivos = Array.isArray(aparatosActivos) && aparatosActivos.length > 0 
+    ? aparatosActivos 
+    : aparatos.filter(ap => ap.encendido !== false);
+  const totalActivosCount = listaActivos.length;
+  const totalEquiposCount = aparatos.length;
+  const totalWattsActivos = listaActivos.reduce((s, a) => s + (parseFloat(a.watts) || 0), 0);
+  const totalVAActivos = listaActivos.reduce((s, a) => s + calcularVA(a.watts, a.fp, a.usarVaDirecto), 0);
+
+  // Acciones en lote de encendido/apagado para contratación gradual CFE
+  const handlePresetCargaInicial = () => {
+    if (!onToggleGrupoEncendido || aparatos.length === 0) return;
+    const idsEncender = [];
+    const idsApagar = [];
+    aparatos.forEach(ap => {
+      const loc = (ap.local || '').toLowerCase();
+      const tipo = (ap.tipo || '').toLowerCase();
+      const esInicial = (loc.includes('imperia') && !loc.includes('publi'))
+        || loc.includes('hawaiian')
+        || tipo.includes('foco') || tipo.includes('iluminaci') || tipo.includes('luz') || tipo.includes('lampara');
+      if (esInicial) idsEncender.push(ap.id);
+      else idsApagar.push(ap.id);
+    });
+    if (idsEncender.length > 0) onToggleGrupoEncendido(idsEncender, true);
+    if (idsApagar.length > 0) onToggleGrupoEncendido(idsApagar, false);
+  };
+
+  const handleToggleLocal = (localNombre) => {
+    if (!onToggleGrupoEncendido || aparatos.length === 0) return;
+    const apsDelLocal = aparatos.filter(ap => (ap.local || '').trim() === localNombre.trim());
+    if (apsDelLocal.length === 0) return;
+    const algunApagado = apsDelLocal.some(ap => ap.encendido === false);
+    // Si alguno está apagado, los encendemos todos; si todos están encendidos, los apagamos
+    onToggleGrupoEncendido(apsDelLocal.map(a => a.id), algunApagado);
+  };
 
   // Agrupar aparatos por medidor (incluyendo huérfanos en el primer medidor)
   const gruposPorMedidor = listaMedidores.map((med, idx) => {
@@ -962,6 +1089,115 @@ export default function CuadroCargasTabla({
         </div>
       )}
 
+      {/* Panel Maestro de Encendido y Gestión de Carga para Contratación CFE */}
+      <div className="glass-panel p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-slate-900/80 to-slate-900/90 no-print space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300">
+              <Zap size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-display">
+                  Carga Activa a Declarar ante CFE:
+                </h4>
+                <span className="text-sm font-black font-mono text-emerald-400">
+                  {Math.round(totalWattsActivos).toLocaleString()} W ({(totalWattsActivos / 1000).toFixed(2)} kW)
+                </span>
+                <span className="text-xs font-bold font-mono text-cyan-400">
+                  · {Math.round(totalVAActivos).toLocaleString()} VA
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold border ${
+                  totalActivosCount === totalEquiposCount
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                }`}>
+                  {totalActivosCount} de {totalEquiposCount} equipos encendidos
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5 font-sans">
+                Apaga los aparatos que no conectarás en la fase inicial para calcular la capacidad real a declarar a CFE sin sobredimensionar la mufa ni pagar depósitos innecesarios.
+              </p>
+            </div>
+          </div>
+
+          {/* Botones de acción rápida */}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <button
+              type="button"
+              onClick={handlePresetCargaInicial}
+              data-testid="cuadro-normativo-preset-inicial-btn"
+              aria-label="Preset Carga Inicial CFE (Imperia + Hawaiian + Iluminación básica)"
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              title="Encender solo Imperia Uniformes, Hawaiian Paradise e Iluminación básica para la contratación inicial de 1 medidor"
+            >
+              <Zap size={13} />
+              <span>Fase Inicial (Imperia + Hawaiian + Luz)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onToggleGrupoEncendido && onToggleGrupoEncendido(aparatos.map(a => a.id), true)}
+              data-testid="cuadro-normativo-encender-todos-btn"
+              aria-label="Encender todos los equipos de la instalación"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-300 border border-slate-700 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+              title="Encender todos los aparatos para cálculo de carga plena (100%)"
+            >
+              <Power size={12} className="text-emerald-400" />
+              <span>Encender Todos</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onToggleGrupoEncendido && onToggleGrupoEncendido(aparatos.map(a => a.id), false)}
+              data-testid="cuadro-normativo-apagar-todos-btn"
+              aria-label="Apagar todos los equipos de la instalación"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-300 text-slate-300 border border-slate-700 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+              title="Apagar todos los aparatos"
+            >
+              <PowerOff size={12} className="text-rose-400" />
+              <span>Apagar Todos</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Interruptores rápidos por Local */}
+        <div className="pt-2 border-t border-slate-800/80 flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+            Encender/Apagar por Local:
+          </span>
+          {LOCALES_LISTA.map(loc => {
+            const apsLoc = aparatos.filter(a => (a.local || '').trim() === loc.trim());
+            if (apsLoc.length === 0) return null;
+            const apsEncLoc = apsLoc.filter(a => a.encendido !== false);
+            const todosEncendidos = apsEncLoc.length === apsLoc.length;
+            const ningunoEncendido = apsEncLoc.length === 0;
+
+            return (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => handleToggleLocal(loc)}
+                data-testid={`cuadro-normativo-toggle-local-${loc.replace(/\s+/g, '-').toLowerCase()}-btn`}
+                aria-label={`Alternar encendido de todos los aparatos de ${loc}`}
+                className={`px-2 py-1 rounded-lg text-[10px] font-sans font-bold border transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
+                  todosEncendidos
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25'
+                    : ningunoEncendido
+                      ? 'bg-slate-900/60 text-slate-500 border-slate-800 hover:text-slate-300'
+                      : 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:bg-amber-500/25'
+                }`}
+                title={`Clic para alternar todos los equipos de ${loc}`}
+              >
+                <Power size={10} className={todosEncendidos ? 'text-emerald-400' : ningunoEncendido ? 'opacity-30' : 'text-amber-400'} />
+                <span>{loc}</span>
+                <span className="text-[9px] opacity-75 font-mono">({apsEncLoc.length}/{apsLoc.length})</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Selector de Medidor para Cuadro de Cargas */}
       {listaMedidores.length > 1 && (
         <div className="glass-panel p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 border border-slate-800 bg-slate-900/40 no-print">
@@ -1044,6 +1280,8 @@ export default function CuadroCargasTabla({
                 onUpdateAparatoProps={onUpdateAparatoProps}
                 onBalancearFases={onBalancearFases}
                 onBalancearMedidor={onBalancearMedidor}
+                onToggleAparatoEncendido={onToggleAparatoEncendido}
+                onToggleGrupoEncendido={onToggleGrupoEncendido}
               />
             );
           })}
@@ -1052,12 +1290,15 @@ export default function CuadroCargasTabla({
           <div className="mt-4 rounded-xl border-2 border-slate-700 bg-slate-900/60 p-3.5 text-[11px] font-bold text-slate-200 font-mono flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-teal-400 uppercase font-sans font-black text-[10px] px-2 py-0.5 rounded bg-teal-500/10 border border-teal-500/30">PROYECTO</span>
-              <span className="text-white font-black">TOTAL PROYECTO COMPLETO</span>
+              <span className="text-white font-black">CARGA ACTIVA (CFE)</span>
               <span className="text-emerald-400 font-black">
-                {Math.round(aparatos.reduce((s, a) => s + (parseFloat(a.watts) || 0), 0)).toLocaleString()} W
+                {Math.round(totalWattsActivos).toLocaleString()} W ({(totalWattsActivos / 1000).toFixed(2)} kW)
               </span>
               <span className="text-cyan-400 font-black">
-                {Math.round(aparatos.reduce((s, a) => s + calcularVA(a.watts, a.fp, a.usarVaDirecto), 0)).toLocaleString()} VA
+                {Math.round(totalVAActivos).toLocaleString()} VA
+              </span>
+              <span className="text-slate-400 font-mono text-[10px]">
+                ({totalActivosCount} de {totalEquiposCount} equipos)
               </span>
               <span className="text-emerald-450 font-black">
                 CapEx: ${Math.round(totalPrecio).toLocaleString()} MXN

@@ -22,6 +22,7 @@ export default function AcometidaCard({
   medidores = [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }],
   medidoresData = {},
   aparatos = [],
+  aparatosCompletos = [],
   totalWattsProyecto = 0,
   totalVAProyecto = 0,
   fasesUnit = 'VA',
@@ -73,6 +74,10 @@ export default function AcometidaCard({
     }
     setEditingMedidorId(null);
   };
+
+  const baseAparatos = Array.isArray(aparatosCompletos) && aparatosCompletos.length > 0 ? aparatosCompletos : aparatos;
+  const totalEquiposRegistrados = baseAparatos.length;
+  const equiposEncendidos = baseAparatos.filter(ap => ap.encendido !== false).length;
 
   const handleOpenDeleteModal = (targetMedId = null) => {
     if (medidores.length <= 1) return;
@@ -127,9 +132,14 @@ export default function AcometidaCard({
             <span className="text-xs font-semibold tracking-wider text-slate-400 uppercase">
               Parámetros Generales de la Propiedad
             </span>
-            <h2 className="text-2xl font-bold font-display text-white mt-1 flex items-center gap-2">
+            <h2 className="text-2xl font-bold font-display text-white mt-1 flex items-center gap-2 flex-wrap">
               <Zap className="text-amber-400 fill-amber-400/20 animate-pulse" size={24} />
-              Potencia Total del Proyecto
+              <span>Potencia Total del Proyecto</span>
+              {equiposEncendidos < totalEquiposRegistrados && (
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 font-mono">
+                  ⚡ {equiposEncendidos} de {totalEquiposRegistrados} encendidos (Carga Reducida CFE)
+                </span>
+              )}
             </h2>
           </div>
 
@@ -230,7 +240,9 @@ export default function AcometidaCard({
               </span>
             </div>
             <p className="text-[11px] text-slate-500 mt-1">
-              Suma de todas las cargas registradas en la residencia
+              {equiposEncendidos < totalEquiposRegistrados
+                ? `Carga activa a declarar ante CFE con ${equiposEncendidos} de ${totalEquiposRegistrados} equipos encendidos (${totalEquiposRegistrados - equiposEncendidos} apagados)`
+                : 'Suma de todas las cargas registradas en la residencia'}
             </p>
           </div>
 
@@ -342,10 +354,25 @@ export default function AcometidaCard({
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-white flex items-center gap-2 flex-wrap">
                             <span>Medidor {med.numero || (idx + 1)}:</span>
                             <span className="text-teal-400">{med.nombre}</span>
+                            {(() => {
+                              const apsMed = baseAparatos.filter(ap => (ap.medidorId || medidores[0]?.id) === med.id);
+                              const apsMedEnc = apsMed.filter(ap => ap.encendido !== false);
+                              return (
+                                <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold border ${
+                                  apsMedEnc.length === apsMed.length
+                                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                    : apsMedEnc.length === 0
+                                      ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                                      : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                }`}>
+                                  {apsMedEnc.length} de {apsMed.length} encendidos
+                                </span>
+                              );
+                            })()}
                           </h3>
                           <button
                             onClick={() => handleStartRename(med)}

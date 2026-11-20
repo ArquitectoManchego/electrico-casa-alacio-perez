@@ -1057,8 +1057,9 @@ export default function App() {
   }, [currentProyectoId, DEFAULT_ESCENARIOS_NEGOCIOS]);
 
   // 1. Potencia activa total (Watts) y aparente total (VA) de todo el proyecto
-  const totalWatts = aparatos.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
-  const totalVAProyecto = aparatos.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
+  const aparatosActivos = useMemo(() => aparatos.filter(ap => ap.encendido !== false), [aparatos]);
+  const totalWatts = aparatosActivos.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
+  const totalVAProyecto = aparatosActivos.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
 
   // 2. Mapa de cálculos independientes por medidor CFE (Fuente canónica por contrato/tablero)
   const medidoresData = useMemo(() => {
@@ -1071,7 +1072,8 @@ export default function App() {
       const medEfectivo = lista.length === 1 && forzarTrifasico
         ? { ...med, forzarTrifasico: true }
         : med;
-      const apsMed = aparatos.filter(ap => (ap.medidorId || lista[0].id) === med.id);
+      const apsMedTodos = aparatos.filter(ap => (ap.medidorId || lista[0].id) === med.id);
+      const apsMed = apsMedTodos.filter(ap => ap.encendido !== false);
       const wTotal = apsMed.reduce((sum, ap) => sum + (parseFloat(ap.watts) || 0), 0);
       const vaTotal = apsMed.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
       const acometidaMed = determinarAcometidaMedidor(medEfectivo, apsMed);
@@ -1681,7 +1683,7 @@ export default function App() {
       ? medidores
       : [{ id: 'med_1', numero: 1, nombre: 'Medidor 1', forzarTrifasico: false }];
 
-    const totalVA = aparatos.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
+    const totalVA = aparatosActivos.reduce((sum, ap) => sum + uvieCalcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
     const alimPrincipal = calcularAlimentadorGeneral(totalVA, currentAcometida.id, alimentadorLongitud);
 
     const circuitos = [];
@@ -1691,7 +1693,7 @@ export default function App() {
       const dataMed = medidoresData[med.id];
       const apsMed = dataMed
         ? dataMed.aparatos
-        : aparatos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id);
+        : aparatosActivos.filter(ap => (ap.medidorId || listaMedidores[0].id) === med.id);
       const acometidaMed = dataMed ? dataMed.acometida : determinarAcometidaMedidor(med, apsMed);
       const vaMed = dataMed
         ? dataMed.totalVA
@@ -1819,7 +1821,7 @@ export default function App() {
   };
 
   // 5. Calcular el Consumo de Energía Bimestral Bruto (kWh)
-  const totalKwhDiario = aparatos.reduce((sum, ap) => sum + calcularKwhDiarioAparato(ap), 0);
+  const totalKwhDiario = aparatosActivos.reduce((sum, ap) => sum + calcularKwhDiarioAparato(ap), 0);
   const activeKwhDiario = salesKwhDiario !== null ? salesKwhDiario : totalKwhDiario;
   const kwhBimestralTotal = activeKwhDiario * 60; // Ciclo bimensual CFE
 
@@ -1834,6 +1836,9 @@ export default function App() {
 
     let tieneCambios = false;
     const sanitizados = aparatos.map(ap => {
+      // Si el aparato está apagado, NO mutar su fase automáticamente para preservar su fase original (ej. 220V A-B)
+      if (ap.encendido === false) return ap;
+
       const medId = ap.medidorId || defaultMedId;
       const acometidaMed = medidoresData[medId]?.acometida || currentAcometida;
       const faseValida = normalizarFaseParaMedidor(ap, acometidaMed);
@@ -2003,6 +2008,26 @@ export default function App() {
   };
 
   const handleUpdateAparato = handleUpdateAparatoProps;
+
+  // Alternar encendido / apagado de un aparato para cálculo inicial y contratación CFE
+  const handleToggleAparatoEncendido = async (id) => {
+    if (!currentProyectoId) return;
+    const prevAp = aparatos.find(ap => ap.id === id);
+    if (!prevAp) return;
+    const nuevoEncendido = prevAp.encendido === false ? true : false;
+    const nextAp = { ...prevAp, encendido: nuevoEncendido };
+    setAparatos(prev => prev.map(ap => (ap.id === id ? nextAp : ap)));
+    await dbService.updateAparato(currentProyectoId, id, nextAp);
+  };
+
+  // Alternar encendido / apagado de un grupo de aparatos (por medidor o por local)
+  const handleToggleGrupoEncendido = async (ids, encender) => {
+    if (!currentProyectoId || !Array.isArray(ids) || ids.length === 0) return;
+    const idSet = new Set(ids);
+    const updated = aparatos.map(ap => idSet.has(ap.id) ? { ...ap, encendido: encender } : ap);
+    setAparatos(updated);
+    await dbService.guardarTodosLosAparatos(currentProyectoId, updated);
+  };
 
   // Balancear todos los medidores del proyecto respetando estrictamente las fases habilitadas de cada medidor
   const handleBalancearFases = async () => {
@@ -2648,7 +2673,7 @@ export default function App() {
               activeTab={activeTab}
               currentProyectoId={currentProyectoId}
               proyectos={proyectos}
-              aparatos={aparatos}
+              aparatos={aparatosActivos}
               medidores={medidores}
               tarifas={tarifas}
               costosMEM={costosMEM}
@@ -2750,7 +2775,8 @@ export default function App() {
                   totalVAProyecto={totalVAProyecto}
                   medidores={medidores}
                   medidoresData={medidoresData}
-                  aparatos={aparatos}
+                  aparatos={aparatosActivos}
+                  aparatosCompletos={aparatos}
                   onSetCantidadMedidores={handleSetCantidadMedidores}
                   onAddMedidor={handleAddMedidor}
                   onRemoveMedidor={handleRemoveMedidor}
@@ -2797,7 +2823,7 @@ export default function App() {
                     
                     {/* Botón CSV AutoCAD */}
                     <button
-                      onClick={() => exportarCSVAutoCAD(aparatos, currentAcometida.id, currentAcometida.fasesDisponibles, medidores, medidoresData)}
+                      onClick={() => exportarCSVAutoCAD(aparatosActivos, currentAcometida.id, currentAcometida.fasesDisponibles, medidores, medidoresData)}
                       className="px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-400 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
                       title="Descargar matriz CSV para AutoCAD Data Link"
                     >
@@ -2825,6 +2851,9 @@ export default function App() {
                 ) : (
                   <CuadroCargasTabla 
                     aparatos={aparatos}
+                    aparatosActivos={aparatosActivos}
+                    onToggleAparatoEncendido={handleToggleAparatoEncendido}
+                    onToggleGrupoEncendido={handleToggleGrupoEncendido}
                     acometidaId={currentAcometida.id}
                     fasesDisponibles={currentAcometida.fasesDisponibles}
                     desbalance={desbalanceUVIE}
@@ -3043,7 +3072,7 @@ export default function App() {
                 diasPeriodo={diasPeriodo}
                 onDiasPeriodoChange={setDiasPeriodo}
                 medidores={medidores}
-                aparatos={aparatos}
+                aparatos={aparatosActivos}
                 proyectoId={currentProyectoId}
                 escenarioVentas={escenarioVentasGlobal}
                 onEscenarioVentasChange={handleEscenarioGlobalChange}
@@ -3100,7 +3129,7 @@ export default function App() {
           {activeTab === 'finanzas' && (
             <div className="space-y-6 animate-fadeIn">
               <ModuloFinanzasNegocios 
-                aparatos={aparatos}
+                aparatos={aparatosActivos}
                 tarifas={tarifas}
                 costosMEM={costosMEM}
                 medidores={medidores}
@@ -3120,7 +3149,7 @@ export default function App() {
                 tarifas={tarifas}
                 costosMEM={costosMEM}
                 diasPeriodo={diasPeriodo}
-                aparatos={aparatos}
+                aparatos={aparatosActivos}
                 proyectoId={currentProyectoId}
                 medidores={medidores}
               />
@@ -3131,7 +3160,7 @@ export default function App() {
           {activeTab === 'uvie' && (
             <div className="space-y-6 animate-fadeIn">
               <CuadroCargasUVIE 
-                aparatos={aparatos}
+                aparatos={aparatosActivos}
                 acometida={currentAcometida}
                 medidores={medidores}
                 medidoresData={medidoresData}
@@ -3163,7 +3192,7 @@ export default function App() {
               </div>
 
               <TableroVisual 
-                aparatos={aparatos}
+                aparatos={aparatosActivos}
                 onUpdateAparato={handleUpdateAparatoProps}
                 acometida={currentAcometida}
                 proyectoId={currentProyectoId}
@@ -3180,7 +3209,7 @@ export default function App() {
           {activeTab === 'unifilar' && (
             <div className="space-y-6 animate-fadeIn">
               <DiagramaUnifilarCAD 
-                aparatos={aparatos}
+                aparatos={aparatosActivos}
                 computedCircuits={computedElectricalSystem.circuitos}
                 alimPrincipal={computedElectricalSystem.alimPrincipal}
                 acometida={currentAcometida}
@@ -3222,7 +3251,7 @@ export default function App() {
                 </p>
               </div>
               <BalanceadorTablero
-                aparatos={aparatos}
+                aparatos={aparatosActivos}
                 onApplyBalancing={handleApplyBalancingToAparatos}
                 acometida={currentAcometida}
                 proyectoId={currentProyectoId}
@@ -3241,7 +3270,7 @@ export default function App() {
           {activeTab === 'piePlano' && (
             <ModuloPieDePlano
               computedElectricalSystem={computedElectricalSystem}
-              aparatos={aparatos}
+              aparatos={aparatosActivos}
               planoMetadata={planoMetadata}
               medidores={medidores}
               medidoresData={medidoresData}
@@ -3254,7 +3283,7 @@ export default function App() {
           {activeTab === 'cicloVida' && (
             <div className="space-y-6 animate-fadeIn no-print">
               <DashboardCicloVida 
-                aparatos={aparatos}
+                aparatos={aparatosActivos}
                 proyectoId={currentProyectoId}
                 medidores={medidores}
                 onActualizarAparato={handleUpdateAparatoProps}
