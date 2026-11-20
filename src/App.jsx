@@ -1424,17 +1424,26 @@ export default function App() {
 
   // Motor puro de balanceo para un medidor específico (garantiza no empeorar jamás el desbalance y respetar fases activas)
   const balancearAparatosDeMedidor = (med, apsMed) => {
-    const acometidaMed = determinarAcometidaMedidor(med, apsMed);
+    const apsActivos = apsMed.filter(ap => ap.encendido !== false);
+    if (apsActivos.length === 0) {
+      return { finalApsMed: apsMed, acometidaMed: determinarAcometidaMedidor(med, apsMed), nuevoDesbal: 0 };
+    }
+
+    const acometidaMed = determinarAcometidaMedidor(med, apsActivos);
     const fasesDisp = acometidaMed.fasesDisponibles || ['A'];
 
-    // Sanitizar fases actuales primero como línea base
-    const baseSanitizada = apsMed.map(ap => ({
-      ...ap,
-      fase: normalizarFaseParaMedidor(ap, acometidaMed)
-    }));
+    // Sanitizar fases actuales primero como línea base (respetando equipos apagados)
+    const baseSanitizada = apsMed.map(ap => {
+      if (ap.encendido === false) return ap;
+      return {
+        ...ap,
+        fase: normalizarFaseParaMedidor(ap, acometidaMed)
+      };
+    });
 
     const curVA = { A: 0, B: 0, C: 0 };
     baseSanitizada.forEach(ap => {
+      if (ap.encendido === false) return;
       const dist = distribuirCargaPorFases(ap, acometidaMed);
       curVA.A += dist.fVA.A;
       curVA.B += dist.fVA.B;
@@ -1450,6 +1459,7 @@ export default function App() {
       if (configs.length > 0) {
         const mejor = configs[0];
         const candidata = baseSanitizada.map(ap => {
+          if (ap.encendido === false) return ap;
           const match = mejor.asignacion.find(a => a.id === ap.id);
           const faseAsignada = match ? match.fase : ap.fase;
           return {
@@ -1460,6 +1470,7 @@ export default function App() {
 
         const candVA = { A: 0, B: 0, C: 0 };
         candidata.forEach(ap => {
+          if (ap.encendido === false) return;
           const dist = distribuirCargaPorFases(ap, acometidaMed);
           candVA.A += dist.fVA.A;
           candVA.B += dist.fVA.B;
@@ -1475,8 +1486,16 @@ export default function App() {
     }
 
     // Reasignar slots físicos exclusivamente dentro del tablero de este medidor
+    // Conservar slots de los aparatos apagados para evitar colisiones
     const slotsOcupados = new Set();
+    mejorLista.forEach(ap => {
+      if (ap.encendido === false && ap.slot) {
+        slotsOcupados.add(ap.slot);
+      }
+    });
+
     const finalApsMed = mejorLista.map(ap => {
+      if (ap.encendido === false) return ap;
       let slotValido = ap.slot && !slotsOcupados.has(ap.slot);
       if (slotValido) {
         const slotFase = getFasePredefinidaDeSlot(ap.slot, fasesDisp);

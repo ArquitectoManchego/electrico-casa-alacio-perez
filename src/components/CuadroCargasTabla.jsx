@@ -953,6 +953,7 @@ export default function CuadroCargasTabla({
   gruposPorMedidor.forEach(({ medidor, aparatos: apsMed, acometidaMed }) => {
     const fVAMed = { A: 0, B: 0, C: 0 };
     apsMed.forEach(ap => {
+      if (ap.encendido === false) return;
       const dist = distribuirCargaPorFases(ap, acometidaMed);
       fVAMed.A += dist.fVA.A;
       fVAMed.B += dist.fVA.B;
@@ -969,7 +970,8 @@ export default function CuadroCargasTabla({
       });
     });
 
-    if ((acometidaMed.fasesDisponibles?.length || 1) > 1 && apsMed.length > 0) {
+    const apsActivos = apsMed.filter(a => a.encendido !== false);
+    if ((acometidaMed.fasesDisponibles?.length || 1) > 1 && apsActivos.length > 0) {
       const desbalMed = calcularDesbalanceUVIE(
         fVAMed.A,
         fVAMed.B,

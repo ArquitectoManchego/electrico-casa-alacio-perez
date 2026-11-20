@@ -373,6 +373,7 @@ export function balancearCargasAutomatico(aparatos, tipoAcometida) {
 
   // ── Calcular VA de cada aparato y ordenar mayor → menor ──────────────────
   const items = aparatos
+    .filter(ap => ap.encendido !== false)
     .map(ap => ({
       id:        ap.id,
       tipo:      ap.tipo,

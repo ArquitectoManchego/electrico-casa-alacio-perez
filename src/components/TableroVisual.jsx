@@ -229,7 +229,7 @@ export default function TableroVisual({
   };
 
   // 1. Calcular Carga Total y Corrientes del Alimentador para este medidor
-  const totalVA = aparatosActivos.reduce((sum, ap) => sum + calcularVA(ap.watts, ap.fp, ap.usarVaDirecto), 0);
+  const totalVA = aparatosActivos.reduce((sum, ap) => sum + (ap.encendido === false ? 0 : calcularVA(ap.watts, ap.fp, ap.usarVaDirecto)), 0);
   let mainCurrentNominal = 0;
   if (acometidaActiva.id === 'trifasico') {
     mainCurrentNominal = totalVA / (220 * 1.7320508);
@@ -261,7 +261,7 @@ export default function TableroVisual({
   // 3. Cargar fasesVA del tablero estrictamente sobre las fases habilitadas del medidor
   const fasesVA = { A: 0, B: 0, C: 0 };
   aparatosActivos.forEach(ap => {
-    if (ap.slot) {
+    if (ap.slot && ap.encendido !== false) {
       const acomDeAp = resolverAcometidaDeAp(ap);
       const dist = distribuirCargaPorFases(ap, acomDeAp);
       fasesVA.A += dist.fVA.A;
@@ -740,7 +740,7 @@ export default function TableroVisual({
                       if (faseActual.startsWith('C')) xNode = 90;
 
                       return (
-                        <g key={slotNum} className="group/circ">
+                        <g key={slotNum} className={`group/circ ${ap.encendido === false ? 'opacity-40' : ''}`}>
                           {/* Cable de fase que sale del busbar */}
                           <line x1={xNode} y1={y} x2="160" y2={y} stroke="#f1f5f9" strokeWidth="1" />
                           
@@ -928,11 +928,20 @@ export default function TableroVisual({
                       return (
                         <div 
                           key={slotNum} 
-                          className="relative p-2.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-900/80 transition-all flex flex-col justify-between h-[72px]"
+                          className={`relative p-2.5 rounded-xl border transition-all flex flex-col justify-between h-[72px] ${
+                            ap.encendido === false 
+                              ? 'border-slate-800/40 bg-slate-950/40 opacity-50 grayscale' 
+                              : 'border-slate-800 bg-slate-900/60 hover:bg-slate-900/80'
+                          }`}
                         >
                           <div className="flex justify-between items-start gap-1">
                             <span className="text-[10px] font-black text-slate-500 font-mono">#{slotNum}</span>
-                            <span className="text-[10px] font-bold text-slate-200 font-sans line-clamp-1 flex-1 text-left px-1">{ap.tipo}</span>
+                            <span className="text-[10px] font-bold text-slate-200 font-sans line-clamp-1 flex-1 text-left px-1 flex items-center gap-1">
+                              {ap.tipo}
+                              {ap.encendido === false && (
+                                <span className="text-[8px] font-mono font-bold uppercase text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/30">Off</span>
+                              )}
+                            </span>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleReleaseSlot(ap.id); }}
                               className="text-slate-600 hover:text-rose-400 text-[10px] font-black hover:scale-110 transition-all cursor-pointer"
@@ -941,7 +950,7 @@ export default function TableroVisual({
                             </button>
                           </div>
                           <div className="flex justify-between items-center text-[9px] text-slate-500 mt-1 border-t border-slate-950/40 pt-1">
-                            <span>{ap.watts} W (Fase {faseNorm})</span>
+                            <span>{ap.encendido === false ? '0 W (Apagado)' : `${ap.watts} W (Fase ${faseNorm})`}</span>
                             <span className="font-bold text-teal-400">{tipoEf === 'monofasica' ? '1x' : tipoEf === 'bifasica' ? '2x' : '3x'}{activeBreaker}A</span>
                           </div>
                         </div>
@@ -1063,11 +1072,20 @@ export default function TableroVisual({
                       return (
                         <div 
                           key={slotNum} 
-                          className="relative p-2.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-900/80 transition-all flex flex-col justify-between h-[72px]"
+                          className={`relative p-2.5 rounded-xl border transition-all flex flex-col justify-between h-[72px] ${
+                            ap.encendido === false 
+                              ? 'border-slate-800/40 bg-slate-950/40 opacity-50 grayscale' 
+                              : 'border-slate-800 bg-slate-900/60 hover:bg-slate-900/80'
+                          }`}
                         >
                           <div className="flex justify-between items-start gap-1">
                             <span className="text-[10px] font-black text-slate-500 font-mono">#{slotNum}</span>
-                            <span className="text-[10px] font-bold text-slate-200 font-sans line-clamp-1 flex-1 text-left px-1">{ap.tipo}</span>
+                            <span className="text-[10px] font-bold text-slate-200 font-sans line-clamp-1 flex-1 text-left px-1 flex items-center gap-1">
+                              {ap.tipo}
+                              {ap.encendido === false && (
+                                <span className="text-[8px] font-mono font-bold uppercase text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/30">Off</span>
+                              )}
+                            </span>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleReleaseSlot(ap.id); }}
                               className="text-slate-600 hover:text-rose-400 text-[10px] font-black hover:scale-110 transition-all cursor-pointer"
@@ -1076,7 +1094,7 @@ export default function TableroVisual({
                             </button>
                           </div>
                           <div className="flex justify-between items-center text-[9px] text-slate-500 mt-1 border-t border-slate-950/40 pt-1">
-                            <span>{ap.watts} W (Fase {faseNorm})</span>
+                            <span>{ap.encendido === false ? '0 W (Apagado)' : `${ap.watts} W (Fase ${faseNorm})`}</span>
                             <span className="font-bold text-teal-400">{tipoEf === 'monofasica' ? '1x' : tipoEf === 'bifasica' ? '2x' : '3x'}{activeBreaker}A</span>
                           </div>
                         </div>

@@ -357,6 +357,21 @@ export function generarCombinacionesBalanceo(aparatos, acometidaId, fasesDisponi
   const parBifasico2F = [`${fActivas[0]}-${fActivas[1]}`];
 
   const balanceables = aparatosSanitizados.map((ap, index) => {
+    // Si el aparato está apagado, NO participa como carga balanceable ni genera opciones de movimiento
+    if (ap.encendido === false) {
+      return {
+        index,
+        id: ap.id,
+        encendido: false,
+        watts: 0,
+        fp: 1.0,
+        va: 0,
+        tipoCarga: ap.tipoCarga,
+        faseInicial: ap.fase,
+        opciones: []
+      };
+    }
+
     let opciones = [];
     if (ap.tipoCarga === 'monofasica') {
       opciones = [...fActivas];
@@ -371,6 +386,7 @@ export function generarCombinacionesBalanceo(aparatos, acometidaId, fasesDisponi
     return {
       index,
       id: ap.id,
+      encendido: true,
       watts: parseFloat(ap.watts) || 0,
       fp: parseFloat(ap.fp) || 1.0,
       usarVaDirecto: ap.usarVaDirecto,
@@ -387,6 +403,7 @@ export function generarCombinacionesBalanceo(aparatos, acometidaId, fasesDisponi
     if (!huboSanitizacion) return [];
     const fasesVA = { A: 0, B: 0, C: 0 };
     aparatosSanitizados.forEach(ap => {
+      if (ap.encendido === false) return; // APAGADO NO SUMA
       const { fVA } = distribuirCargaPorFases(ap, fActivas);
       fActivas.forEach(f => { fasesVA[f] += fVA[f]; });
     });
@@ -405,6 +422,9 @@ export function generarCombinacionesBalanceo(aparatos, acometidaId, fasesDisponi
     const fasesVA = { A: 0, B: 0, C: 0 };
 
     aparatosSanitizados.forEach((ap, idx) => {
+      // Si el aparato está apagado, no aporta carga activa al desbalanceo vivo
+      if (ap.encendido === false) return;
+
       const va = calcularVA(ap.watts, ap.fp, ap.usarVaDirecto);
       const fase = mapaPorIndex.get(idx) || ap.fase;
       const partes = fase.split('-');
@@ -457,6 +477,7 @@ export function generarCombinacionesBalanceo(aparatos, acometidaId, fasesDisponi
       const balanceableIdxSet = new Set(balanceables.map(b => b.index));
       aparatosSanitizados.forEach((ap, idx) => {
         if (!balanceableIdxSet.has(idx)) {
+          if (ap.encendido === false) return;
           const { fVA } = distribuirCargaPorFases(ap, fActivas);
           fActivas.forEach(f => { acum[f] += fVA[f]; });
         }
