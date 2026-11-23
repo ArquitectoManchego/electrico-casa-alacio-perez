@@ -23,7 +23,8 @@ import {
   Wrench,
   X,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Sun
 } from 'lucide-react';
 
 import { 
@@ -77,6 +78,7 @@ import PoliticasEficiencia from './components/PoliticasEficiencia';
 import ModuloPieDePlano from './components/ModuloPieDePlano';
 import ModuloFinanzasNegocios from './components/ModuloFinanzasNegocios';
 import VistaSencillaEmpresaria from './components/sencillo/VistaSencillaEmpresaria';
+import ModuloPanelesSolares from './components/solar/ModuloPanelesSolares';
 
 function AddVariantForm({ onSave, onCancel }) {
   const [vData, setVData] = useState({
@@ -2585,6 +2587,20 @@ export default function App() {
       </button>
 
       <button
+        data-testid="nav-tab-solar"
+        aria-label="Abrir módulo Paneles Solares"
+        onClick={() => setActiveTab('solar')}
+        className={`py-3.5 px-1 text-xs uppercase tracking-wider font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+          activeTab === 'solar'
+            ? 'border-amber-400 text-amber-300'
+            : 'border-transparent text-amber-400/80 hover:text-amber-300'
+        }`}
+      >
+        <Sun size={14} />
+        Paneles Solares
+      </button>
+
+      <button
         onClick={() => setActiveTab('ventas')}
         className={`py-3.5 px-1 text-xs uppercase tracking-wider font-bold border-b-2 transition-all flex items-center gap-2 ${
           activeTab === 'ventas'
@@ -2693,6 +2709,7 @@ export default function App() {
               currentProyectoId={currentProyectoId}
               proyectos={proyectos}
               aparatos={aparatosActivos}
+              aparatosCompletos={aparatos}
               medidores={medidores}
               tarifas={tarifas}
               costosMEM={costosMEM}
@@ -3143,6 +3160,20 @@ export default function App() {
             </div>
           )}
 
+
+          {/* PESTAÑA: PANELES SOLARES Y BATERÍAS */}
+          {activeTab === 'solar' && (
+            <div className="space-y-6 animate-fadeIn">
+              <ModuloPanelesSolares
+                currentProyectoId={currentProyectoId}
+                aparatos={aparatos}
+                medidores={medidores}
+                tarifas={tarifas}
+                costosMEM={costosMEM}
+                modoInterfaz={modoInterfaz}
+              />
+            </div>
+          )}
 
           {/* PESTAÑA: FINANZAS Y RENTABILIDAD POR NEGOCIO */}
           {activeTab === 'finanzas' && (

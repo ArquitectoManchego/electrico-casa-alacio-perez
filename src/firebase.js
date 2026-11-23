@@ -1005,6 +1005,59 @@ export const dbService = {
     return escenariosPorNegocio;
   },
 
+  // --- CONFIGURACIÓN Y COTIZACIONES DEL MÓDULO PANELES SOLARES ---
+  async getSolarConfig(proyectoId) {
+    let localData = null;
+    try {
+      const raw = safeGetItem('sge_solar_config_' + proyectoId);
+      if (raw) localData = JSON.parse(raw);
+    } catch {
+      localData = null;
+    }
+
+    if (db && proyectoId) {
+      try {
+        const docSnap = await getDoc(doc(db, 'proyectos_residenciales', proyectoId));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const remoteTs = data.solarConfigUpdatedAt || 0;
+          const localTs = parseInt(safeGetItem('sge_solar_config_ts_' + proyectoId) || '0', 10);
+          if (data.solarConfig && typeof data.solarConfig === 'object' && remoteTs >= localTs) {
+            safeSetItem('sge_solar_config_' + proyectoId, JSON.stringify(data.solarConfig));
+            safeSetItem('sge_solar_config_ts_' + proyectoId, String(remoteTs || Date.now()));
+            return data.solarConfig;
+          }
+        }
+      } catch (error) {
+        console.warn('Error leyendo solarConfig de Firestore:', error);
+      }
+    }
+    return localData;
+  },
+
+  async saveSolarConfig(proyectoId, solarConfig) {
+    const timestamp = Date.now();
+    lastSessionWriteTimestamp = timestamp;
+    safeSetItem('sge_solar_config_' + proyectoId, JSON.stringify(solarConfig));
+    safeSetItem('sge_solar_config_ts_' + proyectoId, String(timestamp));
+
+    if (db && proyectoId) {
+      try {
+        await setDoc(
+          doc(db, 'proyectos_residenciales', proyectoId),
+          {
+            solarConfig,
+            solarConfigUpdatedAt: timestamp
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.warn('Error guardando solarConfig en Firestore:', error);
+      }
+    }
+    return solarConfig;
+  },
+
   // --- SUSCRIPCIÓN EN TIEMPO REAL ENTRE EQUIPOS ---
   subscribeProyecto(proyectoId, onRemoteUpdate) {
     if (!db || !proyectoId || typeof onRemoteUpdate !== 'function') {

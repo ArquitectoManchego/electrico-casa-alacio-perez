@@ -36,12 +36,14 @@ import { calcularCobroCFECompleto, calcularKwhDiarioAparato } from '../../utils/
 import IlustracionEquipo from './IlustracionesEquipos';
 import FajoBilletes from './FajoBilletes';
 import MedidorCFEDial from './MedidorCFEDial';
+import ModuloPanelesSolares from '../solar/ModuloPanelesSolares';
 
 export default function VistaSencillaEmpresaria({
   activeTab = 'diseno',
   currentProyectoId = 'imperia_uniformes',
   proyectos = [],
   aparatos = [],
+  aparatosCompletos = null,
   medidores = [],
   tarifas = {},
   costosMEM = {},
@@ -815,6 +817,20 @@ export default function VistaSencillaEmpresaria({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8.5 PANELES SOLARES Y BATERÍAS (`solar`) */}
+      {/* ========================================================================= */}
+      {activeTab === 'solar' && (
+        <ModuloPanelesSolares
+          currentProyectoId={currentProyectoId}
+          aparatos={aparatosCompletos || aparatos}
+          medidores={medidores}
+          tarifas={tarifas}
+          costosMEM={costosMEM}
+          modoInterfaz="sencillo"
+        />
       )}
 
       {/* ========================================================================= */}
